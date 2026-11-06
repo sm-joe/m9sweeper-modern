@@ -1,0 +1,57 @@
+name: Full m9sweeper platform source validation
+on:
+  push:
+    branches: [revamp/original-platform]
+    paths:
+      - 'platform/**'
+      - '.github/workflows/revamp-platform-ci.yml'
+      - 'tools/import-platform/**'
+  pull_request:
+    paths:
+      - 'platform/**'
+      - 'tools/import-platform/**'
+permissions:
+  contents: read
+jobs:
+  source-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate upstream product modules and UI routes
+        run: |
+          python3 tools/import-platform/verify.py
+          python3 tools/import-platform/test_product.py
+  original-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: platform/dash/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: platform/dash/backend/package-lock.json
+      - name: Install locked NestJS dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Build original NestJS services
+        run: npm run build:api
+  original-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: platform/dash/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: platform/dash/frontend/package-lock.json
+      - name: Install locked Angular dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Build original Angular application with modernized routes and layout
+        run: npm run build:prod
