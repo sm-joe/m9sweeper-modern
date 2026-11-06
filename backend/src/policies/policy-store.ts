@@ -23,10 +23,10 @@ export function validatePolicy(input: unknown, clusterId: string): StoredPolicy 
     if (s.id !== 'trivy') throw new Error('Only Trivy scanner is supported by the current evidence model');
     if (typeof s.name !== 'string' || s.name.length < 1 || s.name.length > 200 ||
         typeof s.enabled !== 'boolean' || typeof s.required !== 'boolean') throw new Error('Invalid scanner settings');
-    const limits = s.limits as Limits | undefined;
+    const limits = s.limits as Limits;
     for (const severity of SEVERITIES) {
       for (const limit of [limits?.[severity]?.fixable, limits?.[severity]?.unfixable]) {
-        if (!Number.isInteger(limit) || limit! < -1 || limit! > 1000000) throw new Error('Invalid vulnerability limit: ' + severity);
+        if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < -1 || limit > 1000000) throw new Error('Invalid vulnerability limit: ' + severity);
       }
     }
     return { id: s.id, name: s.name, enabled: s.enabled, required: s.required, limits };
