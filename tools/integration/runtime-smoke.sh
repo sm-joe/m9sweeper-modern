@@ -51,7 +51,7 @@ from pathlib import Path
 import json
 env=dict(line.split("=",1) for line in Path(".env").read_text().splitlines() if "=" in line)
 body=json.dumps({"username":env["SUPER_ADMIN_EMAIL"],"password":env["SUPER_ADMIN_PASSWORD"]}).encode()
-routes=["/api/non-redirectable-login/local","/non-redirectable-login/local"]
+routes=["/auth/non-redirectable-login/local"]
 for route in routes:
     try:
         req=Request("http://127.0.0.1:3000"+route,body,{"Content-Type":"application/json"},method="POST")
