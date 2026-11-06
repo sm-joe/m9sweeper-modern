@@ -84,7 +84,7 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && req.url?.startsWith('/v1/policy-exceptions?')) {
       const params = new URL(req.url,'http://localhost').searchParams;
-      const clusterId=params.searchParams.get('clusterId'),policyId=params.searchParams.get('policyId');
+      const clusterId=params.get('clusterId'),policyId=params.get('policyId');
       if (!clusterId || !policyId || clusterId.length>128 || policyId.length>80) return respond(res,400,{error:'clusterId and policyId are required'});
       const result=await pool.query('SELECT id,title,reason,scanner_id,cve,expires_at,created_at FROM policy_exceptions WHERE cluster_id=$1 AND policy_id=$2 ORDER BY created_at DESC',[clusterId,policyId]);
       return respond(res,200,{data:result.rows});
