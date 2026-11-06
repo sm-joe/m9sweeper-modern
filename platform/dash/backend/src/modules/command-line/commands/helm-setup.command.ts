@@ -1,3 +1,5 @@
+import {existsSync} from 'fs';
+import {join} from 'path';
 import {Injectable} from '@nestjs/common';
 import { DatabaseService } from '../../shared/services/database.service';
 import {UserDao} from "../../user/dao/user.dao";
@@ -31,18 +33,21 @@ export class HelmSetupCommand {
     async runSeed(): Promise<boolean> {
         const promises: Promise<any>[] = [];
         if (process.env.SUPER_ADMIN_EMAIL && process.env.SUPER_ADMIN_PASSWORD) {
-            promises.push(this.databaseService.getConnection().then(knex => {
-                // Try both ts & js version
-                const ts = knex.seed.run({specific: 'super-admin-seed.ts'})
-                    .then(r => console.log('Seeding ts', r));
-                const js = knex.seed.run({specific: 'super-admin-seed.js'})
-                    .then(r => console.log('Seeding js', r));
-                return Promise.all([ts, js]);
-            }).catch(e => console.log(e)));
+            promises.push(this.databaseService.getConnection().then(async knex => {
+                // Execute exactly one seed matching this build; never run TS and JS in
+                // parallel, and never suppress a failed administrator initialization.
+                const seedDir = (knex as any).client.config.seeds.directory;
+                const filename = existsSync(join(seedDir, 'super-admin-seed.js'))
+                    ? 'super-admin-seed.js' : 'super-admin-seed.ts';
+                if (!existsSync(join(seedDir, filename))) {
+                    throw new Error('Missing administrator seed in ' + seedDir);
+                }
+                return knex.seed.run({specific: filename});
+            }));
         }
 
         if (process.env.TRAWLER_API_KEY) {
-            const trawlerUserExists = !!(await this.userDao.loadUser({email: 'Trawler'}));
+            const trawlerUserExists = (await this.userDao.loadUser({email: 'Trawler'}))?.length > 0;
             if (!trawlerUserExists) {
                 const encryptedTrawlerApiKey = await bcrypt.hash(process.env.TRAWLER_API_KEY, await bcrypt.genSalt(10))
                 promises.push(
@@ -75,7 +80,7 @@ export class HelmSetupCommand {
         const randomFalcoApiKey = process.env.FALCO_API_KEY || generateRandomString(33);
         const metricsApiKey = process.env.METRICS_API_KEY || generateRandomString(33);
 
-        const kubebenchUserExists = !!(await this.userDao.loadUser({email: 'Kubebench'}));
+        const kubebenchUserExists = (await this.userDao.loadUser({email: 'Kubebench'}))?.length > 0;
         if (!kubebenchUserExists) {
             const encryptedKubebenchApiKey = await bcrypt.hash(randomKBApiKey, await bcrypt.genSalt(10))
             promises.push(
@@ -103,7 +108,7 @@ export class HelmSetupCommand {
             console.log('Kubebench user exists.... skipping');
         }
 
-        const kubehunterUserExists = !!(await this.userDao.loadUser({email: 'Kubehunter'}));
+        const kubehunterUserExists = (await this.userDao.loadUser({email: 'Kubehunter'}))?.length > 0;
         if (!kubehunterUserExists) {
             const encryptedKubehunterApiKey = await bcrypt.hash(randomKHApiKey, await bcrypt.genSalt(10))
             promises.push(
@@ -129,7 +134,7 @@ export class HelmSetupCommand {
             console.log('kube-hunter user exists.... skipping');
         }
 
-        const falcoUserExists = !!(await this.userDao.loadUser({email: 'Falco'}));
+        const falcoUserExists = (await this.userDao.loadUser({email: 'Falco'}))?.length > 0;
         if (!falcoUserExists) {
             const encryptedFalcoApiKey = await bcrypt.hash(randomFalcoApiKey, await bcrypt.genSalt(10))
             promises.push(
@@ -156,7 +161,8 @@ export class HelmSetupCommand {
         }
 
       promises.push(this.createAPIKeyProfile('Metrics', metricsApiKey));
-      await Promise.all(promises);
+      const results = await Promise.all(promises);
+      if (results.some(result => result === false)) throw new Error('Service-account initialization failed');
       return true;
     }
 
@@ -175,12 +181,12 @@ export class HelmSetupCommand {
 
       // check if user already exists
       let user = await this.userDao.loadUser({email: profileName});
-      let userExists = !!user;
+      let userExists = Array.isArray(user) && user.length > 0;
 
       // if the user doesn't already exist, check to see if the title-case version exists
       if (!userExists && profileName !== titlecaseProfileName) {
         user = await this.userDao.loadUser({email: titlecaseProfileName});
-        userExists = !!user;
+        userExists = Array.isArray(user) && user.length > 0;
       }
 
       if (userExists) {
