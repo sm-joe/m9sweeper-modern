@@ -152,3 +152,62 @@ jobs:
       - name: Stop integration stack, keep evidence in CI logs
         if: always()
         run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime down --remove-orphans
+  kubesec-live-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Start real upstream Kubesec scanner
+        run: docker run --name m9-kubesec -d -p 127.0.0.1:6116:6116 kubesec/kubesec:v2.13.0 http 6116
+      - name: Scan secure and insecure Kubernetes manifests and assert evidence differs
+        run: |
+          cat > /tmp/secure-pod.yaml <<'YAML'
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: m9-secure
+          spec:
+            securityContext:
+              runAsNonRoot: true
+            containers:
+              - name: app
+                image: registry.k8s.io/pause:3.10
+                securityContext:
+                  readOnlyRootFilesystem: true
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop: ["ALL"]
+          YAML
+          cat > /tmp/insecure-pod.yaml <<'YAML'
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: m9-insecure
+          spec:
+            containers:
+              - name: app
+                image: registry.k8s.io/pause:3.10
+                securityContext:
+                  privileged: true
+          YAML
+          ready=0
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 3 -X POST --data-binary @/tmp/secure-pod.yaml http://127.0.0.1:6116/scan > /tmp/secure.json; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = 1
+          curl -fsS --max-time 15 -X POST --data-binary @/tmp/insecure-pod.yaml http://127.0.0.1:6116/scan >/tmp/insecure.json
+          python3 - <<'PY'
+          import json
+          good=json.load(open('/tmp/secure.json'))
+          bad=json.load(open('/tmp/insecure.json'))
+          assert isinstance(good,list) and isinstance(bad,list) and good and bad
+          assert good[0].get("valid") and bad[0].get("valid"), (good,bad)
+          assert good[0]["score"] > bad[0]["score"], (good[0]["score"],bad[0]["score"])
+          print("PASS: real Kubesec HTTP scanner scores secure Pod above privileged Pod",good[0]["score"],bad[0]["score"])
+          PY
+      - name: Scanner logs on failure
+        if: failure()
+        run: docker logs m9-kubesec
+      - name: Remove scanner container
+        if: always()
+        run: docker rm -f m9-kubesec || true
