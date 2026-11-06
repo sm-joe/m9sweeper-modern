@@ -195,27 +195,22 @@ export class HelmSetupCommand {
       }
 
       if (!userExists) {
-        await this.userDao.create({
-          email: titlecaseProfileName,
-          first_name: titlecaseProfileName,
-          last_name: titlecaseProfileName,
-          source_system_id: '0',
-          source_system_type: 'LOCAL_AUTH',
-          source_system_user_id: '0',
-          password: encryptedApiKey,
-          authorities: [{id: 8}],
-        }).then(userIDAsArray => {
-          console.log(`User created for ${titlecaseProfileName}. New user id: ${userIDAsArray[0]}`);
-          this.userDao.loadUser({id: userIDAsArray[0]})
-            .then(loadedUser => {
-              user = loadedUser;
-              userExists = !!user;
-            });
-        }).catch((e) => {
+        try {
+          const userIds = await this.userDao.create({
+            email: titlecaseProfileName,
+            first_name: titlecaseProfileName,
+            last_name: titlecaseProfileName,
+            source_system_id: '0',
+            source_system_type: 'LOCAL_AUTH',
+            source_system_user_id: '0',
+            password: encryptedApiKey,
+            authorities: [{id: 8}],
+          });
+          user = await this.userDao.loadUser({id: userIds[0]});
+          userExists = Array.isArray(user) && user.length > 0;
+          if (!userExists) throw new Error('New service account not readable after creation');
+        } catch (e) {
           console.error(`Unable to create or retrieve user for ${titlecaseProfileName}`, e);
-          userExists = false;
-        });
-        if (!userExists) {
           return false;
         }
       }
