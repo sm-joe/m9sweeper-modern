@@ -1,0 +1,1 @@
+Go-based in-cluster trawler boundary. Implement least-privilege informers, image digest discovery, job orchestration, Trivy output mapping, retryable signed upload. Never run pentesting or privileged CIS scans automatically.
