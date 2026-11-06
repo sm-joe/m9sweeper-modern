@@ -92,3 +92,23 @@ mat-toolbar.fixed {
 a, a:visited {
   color: inherit;
 }
+
+/* Modernized application shell: all links retain original authenticated Angular routes. */
+:host{--revamp-bg:#0b1524;--revamp-surface:#14243a;--revamp-stroke:#2c4058;--revamp-accent:#5bddc9;display:block;min-height:100vh}
+mat-toolbar.fixed.revamp-toolbar{height:68px!important;min-height:68px!important;background:#101f33!important;color:#edf5fd!important;box-shadow:0 4px 22px rgba(0,0,0,.16);border-bottom:1px solid #2a4057;z-index:100}
+mat-toolbar.fixed.revamp-toolbar>.header-bar{height:68px!important;min-height:68px!important;border-bottom:0!important;gap:24px;padding:0 28px}
+.revamp-toolbar .loader-row{align-items:center;min-width:190px}
+.revamp-toolbar .loader-row a{display:flex;align-items:center}
+.revamp-toolbar .loader-row img{max-width:172px;max-height:42px;object-fit:contain}
+.revamp-toolbar .right{display:flex;align-items:center;justify-content:flex-end;min-width:48px}
+.revamp-quicknav{display:flex;gap:8px;align-items:center;flex:1;height:100%;min-width:0}
+.revamp-quicknav>a{display:flex;gap:8px;align-items:center;text-decoration:none!important;color:#bed0e1!important;padding:11px 14px;border-radius:10px;font-size:14px;font-weight:550;white-space:nowrap;transition:background .16s ease,color .16s ease}
+.revamp-quicknav>a:hover,.revamp-quicknav>a.active-link{background:#203a50;color:#70e2d0!important}
+.revamp-quicknav>a mat-icon{height:20px;width:20px;font-size:20px}
+.revamp-toolbar-spacer{height:68px}
+:host .main-content{margin-top:0;min-height:calc(100vh - 68px);background:#f2f6fb}
+:host ::ng-deep app-side-nav .mat-drawer-container{min-height:calc(100vh - 68px)}
+:host ::ng-deep .mat-mdc-card{border-radius:14px;box-shadow:0 5px 24px rgba(32,52,75,.07)!important;border:1px solid #e1e7ef}
+@media(max-width:1050px){.revamp-quicknav>a{padding:10px}.revamp-quicknav>a span{display:none}}
+@media(max-width:720px){.revamp-quicknav{display:none}.revamp-toolbar .loader-row{min-width:0}.revamp-toolbar .loader-row img{max-width:132px}mat-toolbar.fixed.revamp-toolbar>.header-bar{padding:0 14px}}
+@media print{.revamp-toolbar-spacer{display:none}:host .main-content{min-height:0;background:white}}

@@ -17,7 +17,7 @@ webhooks:
     clientConfig:
       url: "https://{{ index .Values.ingress.hosts 0 }}/api/clusters/1/validation"
     admissionReviewVersions: ["v1", "v1beta1"]
-    failurePolicy: Ignore
+    failurePolicy: {{ .Values.validatingWebhook.failurePolicy | default "Fail" }}
     sideEffects: None
     timeoutSeconds: 10
 {{- end }}

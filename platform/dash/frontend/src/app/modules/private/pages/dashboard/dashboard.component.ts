@@ -65,6 +65,7 @@ export class DashboardComponent implements OnInit {
       if (groups.data) {
         this.showAddClusterLink = true;
         this.userClusterGroups = groups.data;
+        if (!this.userClusterGroups.length) { this.openDefaultCreateClusterDialog(); return; }
         this.defaultGroupId = this.userClusterGroups[0].id;
         if (this.router.url === '/private/dashboard') {
           this.router.navigate(['/private/dashboard', 'group', this.userClusterGroups[0].id]);

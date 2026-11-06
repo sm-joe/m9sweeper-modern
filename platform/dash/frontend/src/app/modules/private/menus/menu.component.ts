@@ -153,7 +153,8 @@ export class MenuComponent implements OnDestroy {
   }
 
   callMenuContentTriggerCallback(contentTriggerName: string) {
-    const triggeredItem = this.currentMenuContentTriggers.find(element => element.name = contentTriggerName);
+    const triggeredItem = this.currentMenuContentTriggers.find(element => element.name === contentTriggerName);
+    if (!triggeredItem) { return; }
     switch (this.currentMenuToUse) {
       case this.menuOptions.clusterList:
         // return this.clusterListMenu[triggeredItem.callback];

@@ -119,7 +119,10 @@ init:
 
 # validating webhook not installed by default
 validatingWebhook:
+  # Admission validation remains off until a verified TLS endpoint and CA bundle are configured.
   enabled: false
+  # If explicitly enabled, API outages reject admissions rather than silently allowing them.
+  failurePolicy: Fail
 
 ###########
 # Ingress #
