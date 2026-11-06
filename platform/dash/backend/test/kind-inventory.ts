@@ -1,7 +1,7 @@
 // Live Kind cluster test for the ORIGINAL NestJS KubernetesApiService.
 // No mocked Kubernetes responses and no privileged cluster mutations by the test itself.
 import { readFileSync } from 'node:fs';
-import { KubernetesApiService } from './src/modules/command-line/services/kubernetes-api.service';
+import { KubernetesApiService } from '../src/modules/command-line/services/kubernetes-api.service';
 
 async function main(): Promise<void> {
   const raw=readFileSync(process.env.KUBECONFIG || '/tmp/m9-kind-kubeconfig','utf8');
