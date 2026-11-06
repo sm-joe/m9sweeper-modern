@@ -90,3 +90,19 @@ jobs:
             --set-string dash.init.superAdminEmail="ci@example.invalid" \
             --set-string dash.init.superAdminPassword="$JWT_SECRET" \
             >/dev/null
+  original-trawler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: platform/trawler
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: platform/trawler/pom.xml
+      - name: Test and compile existing Java trawler scanner engine
+        run: mvn -B -ntp test
