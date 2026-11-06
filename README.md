@@ -38,6 +38,19 @@ docker compose down
 
 **Important:** the dashboard is unprotected in this MVP and listens only on loopback. Never expose via ingress or public port forwarding. Backend is accessible only on the internal Compose network and requires a bearer API key, but it currently shares the agent key for reads. Separate identities, TLS, authentication/RBAC, encryption and rate limiting are prerequisites for production.
 
+## Managed policies (new)
+
+Persisted cluster-scoped Trivy policies and time-limited CVE exceptions are available
+through the authenticated admin API. Set a third independent random hexadecimal secret
+`M9_ADMIN_API_KEY` in your local `.env` before starting the updated backend.
+This is required even for local development; it is intentionally distinct from the agent key.
+
+See [Policy API tests and Podman upgrade instructions](docs/policy-api-test.md).
+The backend applies the additive `002_policy_management.sql` migration at startup.
+The dashboard now includes a read-only **Policies** view. Admission enforcement,
+identity-based RBAC, exception image-scoping and an administrator editing UI are
+not yet implemented.
+
 ## Development checks
 
 ```powershell
