@@ -134,3 +134,16 @@ jobs:
           docker compose -f platform/docker-compose/docker-compose.yml --env-file platform/docker-compose/.env config --quiet
           rendered="$(docker compose -f platform/docker-compose/docker-compose.yml --env-file platform/docker-compose/.env config --format json)"
           echo "$rendered" | python3 -c 'import json,sys; d=json.load(sys.stdin); expected={"dash":"3000","postgres":"5432","rabbitmq":"5672","kubesec":"6116"}; [(lambda p: (_ for _ in ()).throw(AssertionError(s)) if any(x.get("host_ip") != "127.0.0.1" for x in p) else None)(d["services"][s].get("ports",[])) for s in expected]; print("Compose public bindings: none")'
+  runtime-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start original complete NestJS/Angular application and prove live admin auth
+        run: bash tools/integration/runtime-smoke.sh
+      - name: Dump full-stack logs on failure
+        if: failure()
+        run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime logs --tail=150
+      - name: Stop integration stack, keep evidence in CI logs
+        if: always()
+        run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime down --remove-orphans
