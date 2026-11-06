@@ -16,7 +16,13 @@
         </ngx-ui-loader>
       </div>
     </div>
-    <div class="right">
+    <nav class="revamp-quicknav" aria-label="Primary navigation">
+      <a routerLink="/private/dashboard" routerLinkActive="active-link"><mat-icon>dashboard</mat-icon><span>Overview</span></a>
+      <a routerLink="/private/policies" routerLinkActive="active-link"><mat-icon>policy</mat-icon><span>Policies</span></a>
+      <a routerLink="/private/exceptions" routerLinkActive="active-link"><mat-icon>verified_user</mat-icon><span>Exceptions</span></a>
+      <a *ngIf="isAdmin" routerLink="/private/users" routerLinkActive="active-link"><mat-icon>manage_accounts</mat-icon><span>Users</span></a>
+    </nav>
+    <div class="right revamp-account">
       <!-- Dashboard search bar functionality is not implemented -->
       <span class="search-bar" hidden="true">
         <mat-form-field [ngClass]="{'search-box' : isSmallDevice}">
