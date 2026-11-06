@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validatePolicy, validateException } from '../src/policies/policy-store.ts';
+import { validatePolicy, validateException } from '../dist/policies/policy-store.js';
 const limits = Object.fromEntries(['CRITICAL','HIGH','MEDIUM','LOW','NEGLIGIBLE'].map(s=>[s,{fixable:0,unfixable:0}]));
 const policy={id:'baseline',name:'Baseline policy',enabled:true,enforcement:true,scanners:[{id:'trivy',name:'Trivy',enabled:true,required:true,limits}]};
 test('accepts persisted Trivy policy and preserves exact limits',()=>{
