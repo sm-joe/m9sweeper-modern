@@ -123,6 +123,8 @@ validatingWebhook:
   enabled: false
   # If explicitly enabled, API outages reject admissions rather than silently allowing them.
   failurePolicy: Fail
+  # Base64-encoded PEM CA that verifies the configured HTTPS ingress hostname.
+  caBundle: ""
 
 ###########
 # Ingress #

@@ -27,7 +27,7 @@ global:
     # queueName: trawler_queue
 
   # Provide a secret string that will be used to sign JWT tokens, it is highly recommended that you set this to your own secret
-  jwtSecret: "this-is-not-secret"
+  jwtSecret: ""  # REQUIRED: supply a unique >=32 character secret at installation
   # This URL will be used in email templates to reference a http link to Dash
   baseUrl: "http://m9sweeper-dash.m9sweeper-system.svc:3000"
   # Provide a secret string that will be set as the trawler service account's API key.

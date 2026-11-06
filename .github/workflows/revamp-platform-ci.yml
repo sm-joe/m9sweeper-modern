@@ -60,3 +60,33 @@ jobs:
         run: npm ci --legacy-peer-deps --no-audit --no-fund
       - name: Build original Angular application with modernized routes and layout
         run: npm run build:prod
+  helm-charts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.17.3
+      - name: Build vendored Helm subcharts (no public chart repo dependency)
+        run: helm dependency update platform/manifests/charts/m9sweeper
+      - name: Lint authenticated production values
+        run: |
+          JWT_SECRET="$(openssl rand -hex 32)"
+          API_KEY="$(openssl rand -hex 32)"
+          helm lint platform/manifests/charts/m9sweeper \
+            --set-string global.jwtSecret="$JWT_SECRET" \
+            --set-string global.apiKey="$API_KEY" \
+            --set-string dash.init.superAdminEmail="ci@example.invalid" \
+            --set-string dash.init.superAdminPassword="$JWT_SECRET"
+      - name: Render Kubernetes resources for a modern API target
+        run: |
+          JWT_SECRET="$(openssl rand -hex 32)"
+          API_KEY="$(openssl rand -hex 32)"
+          helm template m9sweeper platform/manifests/charts/m9sweeper \
+            --namespace m9sweeper-system \
+            --kube-version 1.31.0 \
+            --set-string global.jwtSecret="$JWT_SECRET" \
+            --set-string global.apiKey="$API_KEY" \
+            --set-string dash.init.superAdminEmail="ci@example.invalid" \
+            --set-string dash.init.superAdminPassword="$JWT_SECRET" \
+            >/dev/null
