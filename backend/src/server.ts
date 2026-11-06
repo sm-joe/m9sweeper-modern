@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 import { processTrivyBatch } from './processors/trivy-processor.js';
 import { savePreparedScan } from './db/save-trivy.js';
 import type { TrawlerPayload } from './contracts/trivy.js';
+import { assessImageCompliance, type PolicyInput } from './legacy-salvage/image-compliance.js';
 
 const port = Number(process.env.PORT ?? 8080);
 const token = process.env.M9_AGENT_API_KEY;
@@ -57,6 +58,51 @@ const server = createServer(async (req, res) => {
         throw error;
       } finally { client.release(); }
       return respond(res, 201, { accepted: scans.length, scanIds: scans.map(s => s.scanId) });
+    }
+    // Authenticated, read-only compliance evaluation of persisted scan evidence.
+    // Caller supplies a policy snapshot; never grants admission or persists an allow decision.
+    if (req.method === 'POST' && req.url === '/v1/compliance/evaluate') {
+      const input = await body(req) as { clusterId?: string; scanId?: string; policy?: PolicyInput['policy']; scanners?: PolicyInput['scanners']; exceptions?: PolicyInput['exceptions'] };
+      if (!input || typeof input.clusterId !== 'string' || typeof input.scanId !== 'string' ||
+          input.clusterId.length > 128 || input.scanId.length > 128) {
+        return respond(res, 400, { error: 'clusterId and scanId required' });
+      }
+      const scan = await pool.query('SELECT status FROM scan_runs WHERE cluster_id=$1 AND scan_id=$2',
+        [input.clusterId, input.scanId]);
+      if (scan.rows.length !== 1) return respond(res, 404, { error: 'scan not found' });
+      const findingsResult = await pool.query(
+        'SELECT vulnerability_id, severity, is_fixable FROM vulnerabilities WHERE cluster_id=$1 AND scan_id=$2',
+        [input.clusterId, input.scanId]);
+      const findings = findingsResult.rows.map(row => ({
+        scannerId: 'trivy', cve: String(row.vulnerability_id), severity: String(row.severity), fixable: Boolean(row.is_fixable)
+      }));
+      try {
+        const decision = assessImageCompliance({
+          policy: input.policy!, scanners: input.scanners!, exceptions: input.exceptions ?? [],
+          findings, scanError: scan.rows[0].status !== 'complete'
+        });
+        return respond(res, 200, { ...decision, evidence: { clusterId: input.clusterId, scanId: input.scanId, findingCount: findings.length },
+          mode: 'evaluation-only', enforced: false });
+      } catch (error) {
+        return respond(res, 400, { error: error instanceof Error ? error.message : 'Invalid policy' });
+      }
+    }
+    if (req.method === 'GET' && req.url?.startsWith('/v1/scan-detail?')) {
+      const params = new URL(req.url, 'http://localhost').searchParams;
+      const clusterId = params.get('clusterId'); const scanId = params.get('scanId');
+      if (!clusterId || !scanId || clusterId.length > 128 || scanId.length > 128) {
+        return respond(res, 400, { error: 'clusterId and scanId are required' });
+      }
+      const scan = await pool.query(
+        `SELECT cluster_id,scan_id,image_ref,image_digest,scanned_at,status,severity_counts,risk_value,risk_algorithm
+         FROM scan_runs WHERE cluster_id=$1 AND scan_id=$2`, [clusterId,scanId]);
+      if (scan.rows.length === 0) return respond(res, 404, { error: 'scan not found' });
+      const findings = await pool.query(
+        `SELECT target,vulnerability_id,package_name,installed_version,fixed_version,severity,is_fixable,title,primary_url
+         FROM vulnerabilities WHERE cluster_id=$1 AND scan_id=$2 ORDER BY
+         CASE severity WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'LOW' THEN 3 ELSE 4 END,
+         vulnerability_id LIMIT 500`, [clusterId,scanId]);
+      return respond(res, 200, { scan: scan.rows[0], findings: findings.rows, limit: 500 });
     }
     if (req.method === 'GET' && req.url === '/v1/clusters') {
       const result = await pool.query('SELECT id,name,created_at FROM clusters ORDER BY created_at DESC');

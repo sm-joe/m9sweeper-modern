@@ -1,3 +1,4 @@
+import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 type Scan = { cluster_id: string; scan_id: string; image_ref: string; scanned_at: string;
   severity_counts: Record<string, number>; risk_value: string | null; risk_algorithm: string };
@@ -27,7 +28,7 @@ export default async function Page() {
     <section className="panel"><div className="section-heading"><h2>Recent scans</h2><span>Refresh page to update</span></div>
       <div className="table-wrap"><table><thead><tr><th>Cluster</th><th>Image</th><th>Scanned at</th><th>Critical</th><th>High</th><th>Medium</th><th>Risk</th></tr></thead>
       <tbody>{rows.map(scan => <tr key={scan.cluster_id + scan.scan_id}>
-        <td>{scan.cluster_id}</td><td title={scan.image_ref}>{scan.image_ref}</td>
+        <td>{scan.cluster_id}</td><td title={scan.image_ref}><Link href={'/scans/' + encodeURIComponent(scan.cluster_id) + '/' + encodeURIComponent(scan.scan_id)}>{scan.image_ref}</Link></td>
         <td>{new Date(scan.scanned_at).toLocaleString('en-GB',{timeZone:'UTC'})} UTC</td>
         <td>{scan.severity_counts.CRITICAL ?? 0}</td><td>{scan.severity_counts.HIGH ?? 0}</td>
         <td>{scan.severity_counts.MEDIUM ?? 0}</td>
