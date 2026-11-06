@@ -1,0 +1,36 @@
+name: Local MVP checks
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+        working-directory: backend
+      - run: npm test
+        working-directory: backend
+      - run: npm install --no-audit --no-fund
+        working-directory: dash
+      - run: npm run build
+        working-directory: dash
+  trawler:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: trawler/go.mod
+      - run: go test ./...
+        working-directory: trawler
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose config --quiet

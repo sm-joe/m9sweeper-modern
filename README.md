@@ -1,33 +1,70 @@
-# m9sweeper Modernization Foundation
+# m9sweeper Modern — local MVP
 
-This is a **source-grounded architecture and executable TypeScript parser slice**, not a completed replacement platform. Frontend, API transport, scanner runners and admission webhook still need implementations and published images. The Helm chart is deliberately fail-closed until image references and a pre-created secret are supplied.
+**Status:** runnable *local development preview*, NOT production-ready Kubernetes security platform.
+This increment includes PostgreSQL, authenticated Trivy ingestion API, Next.js read-only scan dashboard, and a Go agent that invokes Trivy against **configured container images**.
+It does not yet enumerate Kubernetes workloads or implement the other original scanners, admission enforcement, user accounts, or full historical score equivalence.
 
-## Run parser tests
+## Local run (Windows PowerShell / Docker Desktop)
 
-```bash
+Prerequisites: Docker Desktop with Linux containers, Docker Compose v2, Git. Ports: localhost:3000.
+
+```powershell
+git clone https://github.com/sm-joe/m9sweeper-modern.git
+cd m9sweeper-modern
+Copy-Item .env.example .env
+```
+
+Edit `.env` to replace BOTH placeholder values with **different cryptographically random** secrets.
+Example one-time generation (PowerShell 7):
+
+```powershell
+$b = [byte[]]::new(32); [System.Security.Cryptography.RandomNumberGenerator]::Fill($b); [Convert]::ToHexString($b)
+```
+
+Use a different output for each value. For `M9_SCAN_IMAGES`, supply a comma-separated list of images you are authorized to scan.
+
+```powershell
+docker compose up --build -d
+docker compose ps
+docker compose logs -f trawler
+```
+
+Open http://localhost:3000 to see scan history after the first successful cycle.
+
+```powershell
+docker compose logs -f backend
+docker compose down
+```
+
+**Important:** the dashboard is unprotected in this MVP and listens only on loopback. Never expose via ingress or public port forwarding. Backend is accessible only on the internal Compose network and requires a bearer API key, but it currently shares the agent key for reads. Separate identities, TLS, authentication/RBAC, encryption and rate limiting are prerequisites for production.
+
+## Development checks
+
+```powershell
 cd backend
 npm install
 npm run build
 npm test
+cd ..\trawler
+go test ./...
 ```
 
-## Install chart after building/publishing all three images
+`backend/src/db/migrations/001_initial.sql` runs automatically **only when the PostgreSQL data volume is initialized for the first time**. Use an explicit migration runner before schema upgrades. Do not drop volumes containing valuable data.
 
-```bash
-kubectl apply -f deploy/manifests/namespace.yaml
-kubectl -n m9sweeper-system create secret generic m9sweeper-credentials \
-  --from-literal=jwt-secret='REPLACE_WITH_RANDOM_32+_BYTES' \
-  --from-literal=agent-api-key='REPLACE_WITH_RANDOM_VALUE' \
-  --from-literal=super-admin-email='admin@example.com' \
-  --from-literal=super-admin-password='REPLACE_WITH_RANDOM_VALUE' \
-  --from-literal=postgres-password='REPLACE_WITH_RANDOM_VALUE'
-helm lint deploy/helm/m9sweeper --set dash.image.repository=registry.example/m9-dash --set dash.image.tag=VERSION --set backend.image.repository=registry.example/m9-backend --set backend.image.tag=VERSION --set trawler.image.repository=registry.example/m9-trawler --set trawler.image.tag=VERSION
-helm upgrade --install m9 deploy/helm/m9sweeper -n m9sweeper-system -f deploy/helm/m9sweeper/values.yaml \
-  --set dash.image.repository=registry.example/m9-dash --set dash.image.tag=VERSION \
-  --set backend.image.repository=registry.example/m9-backend --set backend.image.tag=VERSION \
-  --set trawler.image.repository=registry.example/m9-trawler --set trawler.image.tag=VERSION
-```
+## API
 
-For real deployments provide secrets via sealed/external secrets, not literal command-line history; use a managed external PostgreSQL and private image digests. Never install example VAP in real clusters without testing its scope and exemptions. The Helm chart is an infrastructure skeleton; it does **not** provision scanners, migrations, network policies, cert-manager issuers or running service implementations.
+- `GET /healthz` and `GET /readyz`: local health and readiness.
+- `POST /v1/scans`: bearer-authenticated JSON array of {clusterId, scanId, image, scannedAt, report}; 8 MiB maximum.
+- `GET /v1/clusters`, `GET /v1/scans`, `GET /v1/vulnerabilities?scanId=...`: bearer-authenticated read APIs.
 
-Legacy configuration field names retained: `dash.init.superAdminEmail`, `dash.init.superAdminPassword`, `global.jwtSecret`, `global.apiKey`; their secret values should be supplied by corresponding Kubernetes Secret keys and `values.yaml` should remain empty.
+Risk Score is intentionally NULL until the original weighted algorithm is independently verified, or a separately versioned custom model is chosen.
+
+## Next milestones
+
+1. Kubernetes in-cluster discovery and immutable image digest tracking.
+2. Secure dashboard login and authorization, separate read/agent credentials.
+3. Historical risk snapshot reconciliation and legacy parity tests.
+4. Scanner workers for kube-bench, Kubesec, kube-hunter, Falco events.
+5. Policy enforcement, audit trails, validated Helm deployment and CI.
+
+Existing Helm chart in `deploy/helm/m9sweeper` is **not** validated for this local MVP and should not be deployed as-is. It targets future production images and secret wiring.

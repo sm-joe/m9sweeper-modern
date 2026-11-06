@@ -1,0 +1,63 @@
+name: m9sweeper-modern
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: m9sweeper
+      POSTGRES_USER: m9sweeper
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U m9sweeper -d m9sweeper"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/src/db/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+    networks: [internal]
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgresql://m9sweeper:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/m9sweeper
+      M9_AGENT_API_KEY: ${M9_AGENT_API_KEY:?set M9_AGENT_API_KEY in .env}
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [internal]
+  dash:
+    build: ./dash
+    restart: unless-stopped
+    environment:
+      M9_BACKEND_URL: http://backend:8080
+      M9_AGENT_API_KEY: ${M9_AGENT_API_KEY:?set M9_AGENT_API_KEY in .env}
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      backend: { condition: service_healthy }
+    networks: [internal]
+  trawler:
+    build: ./trawler
+    restart: unless-stopped
+    environment:
+      M9_BACKEND_URL: http://backend:8080
+      M9_AGENT_API_KEY: ${M9_AGENT_API_KEY:?set M9_AGENT_API_KEY in .env}
+      M9_CLUSTER_ID: local-preview
+      M9_SCAN_IMAGES: ${M9_SCAN_IMAGES:-alpine:3.21}
+      M9_SCAN_INTERVAL: ${M9_SCAN_INTERVAL:-6h}
+      TRIVY_CACHE_DIR: /tmp/trivy
+    volumes:
+      - trivy-cache:/tmp/trivy
+    depends_on:
+      backend: { condition: service_healthy }
+    networks: [internal]
+networks:
+  internal: {}
+volumes:
+  pgdata: {}
+  trivy-cache: {}

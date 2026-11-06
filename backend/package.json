@@ -1,1 +1,21 @@
-{"name":"@m9sweeper/backend","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"build":"tsc -p tsconfig.json","test":"npm run build && node --experimental-strip-types --test test/*.test.ts"},"devDependencies":{"typescript":"^5.9.0","@types/node":"^22.0.0"}}
+{
+  "name": "@m9sweeper/backend",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --experimental-strip-types --test test/*.test.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.15.5"
+  }
+}
