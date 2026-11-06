@@ -20,7 +20,7 @@ values={
 "RABBITMQ_PASSWORD":secrets.token_hex(24),
 "NODE_CRON_ENABLED":"0",
 }
-p.write_text("\n".join(k+"="+values[k] if line.split("=",1)[0] in values for k in [line.split("=",1)[0]] else line for line in s.splitlines())+"\n")
+p.write_text("\n".join((line.split("=",1)[0]+"="+values[line.split("=",1)[0]]) if line.split("=",1)[0] in values else line for line in s.splitlines())+"\n")
 PY
 # Compose uses full NestJS/Angular app and real PostgreSQL/RabbitMQ.
 docker compose -p m9-runtime config --quiet
