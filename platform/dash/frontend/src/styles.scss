@@ -832,3 +832,74 @@ app-datepicker-component {
     margin-left: 14px;
   }
 }
+
+/*
+ * Modern visual foundation shared by all ORIGINAL m9sweeper Angular screens.
+ * Does not replace the original authenticated routes, services or forms.
+ */
+:root {
+  --ms-canvas: #f1f5fa;
+  --ms-surface: #fff;
+  --ms-ink: #1a2d44;
+  --ms-muted: #5d7187;
+  --ms-outline: #dbe5ef;
+  --ms-primary: #127b76;
+  --ms-primary-hover: #0b6765;
+  --ms-focus: #00a6a0;
+  --ms-radius: 12px;
+  --ms-space: 16px;
+}
+html {
+  font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  scroll-behavior: smooth;
+}
+body { background: var(--ms-canvas); color: var(--ms-ink); }
+button, input, select, textarea {
+  font-family: inherit;
+}
+:where(button,a,input,select,textarea,[role="button"]):focus-visible {
+  outline: 3px solid var(--ms-focus);
+  outline-offset: 2px;
+}
+:where(mat-card,.mat-mdc-card) {
+  border-radius: var(--ms-radius);
+}
+:where(mat-table,.mat-mdc-table) {
+  background-color: var(--ms-surface);
+}
+.mat-mdc-header-cell {
+  color: #455b73;
+  font-weight: 700;
+  background: #f6f9fc;
+}
+.mat-mdc-row:hover {
+  background: #f0f7fb;
+}
+.mat-mdc-card-content {
+  color: var(--ms-ink);
+}
+.mdc-button, .mat-mdc-raised-button, .mat-mdc-outlined-button {
+  border-radius: 9px!important;
+  letter-spacing: .1px;
+  text-transform: none;
+}
+.mdc-button:disabled { cursor: not-allowed; }
+.mat-mdc-form-field {
+  --mdc-filled-text-field-container-shape: 8px;
+  --mdc-outlined-text-field-container-shape: 8px;
+}
+.page-container, .main-container { background: var(--ms-canvas); }
+.page-container-content { margin: clamp(12px, 2vw, 28px); }
+.page-title { font-weight: 700; letter-spacing: -.45px; color: var(--ms-ink); }
+.mat-mdc-paginator { background: var(--ms-surface); }
+@media (max-width: 700px) {
+  .page-container-content { margin: 12px; }
+  .page-title { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .01ms!important;
+    transition-duration: .01ms!important;
+  }
+}
