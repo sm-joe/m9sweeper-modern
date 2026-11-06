@@ -106,3 +106,16 @@ jobs:
           cache-dependency-path: platform/trawler/pom.xml
       - name: Test and compile existing Java trawler scanner engine
         run: mvn -B -ntp test
+  dash-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the actual NestJS + Angular dashboard image, not the old prototype
+        uses: docker/build-push-action@v6
+        with:
+          context: platform
+          file: platform/Dockerfile
+          push: false
+          tags: m9sweeper-modern/dash:ci

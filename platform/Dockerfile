@@ -1,11 +1,11 @@
 #####################
 ## STAGE 1 - BUILD ##
 #####################
-FROM node:20.10-buster-slim as builder
+FROM node:20-bookworm-slim as builder
 
 # Install Python3 used in dependencies for building
 RUN apt update && \
-    apt install -y python3 make
+    apt install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # BUILD BACK END
 WORKDIR /usr/src/app/backend
@@ -21,7 +21,7 @@ COPY /dash/backend /usr/src/app/backend/
 RUN npm run prebuild
 
 RUN npm run build:prod:webpack
-RUN npm prune --production
+RUN npm prune --omit=dev
 
 # manually install a couple npm packages
 RUN rm -f node_modules/@nestjs-modules/mailer && rm -f node_modules/knexnest && \
@@ -52,7 +52,7 @@ RUN git config --global --add safe.directory /src
 WORKDIR /usr/src/
 
 COPY ./docs/ /usr/src/
-COPY ./.git /usr/src/.git
+
 
 RUN hugo --config config-local.toml
 
@@ -60,7 +60,7 @@ RUN hugo --config config-local.toml
 ######################
 ## Stage 3: DELIVER ##
 ######################
-FROM node:20.10-alpine
+FROM node:20-alpine
 
 # Make the app directory
 RUN mkdir -p /usr/src/app
