@@ -1,0 +1,177 @@
+@use '@angular/material' as mat;
+
+#scannerError {
+  width: 99.5%;
+  border: red 1px solid;
+  background: white;
+  text-transform: capitalize;
+
+  .error-msg {
+    padding: 0 10px 10px;
+    word-break: break-word;
+  }
+}
+
+mat-card div div {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+}
+
+#scanInformation {
+  flex: 3;
+  width: 99.5%;
+
+  #image-name{
+    font-size: 26px;
+    text-wrap: initial;
+    word-break: break-word;
+  }
+
+  .image-details {
+    background-color: mat.get-color-from-palette(mat.$gray-palette, 300);
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    overflow-x: auto;
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.26),
+    0 1px 1px 0 rgba(0,0,0,0),
+    0 1px 3px 0 rgba(0, 0, 0, 0.09);
+    .image-details-table {
+      th {
+        font-weight: normal;
+      }
+      th, td {
+        padding: 5px 10px;
+      }
+    }
+  }
+}
+
+
+#scannerComplianceList {
+  flex: 3;
+  width: 99.5%;
+
+  #compliance-report-title {
+    span {
+      font-size: 26px;
+      font-weight: normal;
+    }
+  }
+  #compliance-report-buttons {
+    mat-select {
+      border: rgba(0, 0, 0, 0.12) solid 1px;
+    }
+  }
+
+  .mat-column-policy {
+    min-width: 150px;
+  }
+  .mat-column-status {
+    min-width: 70px;
+  }
+  .mat-column-compliant {
+    max-width: 150px;
+    min-width: 85px;
+  }
+  .mat-column-required {
+    max-width: 150px;
+    min-width: 75px;
+  }
+
+  .mat-column-critical_issues, .mat-column-major_issues,
+  .mat-column-medium_issues, .mat-column-low_issues,
+  .mat-column-negligible_issues {
+    min-width: 50px;
+    max-width: 100px;
+  }
+}
+
+#issuesList {
+  width: 99.5%;
+  overflow-x: auto;
+
+  #issuesTitle {
+    font-size: 26px;
+    font-weight: normal;
+  }
+  #issuesButtons {
+    justify-content: flex-end;
+  }
+
+  #issuesTable {
+    .mat-column-scanner {
+      min-width: 100px;
+      max-width: 300px;
+    }
+
+    mat-header-cell.mat-column-isCompliant {
+      padding-inline-start: 0;
+    }
+    .mat-column-isCompliant {
+      min-width: 75px;
+      max-width: 85px;
+    }
+
+    .mat-column-severity {
+      min-width: 75px;
+      max-width: 100px;
+    }
+
+    .mat-column-type {
+      min-width: 185px;
+      max-width: 200px;
+
+      .col-xs-8 {
+        display: flex;
+        align-self: center;
+        padding-right: 0;
+      }
+
+      .col-xs-4 {
+        padding-left: 0;
+      }
+    }
+
+    .mat-column-packageName {
+      min-width: 75px;
+      max-width: 100px;
+    }
+
+    .mat-column-name {
+      min-width: 250px;
+    }
+
+    .mat-column-installedVersion {
+      min-width: 80px;
+      max-width: 100px;
+    }
+
+    mat-cell.mat-column-isFixable {
+      padding-inline-start: 0;
+    }
+    .mat-column-isFixable {
+      min-width: 125px;
+      max-width: 300px;
+      .row {
+        margin: 0;
+      }
+    }
+
+    .mat-column-more {
+      min-width: 270px;
+      max-width: 280px;
+    }
+
+    #details-button {
+      min-width: 80px;
+      margin-right: 0.25em;
+    }
+
+    #request-exception-button {
+      min-width: 155px;
+      margin-left: 0.25em;
+    }
+  }
+}

@@ -1,0 +1,18 @@
+//@import '@angular/material/theming';
+@use '@angular/material' as mat;
+
+@mixin dashboard-component-light-theme($theme) {
+
+  app-dashboard {
+    .dashboard-container {
+      .cluster-dashboard {
+        background-color: mat.get-color-from-palette(mat.$gray-palette, 300);
+      }
+      .cluster-group-menu {
+        mat-list {
+          background-color:  mat.get-color-from-palette(mat.$gray-palette, A100);
+        }
+      }
+    }
+  }
+}
