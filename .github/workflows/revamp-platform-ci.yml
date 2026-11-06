@@ -6,10 +6,6 @@ on:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
       - 'tools/import-platform/**'
-  pull_request:
-    paths:
-      - 'platform/**'
-      - 'tools/import-platform/**'
 permissions:
   contents: read
 jobs:

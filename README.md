@@ -61,7 +61,7 @@ npm ci --legacy-peer-deps
 npm run build:prod
 
 # Original scanning agent
-cd ../../../trawler
+cd ../../trawler
 mvn -B test
 
 # Helm package validation
