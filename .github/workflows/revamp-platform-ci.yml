@@ -211,3 +211,23 @@ jobs:
       - name: Remove scanner container
         if: always()
         run: docker rm -f m9-kubesec || true
+  trivy-live-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Execute pinned Trivy v0.76.2 against a real container image
+        run: |
+          docker run --rm aquasec/trivy:0.76.2 --version
+          docker run --rm -v "$PWD:/result" aquasec/trivy:0.76.2 image \
+            --scanners vuln --format json --output /result/trivy-report.json alpine:3.21
+          python3 - <<'PY'
+          import json
+          x=json.load(open('trivy-report.json'))
+          assert x.get('ArtifactName')=='alpine:3.21',x.get('ArtifactName')
+          assert isinstance(x.get('Results'),list)
+          for result in x['Results']:
+            for item in result.get('Vulnerabilities',[]) or []:
+              assert item.get('VulnerabilityID') and item.get('Severity')
+          print('PASS: Trivy produced structured real-image findings with CVE IDs and severities')
+          PY
+          rm -f trivy-report.json

@@ -15,8 +15,9 @@ RUN find /usr/app
 FROM debian:bookworm-slim as runner
 
 # Install Trivy
-RUN apt-get update && apt-get install -y wget procps
-RUN wget -O - https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.3
+# Pinned, official Trivy scanner image. Do not execute a remote shell installer.
+COPY --from=aquasec/trivy:0.76.2 /usr/local/bin/trivy /usr/local/bin/trivy
+RUN /usr/local/bin/trivy --version
 
 # Install
 COPY --from=0 /usr/app/target/trawler /usr/local/bin/trawler
