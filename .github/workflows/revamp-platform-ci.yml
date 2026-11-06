@@ -133,6 +133,9 @@ jobs:
           sed -i 's/^TRAWLER_API_KEY=.*/TRAWLER_API_KEY=ci-trawler-strong-2026-test-012345/' platform/docker-compose/.env
           sed -i 's/^RABBITMQ_USERNAME=.*/RABBITMQ_USERNAME=m9ci/' platform/docker-compose/.env
           sed -i 's/^RABBITMQ_PASSWORD=.*/RABBITMQ_PASSWORD=ci-rabbit-strong-test-0123456789/' platform/docker-compose/.env
+          sed -i 's/^FALCO_API_KEY=.*/FALCO_API_KEY=ci-falco-strong-01234567890123456789/' platform/docker-compose/.env
+          sed -i 's/^KUBE_HUNTER_API_KEY=.*/KUBE_HUNTER_API_KEY=ci-hunter-strong-012345678901234/' platform/docker-compose/.env
+          sed -i 's/^KUBE_BENCH_API_KEY=.*/KUBE_BENCH_API_KEY=ci-bench-strong-0123456789012345/' platform/docker-compose/.env
           docker compose -f platform/docker-compose/docker-compose.yml --env-file platform/docker-compose/.env config --quiet
           rendered="$(docker compose -f platform/docker-compose/docker-compose.yml --env-file platform/docker-compose/.env config --format json)"
           echo "$rendered" | python3 -c 'import json,sys; d=json.load(sys.stdin); expected={"dash":"3000","postgres":"5432","rabbitmq":"5672","kubesec":"6116"}; [(lambda p: (_ for _ in ()).throw(AssertionError(s)) if any(x.get("host_ip") != "127.0.0.1" for x in p) else None)(d["services"][s].get("ports",[])) for s in expected]; print("Compose public bindings: none")'
