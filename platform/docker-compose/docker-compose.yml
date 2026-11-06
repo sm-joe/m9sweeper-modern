@@ -119,7 +119,9 @@ services:
       KUBESEC_URL: "http://kubesec:${KUBESEC_PORT}"
 
   trawler:
-    build: ../trawler
+    build:
+      context: ../trawler
+      dockerfile: Dockerfile.jvm
     image: m9sweeper-trawler
     container_name: m9sweeper-trawler
     restart: always
