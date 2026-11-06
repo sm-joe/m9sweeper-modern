@@ -1,4 +1,4 @@
-import {Injectable, Scope} from '@nestjs/common';
+import {Injectable, Scope, NotFoundException} from '@nestjs/common';
 import {ImageTrawlerResultDto} from '../../image/dto/image-trawler-result.dto';
 import {PolicyService} from './policy-service';
 import {ScannerService} from '../../scanner/services/scanner.service';
@@ -14,6 +14,14 @@ export class PolicyComplianceCheckerService {
     }
 
     async run(clusterId: number, imageId: number, imageTrawlerResultDto: ImageTrawlerResultDto): Promise<ImageTrawlerResultDto> {
+        if (imageTrawlerResultDto.encounterError) {
+            imageTrawlerResultDto.policyStatus = false;
+            return imageTrawlerResultDto;
+        }
+        if (!Array.isArray(imageTrawlerResultDto.issues)) {
+            imageTrawlerResultDto.policyStatus = false;
+            return imageTrawlerResultDto;
+        }
 
         const allowedFixableIssueCountPerSeverity = {
             CRITICAL: 0,
@@ -48,7 +56,7 @@ export class PolicyComplianceCheckerService {
                     if (allowedIssueCountPerSeverity[severity] < 0) {
                         isPassed = isPassed && true;
                     } else if (allowedIssueCountPerSeverity[severity] >= 0) {
-                        isPassed = isPassed && rs.issues.filter(o => o.isFixable).length <= allowedIssueCountPerSeverity[severity];
+                        isPassed = isPassed && rs.issues.length <= allowedIssueCountPerSeverity[severity];
                     }
                 }
             }
@@ -64,7 +72,7 @@ export class PolicyComplianceCheckerService {
             scanner: scanners.find(s => s.id === scannerId),
             issuesBySeverity: [],
             isPassed: false,
-            issues: imageTrawlerResultDto.issues.filter(issue => issue.scannerId)
+            issues: imageTrawlerResultDto.issues.filter(issue => issue.scannerId === scannerId)
         })).map(o => {
             o['issuesBySeverity'] = <{ severity: string; issues: any[] }[]>o.issues.reduce((all: { severity: string; issues: any[] }[], current) => {
                 const severityIndex = all.findIndex(issue => issue.severity === current.severity);
@@ -74,12 +82,16 @@ export class PolicyComplianceCheckerService {
                         issues: []
                     });
                 }
-                all[severityIndex > -1 ? severityIndex : 0].issues.push(current);
+                all[severityIndex > -1 ? severityIndex : all.length - 1].issues.push(current);
                 return all;
             }, []);
             delete o.issues;
             return o;
         }).map(o => {
+            if (!o.scanner) throw new NotFoundException("Finding references unknown scanner");
+            if (o.issuesBySeverity.some(s => !Object.keys(allowedIssueCountPerSeverity).includes(s.severity.toUpperCase()))) {
+                throw new NotFoundException("Unknown severity in scanner findings");
+            }
             o.isPassed = Object.keys(allowedIssueCountPerSeverity)
                 .map(severity => assessVendorCompliance(o.issuesBySeverity.find(s => s.severity.toUpperCase() === severity)))
                 .every(status => status === true);
