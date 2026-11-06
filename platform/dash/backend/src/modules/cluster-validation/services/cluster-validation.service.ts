@@ -59,13 +59,27 @@ export class ClusterValidationService {
         // Used if a policy is failed, this can return a message.
         let message = "";
 
-        // build request to calculate compliance
-        const pod: V1Pod = validationRequest.request.object;
+        // The webhook currently registers CREATE pods only. Do not silently admit a
+        // malformed object (or a Pod with no assessable regular containers).
+        const pod: V1Pod = validationRequest?.request?.object;
+        const spec = pod?.spec;
+        const containers = [
+            ...(spec?.containers || []),
+            ...(spec?.initContainers || []),
+            ...(spec?.ephemeralContainers || []),
+        ];
+        if (!Array.isArray(spec?.containers) || spec.containers.length === 0 ||
+            !pod?.metadata || containers.some(container => !container?.image || typeof container.image !== 'string')) {
+            response.response.allowed = false;
+            response.response.status = new AdmissionReviewReplyResponseStatus();
+            response.response.status.message = 'Blocked by m9sweeper: Pod contains no valid assessable container images';
+            return response;
+        }
 
         const imagesToCheckCompliance: ListOfImagesDto[] = [];
         const unscannedImageNames: string[] = []
 
-        for (const container of pod?.spec?.containers || []) {
+        for (const container of containers) {
             const imageInfo = this.k8sImageService.parseDockerImageUrl(container.image);
             // The parse docker image url sometimes puts the image name in the path and has the image name empty due to how it matches.
             // This will join them with a slash if both are defined, otherwise it will only use the non-empty one.
