@@ -64,6 +64,16 @@ const server = createServer(async (req, res) => {
       } finally { client.release(); }
       return respond(res, 201, { accepted: scans.length, scanIds: scans.map(s => s.scanId) });
     }
+    if (req.method === 'PUT' && req.url === '/v1/clusters') {
+      if (!hasKey(req,adminToken!)) return respond(res,403,{error:'Admin permission required'});
+      const item = await body(req) as {id?:unknown;name?:unknown};
+      if (typeof item?.id!=='string' || !/^[A-Za-z0-9_.-]{1,80}$/.test(item.id) ||
+          typeof item.name!=='string' || item.name.trim().length<1 || item.name.length>200)
+        return respond(res,400,{error:'Valid cluster id and name required'});
+      await pool.query('INSERT INTO clusters(id,name) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name',
+        [item.id,item.name.trim()]);
+      return respond(res,200,{data:{id:item.id,name:item.name.trim()}});
+    }
     if (req.method === 'GET' && req.url?.startsWith('/v1/policies?')) {
       const clusterId = new URL(req.url, 'http://localhost').searchParams.get('clusterId');
       if (!clusterId || clusterId.length > 128) return respond(res,400,{error:'clusterId is required'});
@@ -81,6 +91,15 @@ const server = createServer(async (req, res) => {
         await putPolicy(pool,policy);
         return respond(res,200,{data:policy});
       } catch(e) {return respond(res,400,{error:e instanceof Error?e.message:'Invalid policy'});}
+    }
+    if (req.method === 'DELETE' && req.url?.startsWith('/v1/policies?')) {
+      if (!hasKey(req,adminToken!)) return respond(res,403,{error:'Admin permission required'});
+      const params=new URL(req.url,'http://localhost').searchParams;
+      const clusterId=params.get('clusterId'),policyId=params.get('policyId');
+      if(!clusterId||!policyId||clusterId.length>128||!/^[A-Za-z0-9_-]{1,80}$/.test(policyId))
+        return respond(res,400,{error:'clusterId and valid policyId are required'});
+      const result=await pool.query('DELETE FROM managed_policies WHERE cluster_id=$1 AND id=$2 RETURNING id',[clusterId,policyId]);
+      return respond(res,result.rowCount===1?200:404,result.rowCount===1?{deleted:true}:{error:'policy not found'});
     }
     if (req.method === 'GET' && req.url?.startsWith('/v1/policy-exceptions?')) {
       const params = new URL(req.url,'http://localhost').searchParams;
@@ -101,6 +120,16 @@ const server = createServer(async (req, res) => {
         await putException(pool,exception);
         return respond(res,200,{data:exception});
       } catch(e) {return respond(res,400,{error:e instanceof Error?e.message:'Invalid exception'});}
+    }
+    if (req.method === 'DELETE' && req.url?.startsWith('/v1/policy-exceptions?')) {
+      if (!hasKey(req,adminToken!)) return respond(res,403,{error:'Admin permission required'});
+      const params=new URL(req.url,'http://localhost').searchParams;
+      const clusterId=params.get('clusterId'),policyId=params.get('policyId'),exceptionId=params.get('exceptionId');
+      if(!clusterId||!policyId||!exceptionId||clusterId.length>128||policyId.length>80||exceptionId.length>80)
+        return respond(res,400,{error:'clusterId, policyId, exceptionId required'});
+      const result=await pool.query('DELETE FROM policy_exceptions WHERE cluster_id=$1 AND policy_id=$2 AND id=$3 RETURNING id',
+        [clusterId,policyId,exceptionId]);
+      return respond(res,result.rowCount===1?200:404,result.rowCount===1?{deleted:true}:{error:'exception not found'});
     }
     // Authenticated, read-only compliance evaluation of persisted scan evidence.
     // Caller supplies a policy snapshot; never grants admission or persists an allow decision.

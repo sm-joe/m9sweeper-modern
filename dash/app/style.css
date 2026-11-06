@@ -2,3 +2,34 @@
 a{color:#7cddc9;text-decoration:none}a:hover{text-decoration:underline}.back-link{display:inline-block;margin-bottom:24px;color:#7cddc9}
 
 .app-nav{display:flex;gap:22px;margin-bottom:34px;border-bottom:1px solid #253749;padding-bottom:18px}.app-nav a{font-size:14px;font-weight:650;color:#74d7ca}
+
+.manager .panel{margin-bottom:24px}
+.manager h3{font-size:17px;margin:28px 0 16px}
+.manager label{display:flex;flex-direction:column;gap:7px;font-size:13px;color:#afc0ce}
+.manager input:not([type="checkbox"]),.manager select,.manager textarea{background:#0a1622;border:1px solid #35485a;border-radius:7px;padding:11px;color:#e8eef6;font:inherit;min-width:0;width:100%}
+.manager input:focus,.manager select:focus,.manager textarea:focus{outline:2px solid #68cdbb;outline-offset:1px}
+.manager button{border:none;border-radius:8px;background:#65d2bd;color:#07151b;padding:11px 16px;font-weight:700;cursor:pointer}
+.manager button:disabled{opacity:.45;cursor:not-allowed}
+.manager .secondary-button{background:#2a4153;color:#e4f4ff}
+.manager .danger-button{background:#5e2630;color:#ffdde0}
+.manager .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:end}
+.manager .wide{grid-column:1/-1}
+.manager .check-label{flex-direction:row;align-items:center;gap:10px}
+.manager input[type="checkbox"]{accent-color:#65d2bd;width:18px;height:18px}
+.manager .control-row{display:flex;align-items:center;gap:14px;margin:16px 0;flex-wrap:wrap}
+.manager .control-row>select{flex:1;max-width:600px}
+.manager .control-row>label{white-space:nowrap}
+.manager .actions{justify-content:flex-start}
+.manager .hint,.manager .admin-panel small{display:block;color:#a2b3c0;font-size:12px;line-height:1.5;margin:8px 0 16px}
+.manager .policy-list{display:flex;gap:12px;flex-wrap:wrap}
+.manager .policy-choice{display:flex;flex-direction:column;text-align:left;gap:5px;min-width:220px;background:#1a3441;color:#f1fcff}
+.manager .policy-choice.active{outline:2px solid #62d1bd}
+.manager .policy-choice small{font-size:11px;font-weight:400;color:#c4d7e2}
+.manager .notice{background:#164036;border:1px solid #368a78;border-radius:8px;padding:14px;margin:14px 0}
+.manager .assessment{padding:16px;border-radius:9px;margin:20px 0}
+.manager .assessment.pass{background:#173f35}
+.manager .assessment.fail{background:#4c292e}
+.manager details{padding-top:10px}
+.manager summary{cursor:pointer;color:#80d9c8}
+.manager table input[type="number"]{max-width:160px}
+@media(max-width:640px){.manager .form-grid{grid-template-columns:1fr}.manager .control-row{align-items:stretch;flex-direction:column}}
