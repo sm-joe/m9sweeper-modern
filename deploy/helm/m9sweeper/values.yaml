@@ -45,6 +45,10 @@ backend:
     failurePolicy: Fail
 
 trawler:
+  # Requires in-cluster service-account token and read-only pods/list RBAC.
+  scanSource: kubernetes
+  clusterId: in-cluster
+  scanInterval: 6h
   image:
     repository: ""
     tag: ""

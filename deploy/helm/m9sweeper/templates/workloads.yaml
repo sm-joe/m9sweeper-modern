@@ -35,6 +35,18 @@ spec:
             capabilities:
               drop: ["ALL"]
           env:
+            {{- if eq $name "trawler" }}
+            - name: M9_BACKEND_URL
+              value: "http://m9-backend:{{ $.Values.backend.service.port }}"
+            - name: M9_SCAN_SOURCE
+              value: {{ $.Values.trawler.scanSource | quote }}
+            - name: M9_CLUSTER_ID
+              value: {{ $.Values.trawler.clusterId | quote }}
+            - name: M9_SCAN_INTERVAL
+              value: {{ $.Values.trawler.scanInterval | quote }}
+            - name: TRIVY_CACHE_DIR
+              value: /tmp/trivy
+            {{- end }}
             - name: M9_COMPONENT
               value: {{ $name | quote }}
             - name: DATABASE_HOST
