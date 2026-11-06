@@ -10,7 +10,7 @@ services:
     container_name: rabbitmq
     restart: always
     ports:
-      - '56729:5672'
+      - '127.0.0.1:56729:5672'
     healthcheck:
       test: rabbitmq-diagnostics check_port_connectivity
       start_period: 15s
@@ -33,7 +33,7 @@ services:
       POSTGRES_USER: "${DATABASE_USER}"
       POSTGRES_PASSWORD: "${DATABASE_PASSWORD}"
     ports:
-      - '54329:5432'
+      - '127.0.0.1:54329:5432'
     volumes:
       - m9sweeperDbData:/var/lib/postgresql/data
 
@@ -52,14 +52,14 @@ services:
       DATABASE_CONNECTION_HOST: "postgres"
       DATABASE_CONNECTION_DATABASE: "${DATABASE_NAME}"
       DATABASE_CONNECTION_USERNAME: "${DATABASE_USER}"
-      DATABASE_CONNECTION_PASSWORD: "${DATABASE_PASSWORD}"
+      DATABASE_CONNECTION_PASSWORD: "${DATABASE_PASSWORD:?set DATABASE_PASSWORD in .env}"
       DATABASE_MIGRATION_ENABLED: 1
       TRAWLER_API_KEY: "${TRAWLER_API_KEY}"
       FALCO_API_KEY: "${FALCO_API_KEY}"
       KUBE_HUNTER_API_KEY: "${KUBE_HUNTER_API_KEY}"
       KUBE_BENCH_API_KEY: "${KUBE_BENCH_API_KEY}"
-      SUPER_ADMIN_EMAIL: "${SUPER_ADMIN_EMAIL}"
-      SUPER_ADMIN_PASSWORD: "${SUPER_ADMIN_PASSWORD}"
+      SUPER_ADMIN_EMAIL: "${SUPER_ADMIN_EMAIL:?set SUPER_ADMIN_EMAIL in .env}"
+      SUPER_ADMIN_PASSWORD: "${SUPER_ADMIN_PASSWORD:?set SUPER_ADMIN_PASSWORD in .env}"
       CLI_PATH: "./cli.js"
       INITIAL_REGISTRIES_JSON: "${INITIAL_REGISTRIES_JSON}"
 
@@ -74,7 +74,7 @@ services:
       rabbitmq:
         condition: service_healthy
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
     healthcheck:
       test: wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
       interval: 30s
@@ -112,7 +112,7 @@ services:
       UPDATE_EXCEPTION_STATUS_SCHEDULE: "${UPDATE_EXCEPTION_STATUS_SCHEDULE}"
 
       # Misc
-      SECURITY_JWT_SECRET: "${SECURITY_JWT_SECRET}"
+      SECURITY_JWT_SECRET: "${SECURITY_JWT_SECRET:?set SECURITY_JWT_SECRET in .env}"
       KUBESEC_URL: "http://kubesec:${KUBESEC_PORT}"
 
   trawler:
@@ -131,7 +131,7 @@ services:
       RABBITMQ_PASSWORD: "guest"
       # Dash Connection
       M9SWEEPER_URL: "http://dash:3000"
-      M9SWEEPER_API_KEY: "${TRAWLER_API_KEY}"
+      M9SWEEPER_API_KEY: "${TRAWLER_API_KEY:?set TRAWLER_API_KEY in .env}"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -145,4 +145,4 @@ services:
     platform: linux/amd64
     command: ["http", "${KUBESEC_PORT}"]
     ports:
-      - '${KUBESEC_PORT}:${KUBESEC_PORT}'
+      - '127.0.0.1:${KUBESEC_PORT}:${KUBESEC_PORT}'

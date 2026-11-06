@@ -21,8 +21,8 @@ Note: on rare occasions, one of those containers will still fail to boot up when
 Restarting the container should fix this.
 
 ## Setting up
-1. In the docker-compose directory, make a copy of .env.sample, and rename it to .env.sample
-2. Update the values in your .env
+1. In the docker-compose directory, copy `.env.sample` to `.env`.
+2. Update the values in your `.env`. Unique, random `DATABASE_PASSWORD`, `SECURITY_JWT_SECRET`, `TRAWLER_API_KEY`, and `SUPER_ADMIN_PASSWORD` are required. No default password or signing key is provided.
    - at a minimum, fill in SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD, these will create the initial log in you use to sign into the UI with
    - You should also fill in values for the API Keys section. Any that you do not fill in during your first run will be randomly generated.
      - If you let the keys get randomly generated, you will need to fill in the TRAWLER_API_KEY with the generated value before you can successfully scan images.
@@ -78,3 +78,27 @@ Using the default settings in the sample env file, they will be run using the sa
 Under the cron config section in your .env file, you can set NODE_CRON_ENABLED to 0 to entirely disable them.
 If you wish to change the frequenect of them, you can change the appropriate [JOB]_SCHEDULE environment variable to your desired frequency.
 This can be useful when you would like to test a change to one of the jobs, but don't want to wait for 30 minutes for it to actually run.
+
+
+## Local exposure and Podman safety
+
+The developer Compose configuration binds PostgreSQL, RabbitMQ, Dash and Kubesec
+host ports to `127.0.0.1` rather than publishing them on the network.
+It still uses legacy internal RabbitMQ guest authentication, so **do not publish
+or deploy this Compose configuration as a public service**. The services
+communicate through their private Compose network.
+
+On Windows with Podman and a working Compose provider:
+
+```powershell
+cd platform/docker-compose
+Copy-Item .env.sample .env
+# Fill in unique cryptographically strong secrets and SUPER_ADMIN_EMAIL
+podman compose config
+podman compose up --build -d
+podman compose ps
+```
+
+These commands are local integration only; a successful Compose start is not
+proof that kube-bench/Falco/Gatekeeper/admission are deployed or integrated.
+Never use `podman compose down -v` to troubleshoot: it removes database volumes.
