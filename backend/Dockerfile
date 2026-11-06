@@ -11,6 +11,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY --from=build /app/dist ./dist
+COPY src/db/migrations ./migrations
 USER node
 EXPOSE 8080
 CMD ["node","dist/server.js"]

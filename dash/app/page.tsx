@@ -17,7 +17,7 @@ async function getScans(): Promise<{ rows: Scan[]; error?: string }> {
 export default async function Page() {
   const { rows, error } = await getScans();
   return <main>
-    <header><span className="eyebrow">LOCAL DEVELOPMENT PREVIEW</span><h1>m9sweeper <em>modern</em></h1>
+    <nav className="app-nav"><Link href="/">Scan history</Link><Link href="/policies">Policies</Link></nav><header><span className="eyebrow">LOCAL DEVELOPMENT PREVIEW</span><h1>m9sweeper <em>modern</em></h1>
       <p>Kubernetes image vulnerability scan history · Trivy</p></header>
     {error && <section className="warning">{error}</section>}
     <section className="metrics">

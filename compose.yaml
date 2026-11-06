@@ -23,6 +23,7 @@ services:
       PORT: 8080
       DATABASE_URL: postgresql://m9sweeper:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/m9sweeper
       M9_AGENT_API_KEY: ${M9_AGENT_API_KEY:?set M9_AGENT_API_KEY in .env}
+      M9_ADMIN_API_KEY: ${M9_ADMIN_API_KEY:?set M9_ADMIN_API_KEY in .env}
     depends_on:
       postgres: { condition: service_healthy }
     healthcheck:
