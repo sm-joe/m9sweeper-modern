@@ -38,6 +38,8 @@ jobs:
         run: npm ci --legacy-peer-deps --no-audit --no-fund
       - name: Build original NestJS services
         run: npm run build:api
+      - name: Regression test original policy compliance and exception behavior
+        run: npm test -- --runInBand
   original-frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 20

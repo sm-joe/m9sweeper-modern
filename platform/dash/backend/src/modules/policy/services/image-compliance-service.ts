@@ -50,11 +50,13 @@ export class ImageComplianceService {
         // Issues in policies with no scanners are considered compliant
         if (!!result.scanners === false || result.scanners.length === 0) {
             complianceMap.setResultForPolicy(result.policy.id, true, `Policy ${result.policy.name} has no scanners defined`);
+            return true;
         }
 
         // Issues in disabled policies are considered compliant
         if (result.policy.enabled === false) {
             complianceMap.setResultForPolicy(result.policy.id, true, `Policy ${result.policy.name} was disabled`);
+            return true;
         }
 
         return this.checkCompliance(result, globalExceptions, complianceMap);
@@ -119,7 +121,7 @@ export class ImageComplianceService {
                 }
 
                 // If a scanner specific exception exists for a cve, apply it.
-                const cveException = scannerExceptions.find(element => element.issueIdentifier.trim() === issue.cveCode);
+                const cveException = scannerExceptions.find(element => element.issueIdentifier?.trim() === issue.cveCode);
                 if (!!cveException) {
                     complianceMap.setResultForCve(policyId, issue.scannerId, issue.cveCode, true,
                         `Exception ${cveException.title} applied`, issue.severity);
@@ -284,28 +286,30 @@ export class ImageComplianceService {
                 break;
         }
 
-        // If more unfixable issues of a severity exist than allowed by the scanner settings, all of those issues are considered non-compliant
+        // -1 represents unlimited; an allowance of N permits exactly N findings.
         const unfixableIssues = issues.filter(issue => !issue.isFixable);
         const totalUnfixableIssues = unfixableIssues.length;
-        if (totalUnfixableIssues >= unfixableLimit) {
+        const unfixableExceeded = unfixableLimit >= 0 && totalUnfixableIssues > unfixableLimit;
+        if (unfixableExceeded) {
             unfixableIssues.forEach((issue) => {
                 complianceMap.setResultForCve(scanner.policyId, scanner.id, issue.cveCode, false,
                     `Too many unfixable ${severity} severity issues`, issue.severity);
             });
         }
 
-        // If more fixable issues of a severity exist than allowed by the scanner settings, all of those issues are considered non-compliant
+        // Only explicitly bounded fixable counts can exceed the policy threshold.
         // Note: if an issue exceeds both the fixable and non-fixable limit, the reason will be set to the message from this block.
         const fixableIssues = issues.filter(issue => issue.isFixable);
         const totalFixableIssues = fixableIssues.length;
-        if (totalFixableIssues >= fixableLimit) {
+        const fixableExceeded = fixableLimit >= 0 && totalFixableIssues > fixableLimit;
+        if (fixableExceeded) {
             fixableIssues.forEach((issue) => {
                 complianceMap.setResultForCve(scanner.policyId, scanner.id, issue.cveCode, false,
                     `Too many fixable ${severity} severity issues`, issue.severity);
             });
         }
 
-        return totalFixableIssues <= fixableLimit && totalUnfixableIssues <= unfixableLimit;
+        return !fixableExceeded && !unfixableExceeded;
     }
 }
 
