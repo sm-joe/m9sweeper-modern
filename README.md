@@ -47,8 +47,8 @@ This is required even for local development; it is intentionally distinct from t
 
 See [Policy API tests and Podman upgrade instructions](docs/policy-api-test.md).
 The backend applies the additive `002_policy_management.sql` migration at startup.
-The dashboard now includes a read-only **Policies** view. Admission enforcement,
-identity-based RBAC, exception image-scoping and an administrator editing UI are
+The dashboard now includes an interactive **Policies** view: save/edit/delete policies, configure severity thresholds, create/revoke expiring CVE exceptions, register local cluster records, and evaluate persisted Trivy scans. For changes, enter your local admin API key in the dashboard; it is kept in page memory only. Admission enforcement,
+identity-based RBAC, exception image-scoping and production administrator authentication are
 not yet implemented.
 
 ## Development checks
