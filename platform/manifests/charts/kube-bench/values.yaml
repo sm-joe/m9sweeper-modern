@@ -39,7 +39,7 @@ pod:
 
 image:
   repository: aquasec/kube-bench
-  tag: v0.6.17
+  tag: v0.16.0
   pullPolicy: IfNotPresent
 
 resources:

@@ -280,3 +280,21 @@ jobs:
         env:
           KUBECONFIG: /tmp/m9-kind-kubeconfig
         run: npx ts-node -r tsconfig-paths/register test/kind-inventory.ts
+      - name: Run real kube-bench CIS node assessment inside ephemeral Kind
+        run: |
+          kubectl apply -f tools/integration/kube-bench-job.yaml
+          kubectl wait --for=condition=complete job/m9-kube-bench-smoke -n m9-inventory --timeout=240s
+          kubectl logs -n m9-inventory job/m9-kube-bench-smoke >/tmp/m9-cis.json
+          python3 - <<'PY'
+          import json
+          report=json.load(open('/tmp/m9-cis.json'))
+          assert report, 'kube-bench report empty'
+          assert isinstance(report,(dict,list)), type(report)
+          assert 'Controls' in report or (isinstance(report,list) and report), 'No CIS controls present'
+          print('PASS: real kube-bench completed a CIS node run against ephemeral Kind')
+          PY
+      - name: Show kube-bench diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get pods,jobs -n m9-inventory -o wide || true
+          kubectl logs -n m9-inventory job/m9-kube-bench-smoke --tail=100 || true

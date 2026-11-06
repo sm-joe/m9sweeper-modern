@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: m9-kube-bench-smoke
+  namespace: m9-inventory
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      hostPID: true
+      restartPolicy: Never
+      containers:
+        - name: kube-bench
+          image: aquasec/kube-bench:v0.16.0
+          imagePullPolicy: IfNotPresent
+          command: ["kube-bench", "run", "--targets", "node", "--benchmark", "cis-1.12", "--json"]
+          volumeMounts:
+            - name: kubelet
+              mountPath: /var/lib/kubelet
+              readOnly: true
+            - name: etc-k8s
+              mountPath: /etc/kubernetes
+              readOnly: true
+      volumes:
+        - name: kubelet
+          hostPath:
+            path: /var/lib/kubelet
+        - name: etc-k8s
+          hostPath:
+            path: /etc/kubernetes
