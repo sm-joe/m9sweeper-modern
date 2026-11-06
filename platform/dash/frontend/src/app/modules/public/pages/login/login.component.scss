@@ -1,59 +1,32 @@
 @use '@angular/material' as mat;
-div {
-  &.login-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    justify-content: center;
-    background-color: rgba(50,108,229,255);
-    > div {
-      &.login-form-card {
-        display: flex;
-        flex-direction: row;
-        justify-content: center;
-        > mat-card {
-          width: 350px;
-          > mat-card-header{
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            img.site-logo {
-              max-height: 65px;
-              margin: 15px 0 10px;
-            }
-          }
-          form.login-form {
-            display: flex;
-            flex-direction: column;
-            > div {
-              &.form-action-button {
-                display: flex;
-                flex-direction: row-reverse;
-                margin: 5px 0;
-                button{
-                  width: 100%;
-                }
-              }
-              &.reset-password{
-                margin-top: 10px;
-                text-align: center;
-              }
-            }
-          }
-          div.external-auth-buttons-holder {
-            display: flex;
-            flex-direction: row;
-            justify-content: center;
-            margin: 10px 0 0 0;
-            padding: 10px;
-            > a {
-              margin-right: 5px;
-            }
-          }
-        }
-
-      }
-    }
-  }
-}
+:host{display:block;height:100%;min-height:100vh}
+.login-container{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(360px,.9fr);min-height:100vh;background:#f3f7fb}
+.login-intro{position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:56px clamp(32px,5vw,92px);color:#eef9ff;background:
+ radial-gradient(circle at 82% 20%,rgba(41,190,184,.2),transparent 36%),
+ linear-gradient(148deg,#0d2038 0%,#15364d 65%,#0a1c30 100%)}
+.intro-logo{font-weight:850;letter-spacing:2px;font-size:25px;color:#73e4d4}
+.intro-logo span{color:#f3f8fe}
+.intro-content{max-width:600px;padding:64px 0}
+.intro-eyebrow{font-size:12px;letter-spacing:2px;color:#7fdfd3;font-weight:800}
+.intro-content h1{font-size:clamp(36px,4vw,60px);font-weight:720;line-height:1.12;letter-spacing:-2px;margin:24px 0}
+.intro-content p{font-size:16px;line-height:1.8;color:#b4cce0;max-width:550px}
+.intro-features{display:grid;gap:18px;margin-top:36px}
+.intro-features span{display:flex;gap:12px;align-items:center;font-size:14px;font-weight:570}
+.intro-features mat-icon{color:#75e2d3}
+.intro-footer{font-size:12px;letter-spacing:.25px;color:#94b5ca}
+.login-form-card{display:flex;align-items:center;justify-content:center;padding:48px clamp(28px,5vw,80px)}
+.login-form-card>mat-card{width:min(100%,460px);padding:35px 30px 34px;border:1px solid #e0e8f2;border-radius:20px;box-shadow:0 18px 60px rgba(23,48,72,.12)!important;background:#fff}
+.login-form-card mat-card-header{display:flex;align-items:flex-start;flex-direction:column;padding:0;margin-bottom:16px}
+.login-form-card .site-logo{max-height:47px;max-width:195px;object-fit:contain}
+.login-kicker{font-weight:800;letter-spacing:1.8px;font-size:11px;color:#148879;margin:0 0 14px}
+.login-form-card mat-card-content{padding:0}
+.login-header h2{font-size:31px;letter-spacing:-.7px;line-height:1.2;margin:8px 0 6px;color:#1b2e43}
+.login-header p{line-height:1.6;font-size:14px;color:#637589;margin:0 0 28px}
+form.login-form{display:flex;flex-direction:column;gap:6px}
+form.login-form mat-form-field{width:100%}
+form.login-form .form-action-button{display:flex;margin:14px 0}
+form.login-form .form-action-button button{width:100%;min-height:48px;font-weight:700;border-radius:10px}
+form.login-form .reset-password{text-align:center;font-size:13px;line-height:1.5;color:#6b7f91}
+.login-form-card .external-auth-buttons-holder{display:flex;justify-content:center;margin:12px 0}
+.login-form-card .external-auth-buttons-holder a{width:100%;text-align:center}
+@media(max-width:900px){.login-container{grid-template-columns:1fr}.login-intro{padding:26px 28px}.intro-content{display:none}.intro-footer{display:none}.login-form-card{padding:38px 16px;align-items:flex-start}.login-form-card>mat-card{max-width:470px}}
