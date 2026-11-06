@@ -67,4 +67,13 @@ else:
 PY
 docker compose -p m9-runtime exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 docker compose -p m9-runtime exec -T rabbitmq rabbitmq-diagnostics -q check_running
+# Prove worker identities and their API keys exist after *real* database initialization.
+# An empty user lookup must never be mistaken for a provisioned service account.
+identities="$(docker compose -p m9-runtime exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT COUNT(DISTINCT u.email) FROM users u JOIN api_keys a ON a.user_id=u.id AND a.is_active=true WHERE u.email IN ('"'"'Trawler'"'"','"'"'Kubebench'"'"','"'"'Kubehunter'"'"','"'"'Falco'"'"','"'"'Metrics'"'"');"' | tr -d '[:space:]')"
+if [[ "$identities" != "5" ]]; then
+  echo "FAIL: only $identities/5 service identities have active API keys" >&2
+  exit 1
+fi
+echo "PASS: five original scanner/metrics service accounts have active persisted API keys"
+
 echo 'PASS: original full app, Postgres, RabbitMQ, admin seed and authentication'

@@ -61,7 +61,7 @@ export class ApiKeyDao {
             .from('api_keys as a')
             .where('a.api', apiKey)
         );
-        return !!apiKeyEntry;
+        return Array.isArray(apiKeyEntry) && apiKeyEntry.length > 0;
     }
 
     async getUserInfoByApiKey(searchClause: any): Promise<any> {
