@@ -2,7 +2,7 @@
 
 **Status:** runnable *local development preview*, NOT production-ready Kubernetes security platform.
 This increment includes PostgreSQL, authenticated Trivy ingestion API, Next.js read-only scan dashboard, and a Go agent that invokes Trivy against **configured container images**.
-It does not yet enumerate Kubernetes workloads or implement the other original scanners, admission enforcement, user accounts, or full historical score equivalence.
+A Kubernetes service-account discovery mode is now available in the Go trawler, but the local Compose default only scans configured images and an end-to-end Kubernetes deployment has not been validated or implement the other original scanners, admission enforcement, user accounts, or full historical score equivalence.
 
 ## Local run (Windows PowerShell / Docker Desktop)
 
