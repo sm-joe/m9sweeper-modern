@@ -1,3 +1,4 @@
+import {randomUUID} from 'crypto';
 /* eslint-disable no-prototype-builtins */
 import {forwardRef, HttpException, HttpStatus, Inject, Injectable} from '@nestjs/common'
 import {instanceToPlain, plainToInstance} from 'class-transformer';
@@ -220,25 +221,49 @@ export class ImageService {
             }
 
             scanInput.image.path = null;
+            const scanRunId = randomUUID();
+            scanInput.scanRunId = scanRunId;
             const queueName = this.configurationService.get('messageQueue.imageScannerQueueName');
+            await this.imageDao.createScanRun(scanRunId, clusterId, image.id);
             // Mark the image queued before publishing. Publishing first races
             // the worker: a fast result can clear the flag, then a late write
             // by this request sets it back to true forever.
             await this.imageDao.setImageScanQueueStatus(image.id, true);
+            let sentToBroker = false;
             try {
                 const accepted = await this.messagingService.send(queueName, scanInput);
                 if (!accepted) {
                     throw new HttpException({message: 'Image scanner queue rejected the scan request'}, HttpStatus.SERVICE_UNAVAILABLE);
                 }
+                await this.imageDao.markScanRunPublished(scanRunId);
             } catch (error) {
-                // No confirmed delivery. A failed rollback must propagate rather
-                // than hiding the inconsistent queue state.
-                await this.imageDao.setImageScanQueueStatus(image.id, false);
+                // If delivery succeeded but publication status failed, the worker
+                // may already be processing. Never undo the queued flag in that case.
+                if (!sentToBroker) {
+                    await this.imageDao.markScanRunFailed(scanRunId, 'Broker publication failed');
+                    await this.imageDao.setImageScanQueueStatus(image.id, false);
+                }
                 throw error;
             }
         }
 
         return true;
+    }
+
+    async getScanRun(id: string) {
+        return this.imageDao.getScanRun(id);
+    }
+
+    async claimScanRun(id: string, clusterId: number, imageId: number): Promise<boolean> {
+        return this.imageDao.claimScanRun(id, clusterId, imageId);
+    }
+
+    async completeScanRun(id: string, compliant: boolean): Promise<void> {
+        await this.imageDao.completeScanRun(id, compliant);
+    }
+
+    async failScanRun(id: string, reason: string): Promise<void> {
+        await this.imageDao.markScanRunFailed(id, reason);
     }
 
     async saveImageScanDataByImageId(clusterId: number,
