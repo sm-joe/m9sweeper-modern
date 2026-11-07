@@ -63,8 +63,8 @@ public class Trivy implements Scanner {
      */
     @Override
     public void runScan() throws Exception {
-        System.out.println("Initiating scan of " + config.getImage().buildFullPath(false, true) +
-                " with trivy for " + config.getPolicy().getName() + ":" + config.getScannerName());
+        System.out.println("Initiating remote Trivy scan of " + config.getImage().buildFullPath(true, false) +
+                " for " + config.getPolicy().getName() + ":" + config.getScannerName());
         StringBuilder trivyScanCommandBuilder = new StringBuilder();
 
         // If registry is Amazon Container Registry, set aws access key and secret key to get token
@@ -136,13 +136,9 @@ public class Trivy implements Scanner {
             trivyScanCommandBuilder.append("export TRIVY_PASSWORD=").append(escapeXsi(registry.getPassword())).append("; ");
         }
 
-        // Clear Trivy cache
-        ProcessBuilder clearCacheProcessBuilder = new ProcessBuilder();
-        clearCacheProcessBuilder.command("bash", "-c", "trivy image --clear-cache");
-        clearCacheProcessBuilder.redirectErrorStream(true);
-
-        Process clearCacheProcess = clearCacheProcessBuilder.start();
-        clearCacheProcess.waitFor();
+        // Do not clear the Trivy vulnerability database cache for every image.
+        // That adds a separate blocking process and can contend with active scans.
+        // The Trivy client maintains and refreshes its cache automatically.
         
         // run trivy scan
         // Kubernetes image IDs often contain a container config digest, which is
@@ -173,6 +169,7 @@ public class Trivy implements Scanner {
         processBuilder.redirectErrorStream(true);
 
         Process process = processBuilder.start();
+        System.out.println("Remote Trivy process launched; awaiting scan results");
 
         StringBuilder output = new StringBuilder();
         StringBuilder errorOutput = new StringBuilder();
@@ -222,6 +219,7 @@ public class Trivy implements Scanner {
         }
 
         int exitVal = process.waitFor();
+        System.out.println("Remote Trivy process completed with exit code " + exitVal);
         if (exitVal == 0) {
             if (errorMessage.length() > 0) {
                 throw new Exception(errorMessage);
