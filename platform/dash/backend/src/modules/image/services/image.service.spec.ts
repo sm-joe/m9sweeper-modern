@@ -45,7 +45,9 @@ describe('ImageService scan queue safety', () => {
     it('rolls back and propagates broker errors', async () => {
         messaging.send.mockRejectedValue(new Error('broker offline'));
         await expect(service.createImageScanByImageId([{id: imageId}], clusterId)).rejects.toThrow('broker offline');
-        expect(dao.setImageScanQueueStatus).not.toHaveBeenCalled();
+        expect(dao.setImageScanQueueStatus).toHaveBeenNthCalledWith(1, imageId, true);
+        expect(dao.setImageScanQueueStatus).toHaveBeenNthCalledWith(2, imageId, false);
+        expect(dao.setImageScanQueueStatus).toHaveBeenCalledTimes(2);
     });
 
     it('does not report success if queue-status persistence fails', async () => {
