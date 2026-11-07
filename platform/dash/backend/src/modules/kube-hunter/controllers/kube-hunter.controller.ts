@@ -51,12 +51,15 @@ export class KubeHunterController {
     }
 
     @Get('/apiKey')
-    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
+    @AllowedAuthorityLevels( Authority.SUPER_ADMIN )
     @UseGuards(AuthGuard, AuthorityGuard)
     @ApiResponse({
-        status: 201
+        status: 200
     })
     async getApiKey(): Promise<ApiKeyDto[]> {
+        if (process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT !== 'true') {
+            throw new HttpException('Legacy scanner key export is disabled', HttpStatus.GONE);
+        }
         const apiKeyKH = await this.apiKeyDao.getApiKeyByUserEmail('Kubehunter');
         if (!apiKeyKH) throw new HttpException(`KH APi key ${apiKeyKH} not found`, HttpStatus.NOT_FOUND);
         return apiKeyKH;
