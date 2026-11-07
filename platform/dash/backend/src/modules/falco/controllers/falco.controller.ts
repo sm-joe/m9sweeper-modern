@@ -90,12 +90,15 @@ export class FalcoController {
     }
 
     @Get('/apiKey')
-    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
+    @AllowedAuthorityLevels( Authority.SUPER_ADMIN )
     @UseGuards(AuthGuard, AuthorityGuard)
     @ApiResponse({
-        status: 201
+        status: 200
     })
     async getApiKey(): Promise<ApiKeyDto[]> {
+        if (process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT !== 'true') {
+            throw new HttpException('Legacy scanner key export is disabled', HttpStatus.GONE);
+        }
         const apiKeyFalco = await this.apiKeyDao.getApiKeyByUserEmail('Falco');
         if (!apiKeyFalco) throw new HttpException(`Falco APi key ${apiKeyFalco} not found`, HttpStatus.NOT_FOUND);
         return apiKeyFalco;
