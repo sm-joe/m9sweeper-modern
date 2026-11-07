@@ -23,10 +23,20 @@ The queue having zero messages is necessary but **not sufficient** by itself: al
 
 ## One-time repair for the reported original image ID 1
 
-Only after confirming the scan is idle, taking a database backup, verifying that `images.id=1` is the affected CoreDNS image for the correct cluster and no scan is active, run:
+Only after confirming the scan is idle, taking a database backup, verifying that `images.id=1` is the affected CoreDNS image for the correct cluster and no scan is active, use a PowerShell here-string to avoid nested SQL quotation errors:
 
 ```powershell
-docker exec postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "UPDATE images SET scan_queued=false WHERE id=1 AND name='''coredns/coredns''' AND tag='''v1.14.6''' AND scan_queued=true RETURNING id,cluster_id,scan_queued,scan_results,last_scanned;"'
+$sql = @'
+UPDATE images
+SET scan_queued = false
+WHERE id = 1
+  AND name = 'coredns/coredns'
+  AND tag = 'v1.14.6'
+  AND scan_queued = true
+RETURNING id, cluster_id, scan_queued, scan_results, last_scanned;
+'@
+$sql | docker exec -i postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+if ($LASTEXITCODE -ne 0) { throw "Stale scan flag correction failed" }
 ```
 
 This corrects the stale loading state **only**, and does not delete old scan history, clear errors or manufacture clean findings. If the command returns zero rows, the reported condition no longer matches.
