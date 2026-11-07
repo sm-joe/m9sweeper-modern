@@ -36,3 +36,7 @@ The existing kube-bench endpoint currently authenticates via an API key in the q
 - Unit tests cover the credential and evidence gates; runtime CI asserts HTTP 401 for unauthenticated uploads.
 - The UI now uses the checked-out local kube-bench chart, not the original upstream Helm repository, to avoid mixing new-product code with legacy published chart artifacts.
 - **Still blocked for production:** the frontend's legacy command still exposes the key in Helm values, and the Helm chart does not yet provision a credential Secret. Migrate to Kubernetes Secret-backed header authentication before publishing.
+
+## Multi-cluster reporting isolation
+
+Kube-bench report counts and latest-result queries are now explicitly cluster scoped, with deterministic ordering and bounded pagination. Regression tests verify query isolation. A separate multi-cluster HTTP + PostgreSQL acceptance test remains required for production release.
