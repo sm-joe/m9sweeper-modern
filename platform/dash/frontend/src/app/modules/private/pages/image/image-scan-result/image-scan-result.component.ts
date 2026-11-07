@@ -10,7 +10,7 @@ import {MatTableDataSource} from '@angular/material/table';
 import {MatSort} from '@angular/material/sort';
 import {MatPaginator, PageEvent} from '@angular/material/paginator';
 import {FormControl} from '@angular/forms';
-import {combineLatest, merge, Observable, of, Subject} from 'rxjs';
+import {combineLatest, merge, Observable, of, Subject, Subscription, timer} from 'rxjs';
 import {Title} from '@angular/platform-browser';
 import {MatSelectChange} from '@angular/material/select';
 import { MatDialog } from '@angular/material/dialog';
@@ -84,6 +84,8 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
 
   lastScanReport: IImageScanData;
   private unsubscribe$ = new Subject<void>();
+  private scanStatusSubscription?: Subscription;
+  private readonly scanPollingTimeoutMs = 10 * 60 * 1000;
 
   protected readonly VulnerabilitySeverityAbbreviations = VulnerabilitySeverityAbbreviations;
   protected readonly VulnerabilitySeverity = VulnerabilitySeverity;
@@ -223,7 +225,9 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
     this.totalCount = response.data.totalCount;
     this.scannerComplianceReport.sort = this.sort;
     this.policyIds = response.data.list.map(scan => String(scan.policyId));
-    this.lastScanReport = response.data.list?.pop();
+    // Do not mutate the rows backing the compliance table or select an old
+    // report by popping the last element.
+    this.lastScanReport = response.data.list?.[0];
     if (this.lastScanReport) {
       this.lastScanReport.summary = this.lastScanReport.summary?.replace(/\n/g, '<br/>');
     }
@@ -289,16 +293,39 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
     this.getImageScanDataByImageId();
   }
 
-  setImageScanQueueStatus(){
-    this.displayImageScanSpinner$ = this.imageService.getImageScanQueueStatus(this.imageId);
-    const dataSubscription = this.displayImageScanSpinner$.subscribe(data => {
-      if (!data) {
-        dataSubscription.unsubscribe();
-        this.getImageByImageId();
-        this.getCountOfImageScanData();
-        this.getImageScanDataByImageId(true);
-      }
-    });
+  setImageScanQueueStatus() {
+    // Keep one active poll per page. The async-pipe spinner is view state,
+    // not an additional HTTP polling subscription.
+    this.scanStatusSubscription?.unsubscribe();
+    this.displayImageScanSpinner$ = of(true);
+    let statusResolved = false;
+    this.scanStatusSubscription = this.imageService.getImageScanQueueStatus(this.imageId)
+      .pipe(
+        takeUntil(this.unsubscribe$),
+        takeUntil(timer(this.scanPollingTimeoutMs))
+      )
+      .subscribe({
+        next: queued => {
+          if (!queued) {
+            statusResolved = true;
+            this.displayImageScanSpinner$ = of(false);
+            this.scanStatusSubscription?.unsubscribe();
+            this.getImageByImageId();
+            this.getCountOfImageScanData();
+            this.getImageScanDataByImageId(true);
+          }
+        },
+        error: () => {
+          this.displayImageScanSpinner$ = of(false);
+          this.alertService.danger('Unable to check image scan status. Refresh the page or retry after checking the scanner service.');
+        },
+        complete: () => {
+          if (!statusResolved) {
+            this.displayImageScanSpinner$ = of(false);
+            this.alertService.warning('Image scan status did not complete within 10 minutes. Check the worker and queue before rescanning.');
+          }
+        }
+      });
   }
 
   setLimitToLocalStorage(limit: number) {
@@ -356,6 +383,7 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   ngOnDestroy() {
+    this.scanStatusSubscription?.unsubscribe();
     this.unsubscribe$.next();
     this.unsubscribe$.complete();
   }
