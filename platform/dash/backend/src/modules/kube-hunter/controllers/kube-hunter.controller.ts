@@ -1,4 +1,4 @@
-import {selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
+import {parseScannerClusterId, selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
 import {Controller, Get, Headers, HttpException, HttpStatus, Param, Post, Query, UseGuards} from '@nestjs/common';
 import {QuotedBody} from "../../../decorators/quoted-body.decorator";
 import {KubeHunterService} from "../service/kube-hunter.service";
@@ -32,6 +32,12 @@ export class KubeHunterController {
         status: 201,
     })
     async saveKubeHunterReport(@QuotedBody() report: any, @Param('clusterId') clusterId: number, @Query('key') key: string, @Headers('x-api-key') headerKey?: string): Promise<any> {
+        const parsedClusterId = parseScannerClusterId(clusterId);
+        if (!Number.isFinite(parsedClusterId)) {
+            throw new HttpException('Invalid cluster identifier', HttpStatus.BAD_REQUEST);
+        }
+        clusterId = parsedClusterId;
+
         // @TODO: use LOGGED_IN_USER
 
         // find user authority by user's apikey
