@@ -1,7 +1,7 @@
 name: Full m9sweeper platform source validation
 on:
   push:
-    branches: [revamp/original-platform, product/m9sweeper-new-foundation]
+    branches: [revamp/original-platform, product/m9sweeper-new-foundation, 'fix/rc3-trivy-queue-fail-closed']
     paths:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
@@ -9,6 +9,10 @@ on:
       - 'README.md'
       - 'ATTRIBUTION.md'
       - 'docs/**'
+concurrency:
+  group: full-platform-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
@@ -93,6 +97,19 @@ jobs:
           grep -q 'X-API-Key:' /tmp/m9-secret-backed-job.yaml
           if grep -q '?key=' /tmp/m9-secret-backed-job.yaml; then exit 1; fi
           echo 'PASS: scanner credential comes from Kubernetes Secret and header, not URL'
+      - name: Lint and render kube-hunter Job and CronJob using a Secret
+        run: |
+          set -euo pipefail
+          chart=platform/manifests/charts/kube-hunter
+          for scheduled in true false; do
+            helm lint "$chart" --strict --set cronjob.enabled="$scheduled" --set-string dispatchAuth.existingSecret=m9sweeper-kube-hunter-dispatch
+            helm template kube-hunter "$chart" --namespace m9sweeper-system --kube-version 1.31.0 --set cronjob.enabled="$scheduled" --set-string dispatchAuth.existingSecret=m9sweeper-kube-hunter-dispatch >"/tmp/kube-hunter-$scheduled.yaml"
+            grep -q 'secretKeyRef:' "/tmp/kube-hunter-$scheduled.yaml"
+            grep -q 'm9sweeper-kube-hunter-dispatch' "/tmp/kube-hunter-$scheduled.yaml"
+            if grep -E 'batch/v1beta1|localhost:3000|key=' "/tmp/kube-hunter-$scheduled.yaml"; then exit 1; fi
+          done
+          grep -q 'kind: CronJob' /tmp/kube-hunter-true.yaml
+          grep -q 'kind: Job' /tmp/kube-hunter-false.yaml
       - name: Render Kubernetes resources for a modern API target
         run: |
           JWT_SECRET="$(openssl rand -hex 32)"

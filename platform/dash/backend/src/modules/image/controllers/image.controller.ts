@@ -290,39 +290,27 @@ export class ImageController {
         @Param('imageId') imageId: number,
         @Body() trawlerScanResults: TrawlerScanResults
     ):Promise<ImageScanResultDto>{
+        // Fail closed before any new image or partial scan evidence is persisted.
+        if (!trawlerScanResults || !Array.isArray(trawlerScanResults.data) ||
+            trawlerScanResults.data.length === 0 ||
+            trawlerScanResults.data.some(result => !result ||
+                !Number.isInteger(result.policyId) || result.policyId <= 0 ||
+                !Array.isArray(result.issues) ||
+                [result.criticalIssues, result.majorIssues, result.mediumIssues,
+                    result.lowIssues, result.negligibleIssues].some(value =>
+                    typeof value !== 'number' || !Number.isFinite(value) || value < 0))) {
+            throw new BadRequestException('Invalid or incomplete image scan report');
+        }
         const imageHash = trawlerScanResults.data[0]?.imageHash;
 
-        // imageID sent by Trawler is that of the first image with a matching name. Use it as a default value, but
-        // otherwise ignore it while comparing images by hash
-        const imageData = await this.imageService.getImageById(imageId);
-        let targetImage: ListOfImagesDto;
-        // if the image hash matches that of the image pulled by ID, or the pulled image has a temporary hash, overwrite it
-        // if Trawler did not send an image hash, update the default image sent by Trawler
-        if (!imageHash || imageHash === imageData.dockerImageId || imageData.dockerImageId.startsWith('TMP_')) {
-            targetImage = imageData;
-        } else {
-            // get the image that matches the image hash sent by Trawler if it exists, or create a new image if it doesn't
-            try {
-                targetImage = await this.imageService.getImageByImageHash(clusterId, imageHash);
-            } catch (e) {
-                // getImageByImageHash throws a Not Found error when executing properly but no images match the hash
-                // create a new image in that case, propagate other errors
-                if (e instanceof HttpException && e.getStatus() === HttpStatus.NOT_FOUND) {
-                    const newImage = new ImageDto();
-                    newImage.dockerImageId = imageHash;
-                    newImage.url = imageData.url;
-                    newImage.name = imageData.name;
-                    newImage.tag = imageData.tag;
-                    newImage.summary = imageData.summary;
-                    // Assume any new images are not running in the cluster.
-                    // The Cluster sync job should make it correct
-                    newImage.runningInCluster = false;
-                    targetImage = await this.imageService.createImage(newImage, clusterId, true);
-                } else {
-                    throw e;
-                }
-            }
+        // Preserve the queue owner's image ID. A remote registry digest may differ
+        // from Kubernetes' runtime image ID; it must not create another image
+        // record or transfer the scan result/queue state to a different row.
+        const clusterImage = await this.imageService.getImageByImageId(+clusterId, +imageId);
+        if (!clusterImage) {
+            throw new HttpException('Image does not belong to the selected cluster', HttpStatus.NOT_FOUND);
         }
+        const targetImage: ListOfImagesDto = await this.imageService.getImageById(+imageId);
 
         await Promise.all(trawlerScanResults.data.map(async (rsByPolicy: ImageTrawlerResultDto) => {
             const facadeDto = new ImageScanResultPerPolicyFacadeDto();
@@ -358,10 +346,16 @@ export class ImageController {
         const negligible_issues = trawlerScanResults.data.map(r => r.negligibleIssues).reduce((a, b) => a + b, 0);
 
 
-        const status = trawlerScanResults.data.every(r => r.policyStatus) ? 'Compliant' : 'Non-compliant'
+        // Security invariant: high/critical findings and execution failures
+        // override any permissive policy result. Do not present risk as clean.
+        const reportHasBlockingFindings = critical_issues > 0 || major_issues > 0 ||
+            trawlerScanResults.data.some(r => r.encounterError);
+        const status = !reportHasBlockingFindings &&
+            trawlerScanResults.data.every(r => r.policyStatus === true) ?
+            'Compliant' : 'Non-compliant';
 
         await this.imageService.updateImageScanDateByImageId(targetImage.id, status, critical_issues, major_issues,
-            medium_issues, low_issues, negligible_issues, imageHash);
+            medium_issues, low_issues, negligible_issues); // Keep Kubernetes runtime image ID unchanged
 
         await this.imageService.setImageScanQueueStatus(targetImage.id, false);
 

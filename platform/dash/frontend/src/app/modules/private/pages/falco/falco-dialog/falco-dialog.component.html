@@ -12,10 +12,12 @@
         <mat-icon mat-list-item-icon>info</mat-icon>
       </a>
     </mat-form-field>
-    <div class="page-title-button-group-spacing">
+    <p *ngIf="!reportEndpointReady" role="alert" class="mat-error">{{reportEndpointError}}</p>
+    <p *ngIf="reportEndpointReady" role="note">Before installing, create an existing Kubernetes Secret <code>m9sweeper-falco-webhook</code> in namespace <code>falco</code> with <code>WEBHOOK_ADDRESS</code> set to <code>{{backendUrl}}/api/falco/{{clusterId}}/create</code> and <code>WEBHOOK_CUSTOMHEADERS</code> set to an authenticated <code>X-API-Key</code> header. Never pass the credential through Helm values or the browser. See the Falco RC3 acceptance guide.</p>
+    <div class="page-title-button-group-spacing" *ngIf="reportEndpointReady">
       <div class="padding-top-15">Run Falco using the following CLI command:</div>
     </div>
-    <div>
+    <div *ngIf="reportEndpointReady">
           <textarea
             matInput
             [cdkTextareaAutosize]="true"
@@ -35,17 +37,19 @@ helm upgrade --install falco falcosecurity/falco \
   --set falco.http_output.enabled=true \
   --set-string falco.http_output.url='http://falco-falcosidekick:2801/' \
   --set falcosidekick.enabled=true \
-  --set-string falcosidekick.config.webhook.address='{{backendUrl}}/api/falco/{{clusterId}}/create/?key={{apiKey}}' \
+  --set-string falcosidekick.config.existingSecret=m9sweeper-falco-webhook \
   --set falcosidekick.config.webhook.checkcert=true \
-  --set-string falcosidekick.config.webhook.minimumpriority='{{level.toLowerCase()}}'</textarea>
-    </div>
-    <div class="modal-content-left-align-no-margin row start-sm between-xs pt-xs-2">
-      <button mat-raised-button matDialogClose color="primary" class="me-xs-2 mb-xs-2 mb-md-0">Done</button>
+  --set-string 'falcosidekick.config.extraEnv[0].name=WEBHOOK_MINIMUMPRIORITY' \
+  --set-string 'falcosidekick.config.extraEnv[0].value={{level.toLowerCase()}}'</textarea>
       <app-copy-to-clipboard-button
         successMessage="Command copied to clipboard!"
         errorMessage="Command could not be copied"
         [text]="run.value"
         ></app-copy-to-clipboard-button>
+    </div>
+    <div class="modal-content-left-align-no-margin row start-sm between-xs pt-xs-2">
+      <button mat-raised-button matDialogClose [disabled]="!reportEndpointReady" color="primary" class="me-xs-2 mb-xs-2 mb-md-0">Done</button>
+
     </div>
   </div>
 </div>

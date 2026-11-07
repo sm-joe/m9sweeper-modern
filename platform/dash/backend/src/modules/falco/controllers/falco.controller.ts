@@ -1,6 +1,7 @@
 import {
     Body,
     Controller,
+    Headers,
     Delete,
     Get,
     Header,
@@ -143,11 +144,12 @@ export class FalcoController {
     async createFalcoLog(
         @Param('clusterid') clusterId: number,
         @Body() falcoLog: FalcoWebhookInputDto,
-        @Query('key') key: string
+        @Query('key') key: string,
+        @Headers('x-api-key') headerKey?: string
     ): Promise<FalcoDto> {
         // look up user by api key
-        const currentUserAuthObj = await this.userDao.loadUserByApiKey(key || '');
-        if (!currentUserAuthObj) {
+        const currentUserAuthObj = await this.userDao.loadUserByApiKey(headerKey || key || '');
+        if (!Array.isArray(currentUserAuthObj) || currentUserAuthObj.length === 0) {
             throw new UnauthorizedException('Access Denied!');
         }
 

@@ -63,8 +63,8 @@ public class Trivy implements Scanner {
      */
     @Override
     public void runScan() throws Exception {
-        System.out.println("Initiating scan of " + config.getImage().buildFullPath(false, true) +
-                " with trivy for " + config.getPolicy().getName() + ":" + config.getScannerName());
+        System.out.println("Initiating remote Trivy scan of " + config.getImage().buildFullPath(true, false) +
+                " for " + config.getPolicy().getName() + ":" + config.getScannerName());
         StringBuilder trivyScanCommandBuilder = new StringBuilder();
 
         // If registry is Amazon Container Registry, set aws access key and secret key to get token
@@ -136,27 +136,25 @@ public class Trivy implements Scanner {
             trivyScanCommandBuilder.append("export TRIVY_PASSWORD=").append(escapeXsi(registry.getPassword())).append("; ");
         }
 
-        // Clear Trivy cache
-        ProcessBuilder clearCacheProcessBuilder = new ProcessBuilder();
-        clearCacheProcessBuilder.command("bash", "-c", "trivy image --clear-cache");
-        clearCacheProcessBuilder.redirectErrorStream(true);
-
-        Process clearCacheProcess = clearCacheProcessBuilder.start();
-        clearCacheProcess.waitFor();
+        // Do not clear the Trivy vulnerability database cache for every image.
+        // That adds a separate blocking process and can contend with active scans.
+        // The Trivy client maintains and refreshes its cache automatically.
         
         // run trivy scan
-        trivyScanCommandBuilder.append("trivy -q image --timeout 30m --scanners vuln -f json '");
+        // Kubernetes image IDs often contain a container config digest, which is
+        // NOT a registry manifest digest. Appending that value as @sha256
+        // produces MANIFEST_UNKNOWN even when the tagged image is valid.
+        // Scan the remote registry tag; Trivy's result supplies the resolved
+        // artifact identity, rather than guessing the manifest digest.
+        trivyScanCommandBuilder.append("trivy -q image --image-src remote --timeout 30m --scanners vuln -f json '");
         trivyScanCommandBuilder.append(escapeXsi(
-                config.getImage().buildFullPath(true, true)
+                config.getImage().buildFullPath(true, false)
         ));
-        trivyScanCommandBuilder.append("';");
+        trivyScanCommandBuilder.append("'");
 
-        if (registry.getIsLoginRequired()) {
-            trivyScanCommandBuilder.append(" unset TRIVY_USERNAME; unset TRIVY_PASSWORD;");
-        }
-        if ("AZCR".equals(registry.getAuthType())) {
-            trivyScanCommandBuilder.append(" unset AZURE_CLIENT_ID; unset AZURE_CLIENT_SECRET; unset AZURE_TENANT_ID;");
-        }
+        // Each scan uses a short-lived shell process. Credentials exported there
+        // disappear with that process; appended "unset" commands are unnecessary
+        // and could mask the Trivy exit status.
 
         if (TrawlerConfiguration.getInstance().getDebug()) {
             // The shell command may contain private registry credentials.
@@ -168,6 +166,7 @@ public class Trivy implements Scanner {
         processBuilder.redirectErrorStream(true);
 
         Process process = processBuilder.start();
+        System.out.println("Remote Trivy process launched; awaiting scan results");
 
         StringBuilder output = new StringBuilder();
         StringBuilder errorOutput = new StringBuilder();
@@ -211,12 +210,13 @@ public class Trivy implements Scanner {
                 }
             }
         }
-        String errorMessage = errorOutput.length() > 0 ? errorOutput.substring(errorOutput.indexOf("FATAL") + 10, errorOutput.length()) : errorOutput.toString();
+        String errorMessage = errorOutput.toString().trim();
         if (TrawlerConfiguration.getInstance().getDebug() && errorMessage.length() > 0) {
             System.err.println("ERROR: " + errorMessage);
         }
 
         int exitVal = process.waitFor();
+        System.out.println("Remote Trivy process completed with exit code " + exitVal);
         if (exitVal == 0) {
             if (errorMessage.length() > 0) {
                 throw new Exception(errorMessage);
@@ -224,7 +224,8 @@ public class Trivy implements Scanner {
                 rawResults = jsonScanResultOutput.toString();
             }
         } else {
-            throw new Exception(errorMessage);
+            throw new Exception(errorMessage.isEmpty() ?
+                    "Trivy process failed with exit code " + exitVal + " (no JSON report)" : errorMessage);
         }
     }
 

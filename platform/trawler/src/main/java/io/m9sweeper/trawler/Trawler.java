@@ -2,6 +2,7 @@ package io.m9sweeper.trawler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import io.m9sweeper.trawler.commands.AbstractCommand;
@@ -19,8 +20,11 @@ import io.m9sweeper.trawler.framework.queue.Registry;
 import picocli.CommandLine;
 
 import java.io.IOException;
+import io.m9sweeper.trawler.framework.exception.NoncompliantException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 @CommandLine.Command(name = "trawler", description = "Run Trawler in its RabbitMQ mode where it will monitor " +
@@ -96,6 +100,15 @@ public class Trawler extends AbstractCommand implements Runnable {
         }
     }
 
+    static final int MAX_SCAN_DELIVERY_RETRIES = 3;
+
+    static int retryCount(Map<String, Object> headers) {
+        if (headers == null) return 0;
+        Object count = headers.get("x-m9sweeper-retries");
+        if (count instanceof Number) return Math.max(0, ((Number) count).intValue());
+        return 0;
+    }
+
     private Connection getAmpqConnection(ConnectionFactory factory, int retry) throws InterruptedException {
         try {
             return factory.newConnection();
@@ -144,13 +157,20 @@ public class Trawler extends AbstractCommand implements Runnable {
             Channel channel = connection.createChannel();
 
             // Select the right RabbitMQ Queue to monitor
-            channel.queueDeclare(TrawlerConfiguration.getInstance().rabbitmqQueueName(), true, false, false, null);
+            String scanQueue = TrawlerConfiguration.getInstance().rabbitmqQueueName();
+            String failedQueue = scanQueue + ".failed";
+            channel.queueDeclare(scanQueue, true, false, false, null);
+            // Quarantine permanently failing jobs without dropping the evidence.
+            channel.queueDeclare(failedQueue, true, false, false, null);
+            channel.confirmSelect();
 
             // Display a message stating that Trawler is listening for messages
             System.out.println("Trawler is waiting for scan jobs...");
 
             // Consume a message from the queue and execute the scan accordingly
-            channel.basicConsume(TrawlerConfiguration.getInstance().rabbitmqQueueName(), true, (consumerTag, delivery) -> {
+            // Consumer ack happens only after Dash has accepted and persisted the scan result.
+            channel.basicQos(1);
+            channel.basicConsume(TrawlerConfiguration.getInstance().rabbitmqQueueName(), false, (consumerTag, delivery) -> {
                 try {
                     ObjectMapper mapper = new ObjectMapper();
 
@@ -182,28 +202,61 @@ public class Trawler extends AbstractCommand implements Runnable {
 
                         payload.setRegistry(registry);
                     } catch (Exception e) {
-                        // TODO: Should save that it failed and why it failed back (the exception message)
-                        e.printStackTrace(); 
+                        // Invalid registry credentials or API failures must not be mistaken for a scan.
+                        throw new IOException("Registry lookup failed", e);
                     } 
 
-                    // Run the scan as long as the contents of the message are valid
-                    if (payload != null && payload.getCluster() != null && payload.getCluster().getId() != null) {
+                    if (payload == null || payload.getCluster() == null ||
+                            payload.getCluster().getId() == null || payload.getImage() == null ||
+                            payload.getImage().getId() == null || payload.getRegistry() == null) {
+                        throw new IOException("Invalid queued image scan payload");
+                    }
+
+                    PoliciesByClusterResponse policies = api.policyControllerGetPoliciesByClusterId(
+                            new BigDecimal(payload.getCluster().getId()));
+                    if (!policies.isSuccess() || policies.getData() == null || policies.getData().isEmpty()) {
+                        throw new IOException("No policies returned for queued cluster");
+                    }
+
+                    try {
+                        new ScanRunner(api, payload, policies.getData()).scan();
+                    } catch (NoncompliantException expectedFinding) {
+                        // A noncompliant image is a completed scan, not an infrastructure error:
+                        // ScanRunner raises this only after Dash accepts the report.
+                        System.out.println("Scan persisted with noncompliant findings");
+                    }
+                    channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+                } catch (Exception e) {
+                    // Republish durably, verify broker confirmation, then ACK the original.
+                    // This bounds poison-message loops while preserving failed scan evidence.
+                    int previousRetries = retryCount(delivery.getProperties().getHeaders());
+                    int nextRetries = previousRetries + 1;
+                    String destination = nextRetries > MAX_SCAN_DELIVERY_RETRIES ? failedQueue : scanQueue;
+                    System.err.println("Queued image scan failed; retry " + nextRetries +
+                            " routed to " + destination + ": " + e.getClass().getSimpleName());
+                    try {
+                        Map<String, Object> headers = new HashMap<>();
+                        if (delivery.getProperties().getHeaders() != null) {
+                            headers.putAll(delivery.getProperties().getHeaders());
+                        }
+                        headers.put("x-m9sweeper-retries", nextRetries);
+                        AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder()
+                                .deliveryMode(2)
+                                .contentType("application/json")
+                                .headers(headers)
+                                .build();
+                        channel.basicPublish("", destination, properties, delivery.getBody());
+                        channel.waitForConfirmsOrDie(10000);
+                        channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+                    } catch (Exception retryFailure) {
+                        // If publication confirmation fails, preserve the original delivery.
+                        System.err.println("Unable to confirm retry publication; broker will redeliver");
                         try {
-                            PoliciesByClusterResponse policiesByClusterResponse = api.policyControllerGetPoliciesByClusterId(new BigDecimal(payload.getCluster().getId()));
-                            if (policiesByClusterResponse.isSuccess() && policiesByClusterResponse.getData() != null && policiesByClusterResponse.getData().size() > 0) {
-                                System.out.println("Job received, starting scan.");
-                                new ScanRunner(api, payload, policiesByClusterResponse.getData()).scan();
-                                System.out.println("Scan completed");
-                            } else {
-                                throw new Exception("No policies found for cluster '" + payload.getCluster().getId() + "'");
-                            }
-                        } catch (Exception e) {
-                            // TODO: should save that it failed and why it failed (the exception message)
-                            e.printStackTrace();
+                            channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, true);
+                        } catch (Exception nackFailure) {
+                            try { channel.close(); } catch (Exception ignored) { }
                         }
                     }
-                } catch (Exception e) {
-                    e.printStackTrace(); 
                 }
             }, consumerTag -> {});
         } catch (IOException | InterruptedException e) {

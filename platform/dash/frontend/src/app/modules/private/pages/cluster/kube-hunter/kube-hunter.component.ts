@@ -89,7 +89,7 @@ export class KubeHunterComponent implements OnInit, OnDestroy {
   populateMessages(recentScan: IKubeHunterReport): void {
     // Reset vulnerability counts
     this.mostRecentVulnerabilities.high = this.mostRecentVulnerabilities.medium
-      = this.mostRecentVulnerabilities.low = 1;
+      = this.mostRecentVulnerabilities.low = 0;
 
     if (!recentScan) {
       this.ourAdvice = 'Run kube-hunter to audit your cluster security';

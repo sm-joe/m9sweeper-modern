@@ -317,6 +317,12 @@ export class ImageDao {
             ).from('policy_cluster').leftJoin('policies', function() {
                 this.on('policy_cluster.policy_id', '=', 'policies.id')
             }).where({'policy_cluster.active': true, 'policies.enabled': true, 'policies.deleted_at': null})
+              .whereExists(function () {
+                  this.select(knex.raw('1')).from('scanners as scanner')
+                    .whereRaw('scanner.policy_id = policies.id')
+                    .where({'scanner.enabled': true, 'scanner.deleted_at': null})
+                    .whereRaw('UPPER(scanner.type) = ?', ['TRIVY']);
+              })
               .groupBy('cluster_id')
               .as('active_policy'), 'active_policy.cluster_id', 'c.id'
           ).where(imageSearchClause);
@@ -340,8 +346,20 @@ export class ImageDao {
         ])
           .from('policies as p')
           .where('p.relevant_for_all_clusters', true)
-          .andWhere('p.deleted_at', null)
-          .andWhereRaw(`p.id NOT IN (select policy_id from policy_cluster where policy_cluster.cluster_id = ?)`,[clusterId]);
+          .andWhere('p.enabled', true)
+          .whereNull('p.deleted_at')
+          .whereExists(function () {
+              this.select(knex.raw('1')).from('scanners as scanner')
+                .whereRaw('scanner.policy_id = p.id')
+                .where({'scanner.enabled': true, 'scanner.deleted_at': null})
+                .whereRaw('UPPER(scanner.type) = ?', ['TRIVY']);
+          })
+          .whereNotExists(function () {
+              this.select(knex.raw('1')).from('policy_cluster as pc')
+                .whereRaw('pc.policy_id = p.id')
+                .where('pc.cluster_id', clusterId)
+                .where('pc.active', true);
+          });
         return knexnest(query).then(data => data[0]);
     }
 

@@ -59,3 +59,36 @@ Implemented on modernization branch after RC1:
 - Introduce a local Kind-specific Docker Compose overlay that preserves Dash membership in the external `kind` network across recreation.
 
 **Unsupported or not verified as complete:** legacy service-account token storage and broad RBAC model, 100% UI modernization, framework upgrades, full scanner ingestion, Helm runtime and rollback, complete authentication isolation, and official CIS compatibility. The source RC is for test environments only.
+
+## RC3 kube-hunter follow-up (2026-11-07)
+
+- Fixed the kube-hunter dialog to use the server-validated Pod-reachable scanner ingestion origin instead of browser `localhost`.
+- Local Job and CronJob charts now obtain the callback from a named Secret; both are linted/rendered in CI using `batch/v1`.
+- Fixed the dashboard severity counters starting from 1, which inflated displayed vulnerability counts.
+- The operator reported that the live kube-hunter scan now works in Kind. This is operator-observed evidence, **not** independently collected database or browser evidence.
+- Fresh database-row correlation and Angular display acceptance commands are documented in [kube-hunter RC3 acceptance](kube-hunter-rc3-acceptance.md); until they pass, the persisted report and UI checks remain unverified.
+- The legacy kube-hunter dispatcher still places the credential in an HTTP URL internally. Keep production publication blocked until header-based dispatch, authorization, and secret rotation are verified.
+- RC3 CI is configured on the fix branch; mark it successful only when the **latest commit SHA** has a completed green run.
+
+
+## RC3 Trivy queue, authentication and Falco hardening (2026-11-07)
+
+- Java trawler switched from automatic broker acknowledgment to explicit acknowledgment **after** Dash report submission. API and scanner failures requeue the delivery rather than losing it.
+- Trivy report ingestion rejects missing/empty/invalid vulnerability counts and validates image membership in the claimed cluster before processing.
+- NestJS regression tests cover invalid image reports and cross-cluster image IDs. Existing Trivy severity and scan-error regressions remain mandatory.
+- kube-hunter report **read** routes require authenticated allowed roles; kube-hunter and Falco **ingest** routes now accept `X-API-Key` preferentially to legacy URL query credentials. Header-based migration does not mean query-string authentication has been removed.
+- Live, non-synthetic queue→worker→database→Angular acceptance is documented in [trivy-rc3-live-acceptance.md](trivy-rc3-live-acceptance.md). Until fresh DB and browser evidence are recorded, full integration is **not confirmed**.
+- **Production blockers:** monitored dead-letter recovery, idempotent scan-run records, cluster-scoped role authorization, token rotation/revocation, removal of legacy URL credentials, Falco runtime verification, Angular/NestJS framework upgrades and browser/UI regression tests.
+- Do not merge or publish the entire product as production-ready based on compile-only checks or a green standalone scanner job.
+
+### RC3 queue retry update
+
+RabbitMQ scan delivery now uses manual acknowledgment and confirmed durable publication for retries. After three retries, the job is moved to `trawler_queue.failed` for investigation rather than endlessly hot-looping. This is a quarantine queue, **not** a full operator-visible incident workflow; it still needs monitoring, error classification and tested replay procedures. At-least-once delivery can generate duplicate database rows until scan-run idempotency is implemented.
+
+## Trivy policy preflight correction (2026-11-07)
+
+- Fixed policy creation when an unused name returns an empty list from the policy DAO; previously it was compared only with null and could fail to create the new policy.
+- Image scan eligibility now requires an enabled policy with an enabled, nondeleted Trivy scanner, either actively mapped to the target cluster or global.
+- A missing eligible policy returns an actionable HTTP 422 and does **not** publish a scan job; it is not a Trivy engine failure.
+- No policy is auto-created or enabled. Operators must review cluster scope and thresholds in Dash. See [Trivy policy diagnostics](trivy-policy-setup-and-diagnostics.md).
+- Full-stack CI for the newest SHA and one live policy-backed Trivy scan remain release gates.

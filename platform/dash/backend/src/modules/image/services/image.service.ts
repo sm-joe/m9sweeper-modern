@@ -193,42 +193,52 @@ export class ImageService {
     }
 
     async createImageScanByImageId(imageIds: Array<{ id: number }>, clusterId: number): Promise<boolean> {
-        const checkClusterById = await this.clusterService.getClusterById(clusterId);
-        if (checkClusterById) {
-            const createScanImageResponseData = [];
-            let commonErrorMessage = '';
-            for (let i = 0; i < imageIds.length; i++) {
-
-                const getImageDetailsForScanImage = await this.imageDao.getImageDetailsForScanImage({
-                    'i.id': imageIds[i].id,
-                    'i.deleted_at': null,
-                    'i.cluster_id': clusterId
-                });
-                const excludedGlobalPolicies = await this.imageDao.countGlobalPoliciesNotIncludedInPolicyCluster(clusterId);
-                if (getImageDetailsForScanImage?.length) {
-                    if ((+getImageDetailsForScanImage[0].policyCount) + (+excludedGlobalPolicies.globalPolicyCount) > 0) {
-                        getImageDetailsForScanImage[0].image.path = null;
-                        const queueName = this.configurationService.get('messageQueue.imageScannerQueueName');
-                        const sendRes = await this.messagingService.send(queueName, getImageDetailsForScanImage[0]);
-                        createScanImageResponseData.push(sendRes);
-
-                        if (sendRes) {
-                            // set scan_queued to true
-                            this.imageDao.setImageScanQueueStatus(imageIds[i].id, true);
-                        }
-                    } else {
-                        commonErrorMessage = `No policy is found for "${getImageDetailsForScanImage[0].image.name}:${getImageDetailsForScanImage[0].image.tag}"`;
-                    }
-                } else {
-                    commonErrorMessage = 'Invalid image id'
-                }
-            }
-
-            if (createScanImageResponseData && createScanImageResponseData.length > 0) {
-                return true
-            }
-            throw new HttpException({message: commonErrorMessage}, HttpStatus.NOT_FOUND)
+        const cluster = await this.clusterService.getClusterById(clusterId);
+        if (!cluster) {
+            throw new HttpException({message: 'Invalid cluster id'}, HttpStatus.NOT_FOUND);
         }
+        if (!Array.isArray(imageIds) || imageIds.length === 0) {
+            throw new HttpException({message: 'No images supplied for scanning'}, HttpStatus.BAD_REQUEST);
+        }
+
+        for (const image of imageIds) {
+            const matches = await this.imageDao.getImageDetailsForScanImage({
+                'i.id': image.id,
+                'i.deleted_at': null,
+                'i.cluster_id': clusterId
+            });
+            if (!matches?.length) {
+                throw new HttpException({message: 'Invalid image id'}, HttpStatus.NOT_FOUND);
+            }
+
+            const globalPolicies = await this.imageDao.countGlobalPoliciesNotIncludedInPolicyCluster(clusterId);
+            const scanInput = matches[0];
+            if ((+scanInput.policyCount) + (+globalPolicies.globalPolicyCount) <= 0) {
+                throw new HttpException({
+                    message: `No enabled Trivy policy is assigned to cluster ${clusterId} for "${scanInput.image.name}:${scanInput.image.tag}". Create or enable a policy with an enabled Trivy scanner and assign it to this cluster, then retry.`
+                }, HttpStatus.UNPROCESSABLE_ENTITY);
+            }
+
+            scanInput.image.path = null;
+            const queueName = this.configurationService.get('messageQueue.imageScannerQueueName');
+            // Mark the image queued before publishing. Publishing first races
+            // the worker: a fast result can clear the flag, then a late write
+            // by this request sets it back to true forever.
+            await this.imageDao.setImageScanQueueStatus(image.id, true);
+            try {
+                const accepted = await this.messagingService.send(queueName, scanInput);
+                if (!accepted) {
+                    throw new HttpException({message: 'Image scanner queue rejected the scan request'}, HttpStatus.SERVICE_UNAVAILABLE);
+                }
+            } catch (error) {
+                // No confirmed delivery. A failed rollback must propagate rather
+                // than hiding the inconsistent queue state.
+                await this.imageDao.setImageScanQueueStatus(image.id, false);
+                throw error;
+            }
+        }
+
+        return true;
     }
 
     async saveImageScanDataByImageId(clusterId: number,

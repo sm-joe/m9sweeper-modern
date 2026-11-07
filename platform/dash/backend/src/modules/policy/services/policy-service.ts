@@ -13,7 +13,7 @@ export class PolicyService {
 
     async createPolicy(policy: PolicyDto): Promise<PolicyDto> {
         const policyByName: PolicyDto[] = await this.policyDao.getPolicyByName(policy.name);
-        if (policyByName === null) {
+        if (!policyByName || policyByName.length === 0) {
             const policyIds: number[] = await this.policyDao.createPolicy(policy);
             if (policyIds && Array.isArray(policyIds) && policyIds.length > 0) {
                 return await this.policyDao.getPolicyById(policyIds[0]);
@@ -96,7 +96,7 @@ export class PolicyService {
 
     validateActivePolicyScanners(policy: PolicyDto, scanners: ScannerDto[]): boolean {
         // Checks if an active policy has at least one active scanner
-        return !policy.enabled || scanners.some((scanner) => scanner.enabled);
+        return !policy.enabled || (Array.isArray(scanners) && scanners.some((scanner) => scanner.enabled && scanner.type?.toUpperCase() === 'TRIVY'));
     }
 }
 

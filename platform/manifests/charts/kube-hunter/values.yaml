@@ -20,7 +20,10 @@ pod:
   annotations: {}
 
 #### URL of your kube-hunter api of app
-dispatchUrl: ""
+dispatchUrl: "" # Deprecated and ignored. Never pass report credentials in Helm values.
+dispatchAuth:
+  existingSecret: ""
+  secretKey: dispatchUrl
 
 
 image:
