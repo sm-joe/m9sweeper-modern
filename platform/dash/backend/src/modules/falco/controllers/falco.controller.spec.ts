@@ -52,4 +52,23 @@ describe('Falco ingestion authentication', () => {
       .rejects.toMatchObject({status: 400});
     expect(falco.createFalcoLog).not.toHaveBeenCalled();
   });
+
+  it('rejects a scanner credential without a grant for the selected cluster in enforced mode', async () => {
+    const previous = process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS;
+    process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS = 'true';
+    users.loadUserByApiKey.mockResolvedValue([{
+      id: 17, authorities: ['SCANNER'], isActive: true
+    }]);
+    users.scannerHasClusterGrant = jest.fn().mockResolvedValue(false);
+    try {
+      await expect(controller.createFalcoLog(3,
+        {rule: 'test', priority: 'Warning', output: 'test', outputFields: {}} as any,
+        'scanner-key')).rejects.toMatchObject({status: 401});
+      expect(falco.createFalcoLog).not.toHaveBeenCalled();
+      expect(users.scannerHasClusterGrant).toHaveBeenCalledWith(17, 3);
+    } finally {
+      if (previous === undefined) delete process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS;
+      else process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS = previous;
+    }
+  });
 });
