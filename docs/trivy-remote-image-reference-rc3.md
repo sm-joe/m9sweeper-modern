@@ -53,3 +53,37 @@ docker exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELEC
 **Acceptance:** a new correctly attributed result exists in PostgreSQL; the corresponding Angular view displays actual findings; scanner failures are not clean. If the exact tag no longer exists, do not replace it with an unrelated tag and claim the current runtime image was assessed.
 
 No host Docker socket mount, database reset, or disabling of scanner-failure classification is necessary.
+
+## RC3 dashboard scan-stall correction (2026-11-07)
+
+A direct CLI scan could finish while the dashboard worker appeared stuck because the Java scanner performed `trivy image --clear-cache` before every scan. This separate cache process had no progress output or timeout in the worker, and cache purging could contend with other scans. RC3 removes that per-scan cache step, logs the **actual registry tag** rather than the obsolete runtime digest, and preserves the Trivy exit status instead of masking it with shell cleanup commands.
+
+### Apply and test without touching your existing Postgres volume
+
+```powershell
+cd D:\AWS\repos\m9sweeper-modern
+git fetch origin
+git switch fix/rc3-trivy-queue-fail-closed
+git pull --ff-only origin fix/rc3-trivy-queue-fail-closed
+cd platform\trawler
+mvn -B -ntp test
+cd ..\docker-compose
+docker compose -f docker-compose.yml -f docker-compose.kind.yml build trawler
+docker compose -f docker-compose.yml -f docker-compose.kind.yml up -d --no-deps --force-recreate trawler
+docker logs m9sweeper-trawler --tail 80
+docker exec rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged
+```
+
+If messages were previously stuck `unacknowledged`, recreating the worker will cause RabbitMQ to redeliver them. Do **not** repeatedly click Scan while one is processing. Repeated invalid/failed jobs may eventually appear in the durable `trawler_queue.failed` quarantine; inspect the queue but do not purge or replay messages without identifying their failure cause.
+
+### Check the specific image scan
+
+```powershell
+docker exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id,cluster_id,name,tag,scan_queued,scan_results,critical_issues,major_issues FROM images WHERE name LIKE '%coredns%' ORDER BY id DESC;"'
+docker logs m9sweeper-trawler --since 10m --tail 160
+docker exec rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged
+```
+
+The worker should log `Initiating remote Trivy scan of registry.k8s.io/coredns/coredns:v1.14.6`, `Remote Trivy process launched`, and a process exit status. A completed valid scan should clear `scan_queued` and update the database; the dashboard should show findings, not a clean status. Use the full [Trivy queue-to-UI acceptance](trivy-rc3-live-acceptance.md) to verify that result.
+
+**Limitations:** The worker may still reprocess jobs when its report upload fails and can quarantine them after bounded retries; a quarantined scan may leave `scan_queued` set in the existing schema until explicit failure reconciliation is implemented. No claim of completed live dashboard acceptance is made by this source change.
