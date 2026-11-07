@@ -78,3 +78,17 @@ See [RC2 acceptance criteria](docs/m9sweeper-new-0.1.0-rc2.md), [product release
 This project is based on the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) repository, pinned at upstream revision `2bc394b5db0d00e3a5784d388ba26be6451ff9c0`. The original **Apache License 2.0** is retained unmodified at [`platform/LICENSE`](platform/LICENSE); original file notices, attribution and third-party notices must remain intact. See [`ATTRIBUTION.md`](ATTRIBUTION.md).
 
 The `m9sweeper-new` development name does **not** imply endorsement or affiliation by upstream maintainers. Trademark, upstream notices and third-party scanner licenses require review before distributing independently.
+
+## RC3 development integration (2026-11-07)
+
+RC3 builds on the tested RC2 baseline and adds important correctness and operational safeguards. **These changes are not a published production release.**
+
+- **Trivy queue and persistence:** fail closed on rejected RabbitMQ writes, acknowledge scan work only after the Java trawler submits results, confirm durable retry messages, and quarantine repeatedly failed scans in `trawler_queue.failed` after three retries. Scanner failures are never synthesized as clean findings. A scan-run idempotency key and managed recovery workflow are still required to prevent duplicates and handle quarantined jobs.
+- **API isolation:** reject empty and malformed scan uploads, negative vulnerability counts, and image IDs that do not belong to the declared cluster. New NestJS regressions cover these cases.
+- **kube-hunter:** Pod-reachable callback, Kubernetes Secret-backed local Helm configuration, authenticated report reads, and accurate displayed vulnerability counters. The operator confirmed a live scan works in local Kind.
+- **Falco:** use `X-API-Key` header authentication, prefer it over the legacy query token, and generate a Secret-backed Falcosidekick install command using the original pinned chart's existing Secret support. The live Falco pipeline is not yet validated.
+- **Delivery proof:** independent Trivy, Falco, and kube-hunter runbooks distinguish successful API/worker execution from actual PostgreSQL persistence and Angular display. See [Trivy acceptance](docs/trivy-rc3-live-acceptance.md), [Falco acceptance](docs/falco-rc3-live-acceptance.md), and [kube-hunter acceptance](docs/kube-hunter-rc3-acceptance.md).
+
+For development, check out `fix/rc3-trivy-queue-fail-closed` and rebuild the existing Compose stack using its Kind overlay. Do not delete existing volumes. Verify the latest branch CI SHA and run the E2E procedures before marking RC3 accepted.
+
+**Outstanding production blockers:** live Trivy queue→DB→UI and Falco event→DB→UI evidence; token removal from URL-based legacy paths; multi-cluster RBAC; idempotent queue processing and DLQ recovery; full Helm lifecycle; supported Angular/NestJS upgrades; accessibility/E2E UI redesign and artifact security checks.
