@@ -31,6 +31,37 @@ describe('ImageService scan queue safety', () => {
         );
     });
 
+    it('registers only one reconciliation timer and cleans it up on shutdown', async () => {
+        jest.useFakeTimers();
+        try {
+            dao.expireStaleScanRuns = jest.fn().mockResolvedValue(0);
+            service.onModuleInit();
+            service.onModuleInit();
+
+            await jest.advanceTimersByTimeAsync(5 * 60 * 1000);
+            expect(dao.expireStaleScanRuns).toHaveBeenCalledTimes(1);
+
+            service.onModuleDestroy();
+            await jest.advanceTimersByTimeAsync(5 * 60 * 1000);
+            expect(dao.expireStaleScanRuns).toHaveBeenCalledTimes(1);
+        } finally {
+            service.onModuleDestroy();
+            jest.useRealTimers();
+        }
+    });
+
+    it('prevents overlapping stale-scan reconciliation executions', async () => {
+        let finish: (value: number) => void;
+        dao.expireStaleScanRuns = jest.fn().mockImplementation(
+            () => new Promise<number>(resolve => { finish = resolve; })
+        );
+        const first = service.reconcileExpiredScanRuns();
+        await service.reconcileExpiredScanRuns();
+        expect(dao.expireStaleScanRuns).toHaveBeenCalledTimes(1);
+        finish!(0);
+        await first;
+    });
+
     it('marks queued before broker publication', async () => {
         await expect(service.createImageScanByImageId([{id: imageId}], clusterId)).resolves.toBe(true);
         expect(messaging.send).toHaveBeenCalledWith('scan-images', expect.objectContaining({
