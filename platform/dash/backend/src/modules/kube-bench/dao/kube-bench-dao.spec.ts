@@ -14,6 +14,7 @@ describe('kube-bench data isolation across clusters', () => {
       then: (fn: any) => Promise.resolve(fn([{id: 1,cluster_id: 7}]))
     };
     const knex: any = (...args: any[]) => {calls.push(['knex', ...args]);return query;};
+    knex.select = query.select;
     const dao = new KubeBenchDao({getConnection: jest.fn().mockResolvedValue(knex)} as any, {} as any);
     return {dao,calls};
   }
