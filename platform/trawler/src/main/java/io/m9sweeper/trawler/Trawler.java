@@ -218,6 +218,17 @@ public class Trawler extends AbstractCommand implements Runnable {
                         throw new IOException("No policies returned for queued cluster");
                     }
 
+                    // Preserve the broker-assigned run identity across delivery retries
+                    // and forward it to the authenticated Dash ingestion endpoint.
+                    Object scanRunId = payload.getAdditionalProperties().get("scanRunId");
+                    if (scanRunId instanceof String &&
+                            ((String) scanRunId).matches("[0-9a-fA-F-]{36}")) {
+                        defaultClient.addDefaultHeader("X-Scan-Run-Id", (String) scanRunId);
+                    } else {
+                        // Legacy jobs cannot be safely deduplicated; never inherit
+                        // the previous delivery's identity on the shared API client.
+                        defaultClient.addDefaultHeader("X-Scan-Run-Id", "");
+                    }
                     try {
                         new ScanRunner(api, payload, policies.getData()).scan();
                     } catch (NoncompliantException expectedFinding) {
