@@ -1,4 +1,4 @@
-import {selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
+import {parseScannerClusterId, selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
 import {
     Body,
     Controller,
@@ -151,6 +151,12 @@ export class FalcoController {
         @Query('key') key: string,
         @Headers('x-api-key') headerKey?: string
     ): Promise<FalcoDto> {
+        const parsedClusterId = parseScannerClusterId(clusterId);
+        if (!Number.isFinite(parsedClusterId)) {
+            throw new HttpException('Invalid cluster identifier', HttpStatus.BAD_REQUEST);
+        }
+        clusterId = parsedClusterId;
+
         // look up user by api key
         const currentUserAuthObj = await this.userDao.loadUserByApiKey(selectScannerIngestKey(headerKey, key));
         if (!Array.isArray(currentUserAuthObj) || currentUserAuthObj.length === 0) {
