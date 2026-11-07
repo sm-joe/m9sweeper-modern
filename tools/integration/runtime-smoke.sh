@@ -76,4 +76,14 @@ if [[ "$identities" != "5" ]]; then
 fi
 echo "PASS: five original scanner/metrics service accounts have active persisted API keys"
 
+# A report upload without a credential must fail with HTTP 401, not silently accept or persist it.
+status="$(curl -s -o /tmp/m9-unauthorized-bench.json -w '%{http_code}' --max-time 15 -X POST \
+  -H 'Content-Type: application/json' --data '{"Controls":[],"Totals":{"total_pass":0}}' \
+  http://127.0.0.1:3000/api/kube-bench/1)"
+if [[ "$status" != '401' ]]; then
+  echo "FAIL: unauthenticated kube-bench ingestion returned HTTP $status instead of 401" >&2
+  exit 1
+fi
+echo 'PASS: unauthenticated kube-bench upload rejected with 401'
+
 echo 'PASS: original full app, Postgres, RabbitMQ, admin seed and authentication'

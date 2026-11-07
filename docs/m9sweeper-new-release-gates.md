@@ -28,3 +28,11 @@ The existing kube-bench endpoint currently authenticates via an API key in the q
 - Never disable TLS verification to make onboarding work.
 - Do not turn manual CIS reviews into fails, nor claim official compliance from a legacy benchmark.
 - Do not publish this new product until scanner ingestion and real Kubernetes lifecycle tests are green.
+
+## Release candidate security acceptance added
+
+- kube-bench report upload now accepts `X-API-Key` as a non-URL alternative to the legacy query parameter, with header precedence.
+- Denies absent, unknown and unauthorized scanner credentials (401), and rejects malformed data and invalid cluster identifiers (400).
+- Unit tests cover the credential and evidence gates; runtime CI asserts HTTP 401 for unauthenticated uploads.
+- The UI now uses the checked-out local kube-bench chart, not the original upstream Helm repository, to avoid mixing new-product code with legacy published chart artifacts.
+- **Still blocked for production:** the frontend's legacy command still exposes the key in Helm values, and the Helm chart does not yet provision a credential Secret. Migrate to Kubernetes Secret-backed header authentication before publishing.
