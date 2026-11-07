@@ -25,6 +25,13 @@ export class ClusterAccessGuard implements CanActivate {
             return true;
         }
         const req = context.switchToHttp().getRequest();
+        // Legacy trawler identity must remain usable while service-account
+        // keys migrate to per-cluster grants. Only the explicitly protected
+        // scan ingestion path can use this transitional exception.
+        if (this.user.authorities.some(role => role?.type === 'TRAWLER') &&
+            String(req.originalUrl || req.url || '').includes('/trawler/')) {
+            return true;
+        }
         const params = req.params || {};
         const query = req.query || {};
         const knex = await this.database.getConnection();
