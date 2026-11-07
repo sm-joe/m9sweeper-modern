@@ -277,6 +277,10 @@ export class ImageService {
         await this.imageDao.completeScanRun(id, compliant);
     }
 
+    async recordQuarantinedScanRun(id: string, clusterId: number, imageId: number): Promise<boolean> {
+        return this.imageDao.failScanRunAndRelease(id, clusterId, imageId);
+    }
+
     async failScanRun(id: string, reason: string): Promise<void> {
         await this.imageDao.markScanRunFailed(id, reason);
     }
