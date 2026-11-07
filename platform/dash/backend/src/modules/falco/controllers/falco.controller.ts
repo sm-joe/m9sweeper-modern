@@ -1,3 +1,4 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
 import {parseScannerClusterId, selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
 import {
     Body,
@@ -53,7 +54,7 @@ export class FalcoController {
 
     @Get()
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getFalcoLogs(
         @Query('cluster-id') clusterId: number,
         @Query('limit') limit?: number,
@@ -77,7 +78,7 @@ export class FalcoController {
 
     @Get('/count')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200
     })
@@ -91,7 +92,7 @@ export class FalcoController {
 
     @Get('/apiKey')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200
     })
@@ -107,7 +108,7 @@ export class FalcoController {
     @Get('/download')
     @AllowedAuthorityLevels(Authority.ADMIN, Authority.SUPER_ADMIN, Authority.READ_ONLY)
     @Header('Content-Type', 'text/csv')
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async downloadFalcoExport(
         @Query('cluster-id') clusterId: number,
         @Query('limit') limit?: number,
@@ -132,7 +133,7 @@ export class FalcoController {
 
     @Get('/:clusterid/findsetting')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201
     })
@@ -198,7 +199,7 @@ export class FalcoController {
 
     @Post(':clusterid/settings')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async createFalcoSetting(
         @Param('clusterid') clusterId: number,
         @Body() falcoSetting: FalcoSettingDto
@@ -209,7 +210,7 @@ export class FalcoController {
 
     @Post('/rules')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async createFalcoRule(
       @Param('clusterId') clusterId: number,
       @Body() rule: FalcoRuleCreateDto
@@ -219,14 +220,14 @@ export class FalcoController {
     }
 
     @Get('/rules')    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async listActiveFalcoRulesForCluster(@Query('clusterId') clusterId?: number): Promise<FalcoRuleDto[]> {
         return this.falcoService.listActiveFalcoRules({ clusterId });
     }
 
     @Put('/rules/:ruleId')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async updateFalcoRule(
       @Param('clusterId') clusterId: number,
       @Param('ruleId') ruleId: number,
@@ -240,7 +241,7 @@ export class FalcoController {
 
     @Delete('/rules/:ruleId')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async deleteFalcoRule(
       @Param('clusterId') clusterId: number,
       @Param('ruleId') ruleId: number
@@ -250,7 +251,7 @@ export class FalcoController {
 
     @Get('/:eventId')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201
     })
