@@ -157,6 +157,15 @@ export class FalcoController {
         }
         clusterId = parsedClusterId;
 
+        if (!falcoLog || typeof falcoLog !== 'object' ||
+            typeof falcoLog.rule !== 'string' || !falcoLog.rule.trim() ||
+            typeof falcoLog.priority !== 'string' || !falcoLog.priority.trim() ||
+            typeof falcoLog.output !== 'string' ||
+            !falcoLog.outputFields || typeof falcoLog.outputFields !== 'object' ||
+            Array.isArray(falcoLog.outputFields)) {
+            throw new HttpException('Malformed Falco webhook event', HttpStatus.BAD_REQUEST);
+        }
+
         // look up user by api key
         const currentUserAuthObj = await this.userDao.loadUserByApiKey(selectScannerIngestKey(headerKey, key));
         if (!Array.isArray(currentUserAuthObj) || currentUserAuthObj.length === 0) {
