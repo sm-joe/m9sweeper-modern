@@ -24,7 +24,7 @@ describe('Falco ingestion authentication', () => {
 
   it('rejects an empty API key lookup without writing a Falco event', async () => {
     users.loadUserByApiKey.mockResolvedValue([]);
-    await expect(controller.createFalcoLog(3, {rule: 'test'} as any, 'bad-token'))
+    await expect(controller.createFalcoLog(3, {rule: 'test', priority: 'Warning', output: 'test', outputFields: {}} as any, 'bad-token'))
       .rejects.toBeInstanceOf(UnauthorizedException);
     expect(falco.createFalcoLog).not.toHaveBeenCalled();
   });
