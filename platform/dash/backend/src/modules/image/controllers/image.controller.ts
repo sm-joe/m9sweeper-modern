@@ -305,7 +305,9 @@ export class ImageController {
 
         // imageID sent by Trawler is that of the first image with a matching name. Use it as a default value, but
         // otherwise ignore it while comparing images by hash
-        const imageData = await this.imageService.getImageByImageId(+clusterId, +imageId);
+        // Reject cross-cluster IDs before resolving the complete image object.
+        await this.imageService.getImageByImageId(+clusterId, +imageId);
+        const imageData = await this.imageService.getImageById(+imageId);
         let targetImage: ListOfImagesDto;
         // if the image hash matches that of the image pulled by ID, or the pulled image has a temporary hash, overwrite it
         // if Trawler did not send an image hash, update the default image sent by Trawler
