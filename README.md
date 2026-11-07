@@ -1,110 +1,80 @@
-# m9sweeper-new — product modernization (development)
+# m9sweeper-new
 
-> **Status: not released.** This repository is the source for a future standalone product, not a production-certified fork and not a simple rename of the original m9sweeper.
+**An emerging Kubernetes security operations platform** — an attributed, source-preserving modernization of the original open-source m9sweeper project.
 
-The complete original m9sweeper platform is preserved in `platform/` as a migration baseline; the legacy experimental implementation is in `archive/experimental-preview/`. The new product is being developed on `product/m9sweeper-new-foundation`, while `revamp/original-platform` retains the source-restoration baseline.
+> **Status: v0.1.0-rc2 developer integration candidate. Not production-ready.**
+> This project is not a certified CIS compliance checker; actual scanner results, coverage and benchmark compatibility must be verified for each target cluster.
 
-## What is actually different
+## Why a new product
 
-- Real Angular login/navigation and cluster dashboard refinements (not yet a framework migration)
-- Fixed NestJS policy decisions, fail-closed admission logic and more actionable cluster onboarding errors
-- Improved startup/seed consistency, PostgreSQL and RabbitMQ integration
-- Java trawler JVM packaging with pinned Trivy and real scanner acceptance checks
-- Separate browser-facing URL (`SERVER_BASE_URL`) from **Kubernetes-Pod-reachable** callback URL (`SCANNER_REPORT_INGESTION_URL`), with fail-closed UI generation when it is absent
-- Real CI for builds, integration smoke, Kind inventory, kube-bench, Kubesec, Trivy, Helm template checks
+The original application is preserved as the migration baseline in [`platform/`](platform/). This branch is **not** a finished rewrite or a claim of compatibility with all current Kubernetes releases. It replaces unsupported and unsafe assumptions with incremental, tested product functionality while retaining the actual user/cluster/scanner/policy/reporting workflows.
 
-**Not yet delivered:** current-generation Angular architecture, broader NestJS dependency upgrade, end-to-end scanner persistence for every scanner, authenticated scanner callbacks without URL query keys, production Helm lifecycle, OIDC/RBAC assurance, benchmark compatibility verification, and comprehensive database backup/restore. Do not merge or publish as production-ready until acceptance gates pass.
+### Functional scope (retained from upstream, not necessarily E2E verified)
 
-## Local development
+- Angular application: cluster inventory, image vulnerability dashboards, policies, exceptions, user management, scan history and security reports
+- NestJS API with PostgreSQL persistence, JWT authentication, RabbitMQ and integration with Kubernetes
+- Java trawler for Trivy image scanning; upstream kube-bench, Kubesec, Falco and kube-hunter integration source
+- Admission policy, Gatekeeper, Helm deployment charts, and Docker Compose development stack
 
-Use `platform/docker-compose/.env.sample` as a starting point and supply strong unique secrets. Build and run the actual original platform with Docker Compose from `platform/docker-compose/`.
+### What is new and verified so far
 
-Set `SERVER_BASE_URL=http://localhost:3000` only for browser access. When generating kube-bench jobs, configure `SCANNER_REPORT_INGESTION_URL` as an **address reachable from the scanner Pod**, such as a private in-cluster service URL for a Kubernetes deployment. Do not use `localhost` or assume Docker Compose service DNS is reachable from Kind. Enable authenticated TLS for a public or cross-network deployment.
+| Track | Actual implementation | Evidence |
+|---|---|---|
+| Product UI | Updated login/navigation; scanner report readiness status using standalone Angular Signals component | Angular production build; live API configuration in RC1 |
+| Backend | Policy and admission fixes; hardened API-key validation; cluster-scoped kube-bench reporting | Jest regression suites, login + database smoke |
+| Kubernetes | CA-required service-account onboarding; clearer failures; token readiness; no insecure TLS fallback on changed paths | Source regressions and Kind client inventory |
+| Scanner | Java worker image using Trivy v0.76.2; corrected Trivy severity classification, unknown finding treatment, malformed scan handling, and secret-safe debug output | Maven + JUnit and real standalone Trivy scan |
+| Compliance | kube-bench Secret-backed HTTP-header auth; observed result counts explicitly not official compliance scores | Helm templates, Kind kube-bench job, m9sweeper PDF integration test |
+| Deployment | Optional Kind Compose overlay; private local defaults and required secrets; CI-gated source candidate | Compose, image build, Helm lint/template, Kind smoke |
 
-For local Docker/Kind use the optional [Kind Compose overlay](docs/local-kind-integration.md). See [product scope and release gates](docs/m9sweeper-new-release-gates.md) and [existing acceptance ledger](docs/integration-acceptance.md).
+**Important:** a unit test or individual scanner run does not prove the full scanner→queue→database→dashboard pipeline.
 
-## Licensing and independence
-
-This is a fork-based modernization and retains the original upstream source, license and attribution. Product naming, trademark review, separate distribution, scanner licensing and public release process remain open. Independent branding does not remove upstream attribution obligations.
-
----
-## Earlier repository README (preserved below)
-
-# m9sweeper Modern — Source-first Kubernetes security platform revamp
-
-This repository is modernizing the **actual [m9sweeper](https://github.com/m9sweeper/m9sweeper) product**, not building a substitute scan-results demo.
-
-**Canonical application source:** [`platform/`](platform/). Original commit pinned to `2bc394b5db0d00e3a5784d388ba26be6451ff9c0`. The complete upstream code and its Apache 2.0 licensing/attribution are retained.
-
-## Product capabilities retained in source
-
-- Authenticated Angular dashboard, SSO/local/LDAP login and user/role administration
-- Kubernetes cluster/group onboarding, workloads, Pods, namespaces and image inventory
-- Trivy vulnerability scanning through the Java trawler and asynchronous RabbitMQ worker
-- Policies, scanner thresholds, namespace/cluster exceptions, admission webhook logic
-- kube-bench CIS assessments, kube-hunter tests, Kubesec deployment security
-- Falco security events, OPA Gatekeeper policy management
-- Historical reports, risk comparisons, audits, database migrations, Helm deployment and cron schedules
-
-These are the original application's real code paths. Their availability in source is **not** a claim that every integration has passed a 2026 Kubernetes deployment test.
-
-## Implemented modernization on this branch
-
-- Responsive actual Angular login and navigation, dashboard visual system, cluster group display.
-- Fixed real menu callback assignment bug, empty cluster-group first-run handling, and original policy-compliance severity limit interpretation. Added regression tests.
-- Corrected umbrella Helm dependencies to local original subcharts, required strong installation credentials, and updated admission API fields. Webhook remains opt-in.
-- CI builds the **original Angular and NestJS projects**, exercises original Jest policy regressions, renders/lints Helm charts, verifies feature parity, and checks the Java trawler.
-
-The earlier small prototype is archived in [`archive/experimental-preview/`](archive/experimental-preview/). It is not the deployment or application baseline.
-
-## Architecture
+## Architecture (current implementation)
 
 ```text
-platform/
-  dash/
-    frontend/      Angular 17 application and real security workflows (upgrading)
-    backend/       NestJS API, authentication, scheduling, persistence (upgrading)
-  trawler/         Java 17 RabbitMQ/Trivy scanning agent (upgrading)
-  manifests/charts/
-    m9sweeper/     Umbrella Helm chart
-    dash/          API + UI and Kubesec service
-    trawler/       Worker deployment
-    kube-bench/    CIS jobs
-    kube-hunter/   Penetration testing jobs
-    postgres/      Database
-    rabbitmq/      Queue
-  docker-compose/ Historical local integration environment
+Angular UI (Dash)
+     | REST / JWT
+NestJS API ------- PostgreSQL (inventory, findings, policies, reports)
+     | \
+     |  RabbitMQ ---> Java trawler ---> Trivy
+     |
+     +-- Kubernetes API (cluster resources / RBAC)
+     +-- kube-bench / Kubesec / Falco / kube-hunter (varied maturity)
+     +-- Admission and policy hooks (not fully E2E release-validated)
 ```
 
-## Developer builds
+## Getting started: development integration
 
-Node.js 20, Java 17, Maven and Helm 3 are the build baseline while dependencies are being migrated.
+**Prerequisites:** Linux/Unix development host or a compatible Docker environment, Docker Compose, and optionally Kind + kubectl + Helm. This is not a hardened production installer.
 
-```bash
-# Original NestJS backend and policy suite
-cd platform/dash/backend
-npm ci --legacy-peer-deps
-npm run build:api
-npm test -- --runInBand
+1. Clone and check out the `release/m9sweeper-new-v0.1.0-rc2` branch (once published).
+2. In `platform/docker-compose/`, copy `.env.sample` to `.env` and supply unique credentials. Never commit `.env`.
+3. Run `docker compose up -d --build` and check `http://localhost:3000/api/health`. The login application is available at `http://localhost:3000`.
+4. For **local Kind only**, use `docker compose -f docker-compose.yml -f docker-compose.kind.yml up -d --build`. This automatically attaches Dash to the Docker `kind` bridge; see [Kind integration](docs/local-kind-integration.md).
+5. Set `SCANNER_REPORT_INGESTION_URL` to the **Pod-reachable API origin**, not your browser's `localhost`. Verify from inside the Kubernetes cluster before generating scanner Jobs.
+6. For kube-bench, create the namespace-local API-key Secret referenced by the generated Helm command. See the [RC2 test guide](docs/m9sweeper-new-0.1.0-rc2.md).
+7. Verify new findings are **persisted** and shown by the application; HTTP health alone is not enough.
 
-# Existing Angular UI uses some backend DTO imports; install backend packages first.
-cd ../frontend
-npm ci --legacy-peer-deps
-npm run build:prod
+For real Kubernetes deployment, use internally routable HTTPS and Secrets, least privilege, trusted CAs and tested image signatures. The bundled Helm stack has not yet passed release-level installation/rollback checks.
 
-# Original scanning agent
-cd ../../trawler
-mvn -B test
+## CI and source RC
 
-# Helm package validation
-cd ../manifests/charts
-helm dependency update m9sweeper
-```
+The [full platform CI workflow](.github/workflows/revamp-platform-ci.yml) covers source parity, Angular and NestJS, Java scanner tests, runtime authentication, PostgreSQL and RabbitMQ, Trivy and Kubesec, Kind inventory/kube-bench, container images and Helm rendering. A versioned source archive is built **only after all existing CI gates pass**. This is a test candidate, not a signed production release.
 
-## Deployment status
+See [RC2 acceptance criteria](docs/m9sweeper-new-0.1.0-rc2.md), [product release blockers](docs/m9sweeper-new-release-gates.md), and [integration evidence ledger](docs/integration-acceptance.md).
 
-**No production release has been approved.** Scanner images and the historical stack still require a full security and compatibility update and a cluster E2E acceptance run. Never expose the prior prototype, and do not deploy using the upstream README's example credentials. The Helm chart now rejects missing or weak admin/API secrets.
+## Blockers before a public product release
 
-See [source and migration roadmap](docs/source-first-modernization.md), [actual implementation status](docs/actual-product-progress.md), and [PR #2](https://github.com/sm-joe/m9sweeper-modern/pull/2).
+- Supported Angular and NestJS framework/tooling upgrades; design-system and browser regression coverage
+- Trivy queue→DB→UI E2E, and full live Falco/kube-hunter ingestion and isolation
+- Short-lived identities, least-privilege Kubernetes RBAC, credential encryption, OIDC/RBAC and multicluster authorization
+- Full Helm lifecycle tests, admission webhook TLS/outage behavior, DB migration backup/restore, and audited release artifacts
+- Validated version-specific CIS benchmark mappings with reviewable evidence and remediation; no fabricated certification or score
 
-Licensed under Apache 2.0, subject to the original project notices in [`platform/LICENSE`](platform/LICENSE).
+**Do not advertise this branch as production-certified or fully modernized until the blockers have tested evidence.**
+
+## Licensing and upstream attribution
+
+This project is based on the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) repository, pinned at upstream revision `2bc394b5db0d00e3a5784d388ba26be6451ff9c0`. The original **Apache License 2.0** is retained unmodified at [`platform/LICENSE`](platform/LICENSE); original file notices, attribution and third-party notices must remain intact. See [`ATTRIBUTION.md`](ATTRIBUTION.md).
+
+The `m9sweeper-new` development name does **not** imply endorsement or affiliation by upstream maintainers. Trademark, upstream notices and third-party scanner licenses require review before distributing independently.
