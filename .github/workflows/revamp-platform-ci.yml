@@ -1,7 +1,7 @@
 name: Full m9sweeper platform source validation
 on:
   push:
-    branches: [revamp/original-platform]
+    branches: [revamp/original-platform, product/m9sweeper-new-foundation]
     paths:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'

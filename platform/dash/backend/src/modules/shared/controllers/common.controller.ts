@@ -12,6 +12,7 @@ import {AllowedAuthorityLevels} from "../../../decorators/allowed-authority-leve
 import {Authority} from "../../user/enum/Authority";
 import {AuthGuard} from "../../../guards/auth.guard";
 import {AuthorityGuard} from "../../../guards/authority.guard";
+import {validateScannerReportEndpoint} from '../services/report-endpoint';
 
 
 @ApiTags('Common')
@@ -29,9 +30,12 @@ export class CommonController {
         status: 200,
         schema: BASE_URL_SCHEMA
     })
-    async getBaseUrl(): Promise<{baseUrl: string}> {
+    async getBaseUrl(): Promise<{baseUrl: string; reportIngestionUrl: string | null}> {
         const baseUrl = this.configService.get('server.baseUrl');
-        return {baseUrl};
+        // Only expose a validated scanner callback URL. Missing/malformed configuration
+        // must prevent generating a broken scan Job instead of falling back to localhost.
+        const reportIngestionUrl = validateScannerReportEndpoint(this.configService.get('server.reportIngestionUrl'));
+        return {baseUrl, reportIngestionUrl};
     }
 
 

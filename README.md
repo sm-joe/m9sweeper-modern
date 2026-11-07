@@ -1,3 +1,35 @@
+# m9sweeper-new — product modernization (development)
+
+> **Status: not released.** This repository is the source for a future standalone product, not a production-certified fork and not a simple rename of the original m9sweeper.
+
+The complete original m9sweeper platform is preserved in `platform/` as a migration baseline; the legacy experimental implementation is in `archive/experimental-preview/`. The new product is being developed on `product/m9sweeper-new-foundation`, while `revamp/original-platform` retains the source-restoration baseline.
+
+## What is actually different
+
+- Real Angular login/navigation and cluster dashboard refinements (not yet a framework migration)
+- Fixed NestJS policy decisions, fail-closed admission logic and more actionable cluster onboarding errors
+- Improved startup/seed consistency, PostgreSQL and RabbitMQ integration
+- Java trawler JVM packaging with pinned Trivy and real scanner acceptance checks
+- Separate browser-facing URL (`SERVER_BASE_URL`) from **Kubernetes-Pod-reachable** callback URL (`SCANNER_REPORT_INGESTION_URL`), with fail-closed UI generation when it is absent
+- Real CI for builds, integration smoke, Kind inventory, kube-bench, Kubesec, Trivy, Helm template checks
+
+**Not yet delivered:** current-generation Angular architecture, broader NestJS dependency upgrade, end-to-end scanner persistence for every scanner, authenticated scanner callbacks without URL query keys, production Helm lifecycle, OIDC/RBAC assurance, benchmark compatibility verification, and comprehensive database backup/restore. Do not merge or publish as production-ready until acceptance gates pass.
+
+## Local development
+
+Use `platform/docker-compose/.env.sample` as a starting point and supply strong unique secrets. Build and run the actual original platform with Docker Compose from `platform/docker-compose/`.
+
+Set `SERVER_BASE_URL=http://localhost:3000` only for browser access. When generating kube-bench jobs, configure `SCANNER_REPORT_INGESTION_URL` as an **address reachable from the scanner Pod**, such as a private in-cluster service URL for a Kubernetes deployment. Do not use `localhost` or assume Docker Compose service DNS is reachable from Kind. Enable authenticated TLS for a public or cross-network deployment.
+
+See [product scope and release gates](docs/m9sweeper-new-release-gates.md) and [existing acceptance ledger](docs/integration-acceptance.md).
+
+## Licensing and independence
+
+This is a fork-based modernization and retains the original upstream source, license and attribution. Product naming, trademark review, separate distribution, scanner licensing and public release process remain open. Independent branding does not remove upstream attribution obligations.
+
+---
+## Earlier repository README (preserved below)
+
 # m9sweeper Modern — Source-first Kubernetes security platform revamp
 
 This repository is modernizing the **actual [m9sweeper](https://github.com/m9sweeper/m9sweeper) product**, not building a substitute scan-results demo.

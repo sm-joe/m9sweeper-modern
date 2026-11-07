@@ -47,6 +47,9 @@ export class KubeBenchController {
     async saveKubeBenchReport(@Body() report: any, @Param('clusterId') clusterId: number, @Query('key') key: string): Promise<KubeBenchDto> {
 
         // find user authority by user's apikey
+        if (typeof key !== 'string' || !key.trim()) {
+            throw new HttpException('Missing kube-bench API key', HttpStatus.UNAUTHORIZED);
+        }
         const currentUserAuthObj = await this.userDao.loadUserByApiKey(key);
 
         // if the current user's api is valid
@@ -76,7 +79,7 @@ export class KubeBenchController {
                 throw new HttpException('Unauthorized  - log may not have been saved', HttpStatus.UNAUTHORIZED);
             }
         }
-
+        throw new HttpException('Invalid kube-bench API key', HttpStatus.UNAUTHORIZED);
     }
 
     @Get('/apiKey')
