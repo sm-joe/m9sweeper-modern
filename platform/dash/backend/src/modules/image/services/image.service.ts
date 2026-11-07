@@ -221,15 +221,21 @@ export class ImageService {
 
             scanInput.image.path = null;
             const queueName = this.configurationService.get('messageQueue.imageScannerQueueName');
-            // A broker rejection must never be reported as a successful scan request.
-            const accepted = await this.messagingService.send(queueName, scanInput);
-            if (!accepted) {
-                throw new HttpException({message: 'Image scanner queue rejected the scan request'}, HttpStatus.SERVICE_UNAVAILABLE);
-            }
-
-            // Persist queue status before returning success. A database failure must
-            // propagate rather than presenting a queued image as a clean scan.
+            // Mark the image queued before publishing. Publishing first races
+            // the worker: a fast result can clear the flag, then a late write
+            // by this request sets it back to true forever.
             await this.imageDao.setImageScanQueueStatus(image.id, true);
+            try {
+                const accepted = await this.messagingService.send(queueName, scanInput);
+                if (!accepted) {
+                    throw new HttpException({message: 'Image scanner queue rejected the scan request'}, HttpStatus.SERVICE_UNAVAILABLE);
+                }
+            } catch (error) {
+                // No confirmed delivery. A failed rollback must propagate rather
+                // than hiding the inconsistent queue state.
+                await this.imageDao.setImageScanQueueStatus(image.id, false);
+                throw error;
+            }
         }
 
         return true;
