@@ -355,7 +355,9 @@ export class ImageController {
         // save scan results
         const createdAt = Date.now();
         await Promise.all(trawlerScanResults.data.map((rsByPolicy: ImageTrawlerResultDto) =>
-          this.imageService.saveImageScanDataByImageId(clusterId, targetImage.id, rsByPolicy, createdAt, scanRunId)));
+          scanRunId
+            ? this.imageService.saveImageScanDataByImageId(clusterId, targetImage.id, rsByPolicy, createdAt, scanRunId)
+            : this.imageService.saveImageScanDataByImageId(clusterId, targetImage.id, rsByPolicy, createdAt)));
 
         // update image data
         const critical_issues = trawlerScanResults.data.map(r => r.criticalIssues).reduce((a, b) => a + b, 0);
