@@ -137,10 +137,10 @@ export class ClusterController {
     @Post('test-service-account')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
     @UseGuards(AuthGuard, AuthorityGuard)
-    async testConfig(@Body() body: {server: string, token: string, context: string}): Promise<{valid: boolean, config: string, context?: string}> {
+    async testConfig(@Body() body: {server: string, token: string, context: string, caData?: string}): Promise<{valid: boolean, config: string, context?: string}> {
         // Provide a default name for the context if necessary
         const context = body.context || 'm9sweeper-service-account';
-        return await this.kubernetesApiService.buildAndTestServiceAccountConfig(body.server, body.token, context);
+        return await this.kubernetesApiService.buildAndTestServiceAccountConfig(body.server, body.token, context, body.caData);
     }
 
     @Post()

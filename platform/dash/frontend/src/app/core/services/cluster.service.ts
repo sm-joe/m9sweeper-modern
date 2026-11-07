@@ -27,8 +27,8 @@ export class ClusterService implements OnDestroy{
     return this.httpClient.put(`/api/clusters/${id}`, cluster);
   }
 
-  testServiceAccount(token: string, server: string, context: string): Observable<IServerResponse<{valid: boolean, config: string, context?: string}>> {
-    return this.httpClient.post<IServerResponse<{valid: boolean, config: string}>>('/api/clusters/test-service-account', {token, server, context});
+  testServiceAccount(token: string, server: string, context: string, caData: string): Observable<IServerResponse<{valid: boolean, config: string, context?: string}>> {
+    return this.httpClient.post<IServerResponse<{valid: boolean, config: string}>>('/api/clusters/test-service-account', {token, server, context, caData});
   }
 
   getClusterById(id: number): Observable<IServerResponse<ICluster>>{
