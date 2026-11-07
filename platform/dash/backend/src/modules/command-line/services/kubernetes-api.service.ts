@@ -163,10 +163,10 @@ export class KubernetesApiService {
     /**
      * Builds a kubeconfig using the provided server & raw (base64 encoded) token, and attempts to test it
      * */
-    async buildAndTestServiceAccountConfig(server: string, rawToken: string, context: string): Promise<{valid: boolean, config: string, context?: string}> {
+    async buildAndTestServiceAccountConfig(server: string, rawToken: string, context: string, caData?: string): Promise<{valid: boolean, config: string, context?: string}> {
         try {
             const token = Buffer.from(rawToken, 'base64').toString('utf-8');
-            const config = this.buildServiceAccountConfig(token, server, context);
+            const config = this.buildServiceAccountConfig(token, server, context, caData);
             const api = this.makeCoreV1ApiFromConfig(config);
             const valid = await this.testApi(api);
             return valid

@@ -40,3 +40,10 @@ The existing kube-bench endpoint currently authenticates via an API key in the q
 ## Multi-cluster reporting isolation
 
 Kube-bench report counts and latest-result queries are now explicitly cluster scoped, with deterministic ordering and bounded pagination. Regression tests verify query isolation. A separate multi-cluster HTTP + PostgreSQL acceptance test remains required for production release.
+
+## Kubernetes onboarding security gate (post-RC1)
+
+- The legacy kubeconfig path that used `skipTLSVerify: true` is prohibited. Onboarding now fails before Kubernetes resource mutations when the cluster CA is missing or TLS verification is disabled.
+- A `caFile` path must be readable from the backend container, and is converted into embedded `certificate-authority-data` for downstream connections; a CA embedded in kubeconfig is preferred.
+- Service-account token provisioning must be complete before a newly issued kubeconfig is saved. Token-only helper requires a CA parameter.
+- Legacy long-lived service-account tokens and broad RBAC remain an open production blocker; adopt time-limited TokenRequest / workload identity with least privilege before a general release.
