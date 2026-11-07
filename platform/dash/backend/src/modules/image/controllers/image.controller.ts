@@ -290,11 +290,22 @@ export class ImageController {
         @Param('imageId') imageId: number,
         @Body() trawlerScanResults: TrawlerScanResults
     ):Promise<ImageScanResultDto>{
+        // Fail closed before any new image or partial scan evidence is persisted.
+        if (!trawlerScanResults || !Array.isArray(trawlerScanResults.data) ||
+            trawlerScanResults.data.length === 0 ||
+            trawlerScanResults.data.some(result => !result ||
+                !Number.isInteger(result.policyId) || result.policyId <= 0 ||
+                !Array.isArray(result.issues) ||
+                [result.criticalIssues, result.majorIssues, result.mediumIssues,
+                    result.lowIssues, result.negligibleIssues].some(value =>
+                    typeof value !== 'number' || !Number.isFinite(value) || value < 0))) {
+            throw new BadRequestException('Invalid or incomplete image scan report');
+        }
         const imageHash = trawlerScanResults.data[0]?.imageHash;
 
         // imageID sent by Trawler is that of the first image with a matching name. Use it as a default value, but
         // otherwise ignore it while comparing images by hash
-        const imageData = await this.imageService.getImageById(imageId);
+        const imageData = await this.imageService.getImageByImageId(+clusterId, +imageId);
         let targetImage: ListOfImagesDto;
         // if the image hash matches that of the image pulled by ID, or the pulled image has a temporary hash, overwrite it
         // if Trawler did not send an image hash, update the default image sent by Trawler
