@@ -136,7 +136,8 @@ public class Trawler extends AbstractCommand implements Runnable {
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setRequestProperty("x-auth-token", TrawlerConfiguration.getInstance().m9sweeperApiKey());
                 conn.setDoOutput(true);
-                String json = "{\\"scanRunId\\":\\"" + raw + "\\"}";
+                String json = new ObjectMapper().writeValueAsString(
+                        java.util.Collections.singletonMap("scanRunId", raw));
                 try (OutputStream out = conn.getOutputStream()) {
                     out.write(json.getBytes(StandardCharsets.UTF_8));
                 }
