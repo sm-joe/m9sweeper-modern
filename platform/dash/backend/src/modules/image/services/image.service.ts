@@ -1,3 +1,4 @@
+import {Interval} from '@nestjs/schedule';
 import {randomUUID} from 'crypto';
 /* eslint-disable no-prototype-builtins */
 import {forwardRef, HttpException, HttpStatus, Inject, Injectable} from '@nestjs/common'
@@ -248,6 +249,20 @@ export class ImageService {
         }
 
         return true;
+    }
+
+    @Interval(5 * 60 * 1000)
+    async reconcileExpiredScanRuns(): Promise<void> {
+        try {
+            const count = await this.imageDao.expireStaleScanRuns();
+            if (count > 0) {
+                this.logger.warn({label: 'Expired incomplete image scan runs', data: {count}});
+            }
+        } catch (error) {
+            this.logger.warn({label: 'Failed scan-run reconciliation', data: {
+                error: error instanceof Error ? error.name : 'unknown'
+            }});
+        }
     }
 
     async getScanRun(id: string) {
