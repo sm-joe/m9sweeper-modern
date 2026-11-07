@@ -273,6 +273,15 @@ export class ImageService {
         return this.imageDao.claimScanRun(id, clusterId, imageId);
     }
 
+    async commitScanRun(
+        runId: string, clusterId: number, imageId: number,
+        reports: ImageTrawlerResultDto[], status: string,
+        counts: {critical: number; major: number; medium: number; low: number; negligible: number},
+        createdAt: number
+    ): Promise<boolean> {
+        return this.imageDao.commitScanRun(runId, clusterId, imageId, reports, status, counts, createdAt);
+    }
+
     async completeScanRun(id: string, compliant: boolean): Promise<void> {
         await this.imageDao.completeScanRun(id, compliant);
     }
