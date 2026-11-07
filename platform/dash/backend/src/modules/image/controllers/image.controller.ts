@@ -1,3 +1,4 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
 import {
     BadRequestException, Body, Controller, Headers,
     Delete, Get, HttpException, HttpStatus, Param, Post, Put,
@@ -59,7 +60,7 @@ export class ImageController {
 
     @Get(':clusterId/images')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: ALL_IMAGES_RESPONSE_SCHEMA
@@ -73,7 +74,7 @@ export class ImageController {
     @ApiSecurity('x-auth-token')
     @Post(':clusterId/images')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN,Authority.TRAWLER)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiQuery({
         name: 'skipImageScan',
         schema: {
@@ -90,7 +91,7 @@ export class ImageController {
 
     @Get(':clusterId/images/search')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: SEARCH_IMAGES_RESPONSE_SCHEMA
@@ -109,7 +110,7 @@ export class ImageController {
 
     @Get(':clusterId/images/by-pod')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: ALL_IMAGES_RESPONSE_SCHEMA,
@@ -134,7 +135,7 @@ export class ImageController {
 
     @Get(':clusterId/images/by-pod/history')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: ALL_IMAGES_RESPONSE_SCHEMA,
@@ -169,7 +170,7 @@ export class ImageController {
 
     @Get(':clusterId/images/:imageId')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: CREATE_IMAGE_RESPONSE_SCHEMA
@@ -185,7 +186,7 @@ export class ImageController {
     @ApiSecurity('x-auth-token')
     @Get(':clusterId/image-by-docker-url')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.TRAWLER)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         type: ImageDetailsResponseDto
@@ -209,7 +210,7 @@ export class ImageController {
 
     @Put(':clusterId/images/:imageId')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: CREATE_IMAGE_RESPONSE_SCHEMA
@@ -223,7 +224,7 @@ export class ImageController {
 
     @Delete(':clusterId/images/:imageId')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: DELETE_IMAGE_RESPONSE_SCHEMA
@@ -234,7 +235,7 @@ export class ImageController {
 
     @Post(':clusterId/images/scan')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: SCAN_IMAGE_RESPONSE_SCHEMA
@@ -245,7 +246,7 @@ export class ImageController {
 
     @Get(':clusterId/images/:imageId/scanners/:scannerId')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: IMAGE_SCAN_RESULT_DETAILS_RESPONSE_SCHEMA
@@ -265,7 +266,7 @@ export class ImageController {
     })
     @Post(':clusterId/images/:imageId/trawler/scan/results/per-policy')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.TRAWLER)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async saveImageScanResultsPerPolicy(
         @Param('clusterId') clusterId: number,
         @Param('imageId') imageId: number,
@@ -278,7 +279,7 @@ export class ImageController {
 
     @Post(':clusterId/images/:imageId/trawler/scan/fail')
     @AllowedAuthorityLevels(Authority.TRAWLER)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async quarantineFailedScan(
         @Param('clusterId') clusterId: number,
         @Param('imageId') imageId: number,
@@ -303,7 +304,7 @@ export class ImageController {
     })
     @Post(':clusterId/images/:imageId/trawler/scan/results')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.TRAWLER)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async saveImageScanResults(
         @Param('clusterId') clusterId: number,
         @Param('imageId') imageId: number,
@@ -407,7 +408,7 @@ export class ImageController {
 
     @Get('images/:imageId/trawler/scan/results')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: IMAGES_SCAN_RESULTS_RESPONSE_SCHEMA
@@ -423,7 +424,7 @@ export class ImageController {
 
     @Get('images/:imageId/trawler/scan/results/count')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: DELETE_IMAGE_RESPONSE_SCHEMA
@@ -435,7 +436,7 @@ export class ImageController {
 
     @Get(':clusterId/images/total/vulnerability/severity')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: TOTAL_SEVERITY_RESPONSE_SCHEMA
@@ -448,7 +449,7 @@ export class ImageController {
 
     @Get('images/summary')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: DELETE_IMAGE_RESPONSE_SCHEMA
@@ -461,7 +462,7 @@ export class ImageController {
 
     @Get('images/summary/vulnerabilities')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: TOTAL_VULNERABILITY_RESPONSE_SCHEMA
@@ -485,7 +486,7 @@ export class ImageController {
 
     @Get(':clusterId/summary/vulnerabilities')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: DELETE_IMAGE_RESPONSE_SCHEMA
@@ -499,7 +500,7 @@ export class ImageController {
 
     @Get(':clusterId/summary/policy-violations')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: TOTAL_POLICY_VIOLATION
@@ -510,7 +511,7 @@ export class ImageController {
 
     @Get('image-scan/count')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: TOTAL_IMAGE_SCAN_COUNT_RESPONSE_SCHEMA
@@ -522,7 +523,7 @@ export class ImageController {
 
     @Get('images/image-scan-dates')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: TOTAL_IMAGE_SCAN_COUNT_RESPONSE_SCHEMA
@@ -532,7 +533,7 @@ export class ImageController {
     }
     @Get('images/:imageId/scan-queue-status')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: IMAGE_SCAN_QUEUE_STATUS_SCHEMA
@@ -543,7 +544,7 @@ export class ImageController {
 
     @Get('namespace/by/:imageHash')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: NAMESPACE_ID_SCHEMA
