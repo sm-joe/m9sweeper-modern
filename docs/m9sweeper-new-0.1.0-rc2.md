@@ -45,3 +45,10 @@ is retained at `platform/LICENSE` and `ATTRIBUTION.md`. Until complete scanner
 workflow, security threat model, framework modernization, Helm lifecycle,
 database restore and benchmark-version checks pass, do not market as a fully
 modernized or certified security product.
+
+## Additional Trivy data correctness fixes
+
+- Corrected actual severity comparison (JSON value versus `IssueSeverity` enum) that previously caused HIGH and CRITICAL findings to be incorrectly marked compliant.
+- Unknown vulnerability severity is retained for review rather than silently dropped, and missing JSON scan reports fail closed.
+- Debug logging no longer prints shell commands potentially containing registry passwords or cloud access tokens.
+- JUnit 5 scanner parsing regression tests exercise the real Java parser on representative Trivy JSON, including HIGH/CRITICAL/LOW, missing severity, and empty digests.
