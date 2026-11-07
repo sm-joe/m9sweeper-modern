@@ -177,12 +177,13 @@ export class KubernetesApiService {
         }
     }
 
-    buildServiceAccountConfig(token: string, server: string, context: string): KubeConfig {
+    buildServiceAccountConfig(token: string, server: string, context: string, caData?: string): KubeConfig {
+        if (!caData?.trim()) {
+            throw new Error('Token-only kubeconfig requires a trusted CA; supply certificate-authority-data.');
+        }
         const config = new KubeConfig();
         config.addUser({token, name: "m9sweeper"});
-        // Explicitly refuse to generate a connection with certificate checks disabled.
-        // A caller must supply a trusted CA to establish secure token-based access.
-        throw new Error('Token-only kubeconfig requires a trusted CA; use an authenticated kubeconfig with certificate-authority-data.');
+        config.addCluster({server, name: "m9sweeper", caData, skipTLSVerify: false});
         config.addContext({cluster: "m9sweeper", name: context, user: "m9sweeper"});
         config.setCurrentContext(context);
         return config;
