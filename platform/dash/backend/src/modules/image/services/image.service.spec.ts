@@ -54,7 +54,8 @@ describe('ImageService scan queue safety', () => {
     it('rejects missing scan policies before publishing', async () => {
         dao.countGlobalPoliciesNotIncludedInPolicyCluster.mockResolvedValue({globalPolicyCount: 0});
         dao.getImageDetailsForScanImage.mockResolvedValue([{policyCount: 0, image: {name: 'app', tag: 'v1'}}]);
-        await expect(service.createImageScanByImageId([{id: imageId}], clusterId)).rejects.toBeInstanceOf(HttpException);
+        await expect(service.createImageScanByImageId([{id: imageId}], clusterId))
+            .rejects.toMatchObject({status: 422});
         expect(messaging.send).not.toHaveBeenCalled();
     });
 
