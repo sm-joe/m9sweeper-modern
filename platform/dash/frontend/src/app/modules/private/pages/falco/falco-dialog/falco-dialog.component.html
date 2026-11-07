@@ -39,7 +39,8 @@ helm upgrade --install falco falcosecurity/falco \
   --set falcosidekick.enabled=true \
   --set-string falcosidekick.config.existingSecret=m9sweeper-falco-webhook \
   --set falcosidekick.config.webhook.checkcert=true \
-  --set-string falcosidekick.config.webhook.minimumpriority='{{level.toLowerCase()}}'</textarea>
+  --set-string 'falcosidekick.config.extraEnv[0].name=WEBHOOK_MINIMUMPRIORITY' \
+  --set-string 'falcosidekick.config.extraEnv[0].value={{level.toLowerCase()}}'</textarea>
       <app-copy-to-clipboard-button
         successMessage="Command copied to clipboard!"
         errorMessage="Command could not be copied"
