@@ -1,4 +1,4 @@
-import {selectScannerIngestKey} from './scanner-ingest-auth';
+import {parseScannerClusterId, selectScannerIngestKey} from './scanner-ingest-auth';
 
 describe('RC4 scanner ingestion credentials', () => {
   it('prefers header-based authentication', () => {
@@ -19,5 +19,13 @@ describe('RC4 scanner ingestion credentials', () => {
 
   it('returns no credential when neither source exists', () => {
     expect(selectScannerIngestKey(undefined, undefined, false)).toBe('');
+  });
+
+  it('accepts only positive integer scanner cluster IDs', () => {
+    expect(parseScannerClusterId('3')).toBe(3);
+    expect(parseScannerClusterId(17)).toBe(17);
+    for (const invalid of ['', '0', '-1', '1.2', '1e3', ' 1', '1x', '9999999999999999999999']) {
+      expect(Number.isNaN(parseScannerClusterId(invalid))).toBe(true);
+    }
   });
 });
