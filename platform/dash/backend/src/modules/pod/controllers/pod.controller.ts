@@ -1,0 +1,215 @@
+import {
+    BadRequestException,
+    Controller,
+    Get,
+    HttpException, HttpStatus,
+    Inject,
+    Param,
+    Query,
+    UseGuards,
+    UseInterceptors
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ResponseTransformerInterceptor } from '../../../interceptors/response-transformer.interceptor';
+import { PodDto } from '../dto/pod-dto';
+import { PodService } from '../services/pod.service';
+import {ALL_PODS_RESPONSE_SCHEMA, COUNT_PODS_RESPONSE_SCHEMA} from '../open-api-schema/pod-schema';
+import { UserProfileDto } from '../../user/dto/user-profile-dto';
+import {AllowedAuthorityLevels} from "../../../decorators/allowed-authority-levels.decorator";
+import {Authority} from "../../user/enum/Authority";
+import {AuthGuard} from "../../../guards/auth.guard";
+import {AuthorityGuard} from "../../../guards/authority.guard";
+import { PodComplianceSummaryDto } from '../dto/pod-compliance-summary-dto';
+import { GatekeeperService } from '../../gatekeeper/services/gatekeeper.service';
+import {ClusterService} from '../../cluster/services/cluster.service';
+import {ClusterGroupService} from '../../cluster-group/services/cluster-group-service';
+import {MineLoggerService} from '../../shared/services/mine-logger.service';
+
+@ApiTags('Pods')
+@Controller()
+@ApiBearerAuth('jwt-auth')
+@UseInterceptors(ResponseTransformerInterceptor)
+export class PodController {
+    constructor(
+      @Inject('LOGGED_IN_USER') private readonly _loggedInUser: UserProfileDto,
+      private readonly podService: PodService,
+      private readonly gatekeeperService: GatekeeperService,
+      protected readonly clusterService: ClusterService,
+      protected readonly clusterGroupService: ClusterGroupService,
+      protected readonly logger: MineLoggerService,
+    ) {}
+
+    @Get()
+    @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard)
+    @ApiResponse({
+        status: 200,
+        schema: ALL_PODS_RESPONSE_SCHEMA
+    })
+    async getAllPods(
+      @Query('clusterId') clusterId: number,
+      @Query('namespace') namespace: string,
+      @Query('limit') limit?: number,
+      @Query('page') page?: number,
+      @Query('sort') sort?: {field: string; direction: string; },
+    ): Promise<PodDto[]>{
+        const pods =  await this.podService.getAllPods(clusterId, namespace, sort, page, limit);
+        // Add violation info to pods if Gatekeeper is installed & available
+        const gatekeeperStatus = await this.gatekeeperService.getInstallationInfo(clusterId);
+        if (gatekeeperStatus.status) {
+            // Failures to get violations don't cause endpoint to fail
+            const violations = await this.gatekeeperService.getTotalViolations(clusterId)
+              .catch((err) => {
+                  this.logger.error('Could not retrieve gatekeeper violations', err, 'PodController.getAllPods');
+                  return [];
+              });
+            if (pods?.length && violations?.length) {
+                pods.map(p => p.violations = violations.filter(v => v.name === p.name));
+            }
+        }
+        return pods;
+    }
+
+    @Get('/count')
+    @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard)
+    @ApiResponse({
+        status: 200,
+        schema: COUNT_PODS_RESPONSE_SCHEMA,
+    })
+    async countAllPods(
+      @Query('clusterId') clusterId: number,
+      @Query('namespace') namespace: string,
+    ): Promise<number> {
+        return await this.podService.countAllPods(clusterId, namespace);
+    }
+
+    @Get('/history')
+    @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard)
+    @ApiResponse({
+        status: 200,
+        schema: ALL_PODS_RESPONSE_SCHEMA
+    })
+    async getPodsByDate(
+      @Query('clusterId') clusterId: number,
+      @Query('namespace') namespace: string,
+      @Query('startTime') startTime: string,
+      @Query('endTime') endTime: string,
+      @Query('limit') limit?: number,
+      @Query('page') page?: number,
+      @Query('sort') sort?: {field: string; direction: string; },
+    ): Promise<PodDto[]>{
+        return await this.podService.getPodsByDate(clusterId, namespace, startTime, endTime, sort, page, limit);
+    }
+
+    @Get('/history/count')
+    @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard)
+    @ApiResponse({
+        status: 200,
+        schema: COUNT_PODS_RESPONSE_SCHEMA,
+    })
+    async countPodsByDate(
+      @Query('clusterId') clusterId: number,
+      @Query('namespace') namespace: string,
+      @Query('startTime') startTime: string,
+      @Query('endTime') endTime: string,
+    ): Promise<number> {
+        return await this.podService.countPodsByDate(clusterId, namespace, startTime, endTime);
+    }
+
+
+
+    @Get(':podIdentifier/history')
+    @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard)
+    @ApiResponse({
+        status: 200,
+    })
+    async getHistoricalSinglePodByName(
+      @Param('podIdentifier') podIdentifier: string,
+      @Query('clusterId') clusterId: number,
+      @Query('namespace') namespace: string,
+      @Query('startTime') startTime: string,
+      @Query('endTime') endTime: string,
+    ): Promise<PodDto> {
+        return await this.podService.getHistoricalPodByName(clusterId, namespace, podIdentifier, startTime, endTime);
+    }
+
+    @Get('/search')
+    @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard)
+    @ApiResponse({
+        status: 200,
+        schema: ALL_PODS_RESPONSE_SCHEMA
+    })
+    async getAllPodsBySelectedDate(
+      @Query('clusterId') clusterId: number, @Query('namespace') namespace: string,
+      @Query('startTime') startTime: number, @Query('endTime') endTime: number,
+    ): Promise<PodDto[]> {
+        if (!clusterId || !namespace || !startTime || !endTime) {
+            throw new BadRequestException('Please include the clusterId, namespace, startTime, and endTime in the request');
+        }
+        return await this.podService.getAllPodsBySelectedDate(clusterId, namespace, startTime, endTime);
+    }
+
+    @Get('/summary')
+    @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard)
+    @ApiResponse({
+        status: 200
+    })
+    async getPodsComplianceSummary(
+      @Query('clusterId') clusterId: number,
+      @Query('clusterGroupId') clusterGroupId: number
+    ): Promise<PodComplianceSummaryDto[]> {
+        let earliestStartDate: Date = undefined;
+        if (clusterId) {
+            const cluster = await this.clusterService.getClusterById(clusterId);
+            if (!cluster) {
+                throw new HttpException('Cluster not found', HttpStatus.NOT_FOUND);
+            }
+            earliestStartDate = new Date(cluster.createdAt);
+        } else if (clusterGroupId) {
+            const group = await this.clusterGroupService.getClusterGroupById(clusterGroupId);
+            if (!group) {
+                throw new HttpException('Cluster Group not found', HttpStatus.NOT_FOUND);
+            }
+            earliestStartDate = new Date(group.createdAt);
+        }
+        return await this.podService.getPodsComplianceSummary({clusterId, clusterGroupId, earliestStartDate});
+    }
+
+    @Get(':podIdentifier')
+    @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard)
+    @ApiResponse({
+        status: 200,
+    })
+    async getSinglePod(
+      @Param('podIdentifier') podIdentifier: string | number,
+      @Query('clusterId') clusterId: number,
+      @Query('namespace') namespace: string,
+    ): Promise<PodDto> {
+
+        let pod = null;
+        if (typeof(podIdentifier) === 'number') {
+            pod = await this.podService.getPodById(podIdentifier);
+        } else {
+            pod = await this.podService.getPodByName(clusterId, namespace, podIdentifier);
+        }
+        // If Gatekeeper is installed, get relevant violations for this pod
+        const gatekeeperStatus = await this.gatekeeperService.getInstallationInfo(clusterId);
+        if (gatekeeperStatus.status) {
+            // Failures to get violations don't cause endpoint to fail
+            const violations = await this.gatekeeperService.getTotalViolations(clusterId)
+              .catch((err) => {
+                  this.logger.error('Could not retrieve gatekeeper violations', err, 'PodController.getSinglePod');
+                  return [];
+              });
+            pod.violations = violations.filter(v => v.name === pod.name);
+        }
+        return pod;
+    }
+}

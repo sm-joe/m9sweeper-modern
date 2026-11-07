@@ -1,0 +1,93 @@
+.row {
+  margin: 0.625em 0 0.625em 0;
+}
+
+mat-card-title {
+  padding-top: 10px;
+}
+
+#cluster-summary-row {
+  mat-card {
+    margin: 10px 5px 0 5px;  // set to match legacy margins
+    height: 80%;
+
+    .label {
+      padding-top: 10px;
+      font-weight: bold;
+      text-align: center;
+      font-size: 14px;
+      margin-top: -16px;
+    }
+
+    .total {
+      font-size: xx-large;
+      text-align: center;
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+  }
+}
+
+#cluster-graphs-row {
+  mat-card {
+    margin: 10px 5px 0 5px;  // set to match legacy margins
+    mat-card-content {
+      margin: 6px 16px 16px 6px !important;
+      padding: unset;
+    }
+  }
+
+  ngx-charts-line-chart {
+    font-size: 11px;
+  }
+}
+
+#cluster-vulnerability-table-row {
+  mat-card {
+    margin: 10px 5px 0 5px;  // set to match legacy margins
+    mat-table {
+      min-width: 500px;
+
+      .mat-column-namespace {
+        min-width: 150px;
+      }
+    }
+  }
+}
+
+#cluster-events-row {
+  margin: 10px 5px 0 5px;  // set to match legacy margins
+  // top right bottom left
+  padding: 0 0 0 0;
+  height: 12em;
+  position: sticky;
+  position: -webkit-sticky; /* Safari */
+  bottom: 0;
+  mat-card {
+    padding: 15px;
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
+  }
+
+  #cluster-event-items {
+    height: 8em;  // smaller than the #cluster-events element to account for margins & header
+    overflow-x: hidden;
+    overflow-y: auto;
+    flex: none;
+
+    table {
+      width: 100%;
+      font-size: 11px;
+      td {
+        font-size: 11px;
+        font-family: "Courier New", monospace;
+        cursor: pointer;
+      }
+      .cluster-error-event {
+        color: rgb(155,17,30);
+      }
+      .cluster-info-event {
+        color: rgb(0,15,137);
+      }
+    }
+  }
+}

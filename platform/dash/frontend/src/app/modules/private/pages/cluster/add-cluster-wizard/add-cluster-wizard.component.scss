@@ -1,0 +1,20 @@
+.manually-textarea{
+  height: 150px;
+}
+.kubeconfig-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.mt-8px {
+  margin-top: 8px;
+}
+
+// Something was conflicting with the built in hidden rule. Adding this to increase specificity
+[hidden] {
+  display: none;
+}
+
+.mb-1 {
+  margin-bottom: 1rem;
+}
