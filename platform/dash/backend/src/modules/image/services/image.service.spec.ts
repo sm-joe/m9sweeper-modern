@@ -28,19 +28,21 @@ describe('ImageService scan queue safety', () => {
         );
     });
 
-    it('marks queued only after broker acceptance', async () => {
+    it('marks queued before broker publication', async () => {
         await expect(service.createImageScanByImageId([{id: imageId}], clusterId)).resolves.toBe(true);
         expect(messaging.send).toHaveBeenCalledWith('scan-images', expect.objectContaining({image: expect.any(Object)}));
         expect(dao.setImageScanQueueStatus).toHaveBeenCalledWith(imageId, true);
+        expect(dao.setImageScanQueueStatus.mock.invocationCallOrder[0]).toBeLessThan(messaging.send.mock.invocationCallOrder[0]);
     });
 
-    it('refuses a rejected broker message without setting queued', async () => {
+    it('rolls back the queued flag when the broker rejects the message', async () => {
         messaging.send.mockResolvedValue(false);
         await expect(service.createImageScanByImageId([{id: imageId}], clusterId)).rejects.toMatchObject({status: 503});
-        expect(dao.setImageScanQueueStatus).not.toHaveBeenCalled();
+        expect(dao.setImageScanQueueStatus).toHaveBeenNthCalledWith(1, imageId, true);
+        expect(dao.setImageScanQueueStatus).toHaveBeenNthCalledWith(2, imageId, false);
     });
 
-    it('does not swallow a broker error', async () => {
+    it('rolls back and propagates broker errors', async () => {
         messaging.send.mockRejectedValue(new Error('broker offline'));
         await expect(service.createImageScanByImageId([{id: imageId}], clusterId)).rejects.toThrow('broker offline');
         expect(dao.setImageScanQueueStatus).not.toHaveBeenCalled();
@@ -49,6 +51,7 @@ describe('ImageService scan queue safety', () => {
     it('does not report success if queue-status persistence fails', async () => {
         dao.setImageScanQueueStatus.mockRejectedValue(new Error('database offline'));
         await expect(service.createImageScanByImageId([{id: imageId}], clusterId)).rejects.toThrow('database offline');
+        expect(messaging.send).not.toHaveBeenCalled();
     });
 
     it('rejects missing scan policies before publishing', async () => {
