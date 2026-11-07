@@ -4,7 +4,7 @@ import {Observable, Subject, timer} from 'rxjs';
 import {ImagesAndCount, IImage, IScanResult, IImageScanData} from '../entities/IImage';
 import { IServerResponse } from '../entities/IServerResponse';
 import {MatSort} from '@angular/material/sort';
-import { map, retry, share, switchMap, takeUntil } from 'rxjs/operators';
+import { map, switchMap, takeUntil } from 'rxjs/operators';
 import { FormatDate } from '../../modules/shared/format-date/format-date';
 import {ICountOfVulnerabilities} from '../entities/ICountOfVulnerabilities';
 
@@ -183,14 +183,16 @@ export class ImageService implements OnDestroy{
   }
 
   getImageScanQueueStatus(imageId: number): Observable<boolean> {
-    return timer(1, 15000)
-      .pipe(
-        switchMap(() => this.httpClient.get<IServerResponse<boolean>>(`api/clusters/images/${imageId}/scan-queue-status`)),
-        map(response => response.data),
-        retry(),
-        share(),
-        takeUntil(this.stopPolling)
-      );
+    // A failed status request must be surfaced to the UI. The previous
+    // unlimited retry() hid errors and could leave a permanent spinner.
+    // Component owns the polling subscription and terminates it on teardown.
+    return timer(0, 15000).pipe(
+      switchMap(() => this.httpClient.get<IServerResponse<boolean>>(
+        `/api/clusters/images/${imageId}/scan-queue-status`
+      )),
+      map(response => response.data),
+      takeUntil(this.stopPolling)
+    );
   }
 
   ngOnDestroy() {
