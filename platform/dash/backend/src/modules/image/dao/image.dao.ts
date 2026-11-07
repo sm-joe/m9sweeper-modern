@@ -468,6 +468,29 @@ export class ImageDao {
      * Fail abandoned scanner jobs after an hour; a subsequent run must not have
      * its queue state cleared by an older failed job.
      */
+    async failScanRunAndRelease(id: string, clusterId: number, imageId: number): Promise<boolean> {
+        const knex = await this.databaseService.getConnection();
+        return knex.transaction(async trx => {
+            const changed = await trx('image_scan_runs')
+                .where({id, cluster_id: clusterId, image_id: imageId})
+                .whereIn('status', ['queued', 'published', 'processing'])
+                .update({status: 'failed', failure_reason: 'Scan exhausted retries', updated_at: Date.now()})
+                .returning('id');
+            if (!changed.length) {
+                return false;
+            }
+            const next = await trx('image_scan_runs')
+                .where({image_id: imageId, cluster_id: clusterId})
+                .whereIn('status', ['queued', 'published', 'processing'])
+                .first('id');
+            if (!next) {
+                await trx('images').where({id: imageId, cluster_id: clusterId})
+                    .update({scan_queued: false, scan_results: 'Failed'});
+            }
+            return true;
+        });
+    }
+
     async expireStaleScanRuns(maxAgeMs = 60 * 60 * 1000): Promise<number> {
         const knex = await this.databaseService.getConnection();
         const now = Date.now();
