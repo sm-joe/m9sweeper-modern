@@ -6,6 +6,9 @@ on:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
       - 'tools/import-platform/**'
+      - 'README.md'
+      - 'ATTRIBUTION.md'
+      - 'docs/**'
 permissions:
   contents: read
 jobs:
