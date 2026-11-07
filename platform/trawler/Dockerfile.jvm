@@ -1,0 +1,17 @@
+# JVM-based full original Java trawler. Native GraalVM path stays available
+# as Dockerfile; this is the easier CI/local development runtime.
+FROM maven:3.9.11-eclipse-temurin-21 AS build
+WORKDIR /build
+COPY pom.xml .
+COPY src ./src
+RUN mvn -B -ntp -DskipTests package && test -s target/trawler.jar
+
+FROM eclipse-temurin:21-jre-jammy
+# Reuse a patched, versioned upstream Trivy binary; no remote shell script.
+COPY --from=aquasec/trivy:0.76.2 /usr/local/bin/trivy /usr/local/bin/trivy
+COPY --from=build /build/target/trawler.jar /opt/m9sweeper/trawler.jar
+RUN groupadd --system --gid 1050 trawler && useradd --system --uid 1050 --gid 1050 --home-dir /var/lib/trawler --create-home trawler \
+    && mkdir -p /var/lib/trawler/.cache && chown -R trawler:trawler /var/lib/trawler
+ENV HOME=/var/lib/trawler
+USER 1050:1050
+ENTRYPOINT ["java", "-jar", "/opt/m9sweeper/trawler.jar"]

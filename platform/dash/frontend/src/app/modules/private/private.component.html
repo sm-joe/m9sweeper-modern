@@ -1,0 +1,71 @@
+<mat-toolbar class="fixed display-print-none revamp-toolbar">
+  <mat-toolbar-row class="header-bar">
+    <div class="loader-row">
+      <fa-icon
+        (click)="sidenav.toggleMenuExpansion()"
+        [icon]="faIcons.bars"
+        *ngIf="(isHandsetOrXS$ | async) === true"
+        style="align-self: center; margin-inline-end: 0.75em; cursor: pointer"
+      ></fa-icon>
+      <a [routerLink]="defaultRouteLink">
+        <img src="assets/images/m9sweeper-logo.png" alt="m9sweeper" style="margin: 15px 0 10px; max-height: 45px;"/>
+      </a>
+      <div class="loader-container">
+        <ngx-ui-loader [loaderId]="'http-loader'" [bgsType]="httpLoaderConfig.bgsType"
+                       [bgsPosition]="httpLoaderConfig.bgsPosition">
+        </ngx-ui-loader>
+      </div>
+    </div>
+    <nav class="revamp-quicknav" aria-label="Primary navigation">
+      <a routerLink="/private/dashboard" routerLinkActive="active-link"><mat-icon>dashboard</mat-icon><span>Overview</span></a>
+      <a routerLink="/private/policies" routerLinkActive="active-link"><mat-icon>policy</mat-icon><span>Policies</span></a>
+      <a routerLink="/private/exceptions" routerLinkActive="active-link"><mat-icon>verified_user</mat-icon><span>Exceptions</span></a>
+      <a *ngIf="isAdmin" routerLink="/private/users" routerLinkActive="active-link"><mat-icon>manage_accounts</mat-icon><span>Users</span></a>
+    </nav>
+    <div class="right revamp-account">
+      <!-- Dashboard search bar functionality is not implemented -->
+      <span class="search-bar" hidden="true">
+        <mat-form-field [ngClass]="{'search-box' : isSmallDevice}">
+          <input #searchInput matInput autocomplete="off" type="search" />
+          <mat-icon matSuffix [ngStyle]="{'cursor': 'pointer'}">search</mat-icon>
+        </mat-form-field>
+      </span>
+      <span [matMenuTriggerFor]="menu" [ngStyle]="{'cursor': 'pointer'}" aria-label="navbar icon-button with a menu">
+        <img appUserProfileImage src="assets/images/defaultLogo.png" alt="profile-image" class="profile"/>
+      </span>
+    </div>
+  </mat-toolbar-row>
+  <mat-menu #menu="matMenu">
+    <button mat-menu-item style="cursor:unset">
+      <mat-icon>tag_faces</mat-icon>
+      <span>Hi, {{loggedInUserName}}</span>
+    </button>
+    <mat-divider></mat-divider>
+    <button (click)="openUpdateUserProfile()" mat-menu-item>
+      <mat-icon>person</mat-icon>
+      <span>Update Profile</span>
+    </button>
+    <button *ngIf="isLocalAuthUser" mat-menu-item>
+      <a href="/private/change-password" style="text-decoration: none;" >
+        <mat-icon>vpn_key</mat-icon>
+        <span style="vertical-align: super">Change password</span>
+      </a>
+    </button>
+    <mat-divider></mat-divider>
+    <button mat-menu-item>
+      <a href="/docs/docs" target="_blank" style="text-decoration: none; color: rgba(0, 0, 0, 0.87);">
+        <mat-icon style="vertical-align: bottom">description</mat-icon>
+        <span>Documentation</span>
+      </a>
+    </button>
+    <button mat-menu-item (click)="userSignOut()">
+      <mat-icon>exit_to_app</mat-icon>
+      <span>Sign Out</span>
+    </button>
+  </mat-menu>
+</mat-toolbar>
+
+<div class="display-print-none revamp-toolbar-spacer" aria-hidden="true"></div>
+<div class="main-content">
+  <app-menu-component #sidenav></app-menu-component>
+</div>

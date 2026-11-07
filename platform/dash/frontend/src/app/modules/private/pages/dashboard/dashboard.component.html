@@ -1,0 +1,15 @@
+<section class="revamp-dashboard-intro" aria-label="Cluster security overview">
+  <div>
+    <span class="revamp-dashboard-eyebrow">M9SWEEPER-NEW · SECURITY OPERATIONS</span>
+    <h1>Cluster security overview</h1>
+    <p>Live cluster inventory, historical vulnerability trends, policy compliance and scan findings.</p>
+  </div>
+  <div class="revamp-dashboard-actions">
+    <span class="revamp-cluster-counter" *ngIf="userClusterGroups">{{userClusterGroups.length}} cluster group(s)</span>
+    <button type="button" mat-stroked-button color="primary" *ngIf="isAdmin" (click)="openDefaultCreateClusterDialog()">
+      <mat-icon>add_circle</mat-icon> Add cluster
+    </button>
+  </div>
+</section>
+<app-scanner-connectivity></app-scanner-connectivity>
+<router-outlet></router-outlet>

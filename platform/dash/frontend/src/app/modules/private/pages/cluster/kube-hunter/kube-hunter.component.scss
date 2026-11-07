@@ -1,0 +1,48 @@
+.stats-row {
+
+  > div {
+    margin: 0;
+    height: 150px;
+
+    &#center-card {
+
+      table {
+        width: 100%;
+      }
+    }
+    mat-card {
+      height: 90%;
+
+      .last-run-data {
+        text-align: center;
+      }
+
+    }
+  }
+}
+
+#past-audits-table {
+  mat-card-header {
+    margin-bottom: 1em;
+
+    .run-audit-button {
+      justify-content: flex-end;
+      display: flex;
+    }
+  }
+
+  mat-table {
+    width: 100%;
+    overflow-x: auto;
+
+    .mat-column-date {
+      min-width: 125px;
+    }
+    .mat-column-time {
+      min-width: 125px;
+    }
+    .mat-column-numVulnerabilities {
+      min-width: 125px;
+    }
+  }
+}

@@ -1,0 +1,49 @@
+#installButton, #downloadButton {
+  margin-right: 0.75em;
+}
+
+mat-card {
+  margin-block: 1em;
+}
+
+#report-buttons {
+  text-align: right;
+  > button {
+    margin-bottom: 0.5em;
+  }
+}
+
+#falco-table {
+  mat-row {
+    white-space: nowrap;
+  }
+
+  .mat-column-calendarDate {
+    min-width: 100px;
+    max-width: 125px;
+  }
+
+  .mat-column-namespace {
+    min-width: 125px;
+    max-width: 150px;
+  }
+
+  .mat-column-pod {
+    min-width: 125px;
+    max-width: 150px;
+  }
+
+  .mat-column-image {
+    min-width: 100px;
+    max-width: 150px;
+  }
+
+  .mat-column-priority {
+    min-width: 50px;
+    max-width: 100px;
+  }
+
+  .mat-column-message {
+    min-width: 200px;
+  }
+}

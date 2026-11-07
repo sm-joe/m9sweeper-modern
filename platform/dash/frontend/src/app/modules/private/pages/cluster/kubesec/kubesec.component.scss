@@ -1,0 +1,41 @@
+.title {
+  padding-bottom: 20px;
+}
+
+.heading {
+  font-size: 19px;
+  font-weight: 500;
+}
+
+mat-horizontal-stepper {
+  height: 100%;
+  max-height: 80%;
+  overflow: auto;
+  margin-bottom: 20px;
+}
+
+div.pod-selection-container {
+  h3 {
+    font-size: 19px;
+  }
+  & .file-radio-button {
+    margin-right: 10px;
+    margin-bottom: 10px;
+  }
+}
+
+mat-expansion-panel {
+  border-bottom: none;
+}
+
+#multipleKubesecReports {
+  ::ng-deep .mat-expansion-panel-header-description,
+  ::ng-deep .mat-expansion-panel-header-title {
+    flex: 1;
+    text-wrap: nowrap;
+  }
+}
+
+.margin-top {
+  margin-top: 10px;
+}

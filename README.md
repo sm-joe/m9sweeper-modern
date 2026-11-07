@@ -1,33 +1,80 @@
-# m9sweeper Modernization Foundation
+# m9sweeper-new
 
-This is a **source-grounded architecture and executable TypeScript parser slice**, not a completed replacement platform. Frontend, API transport, scanner runners and admission webhook still need implementations and published images. The Helm chart is deliberately fail-closed until image references and a pre-created secret are supplied.
+**An emerging Kubernetes security operations platform** — an attributed, source-preserving modernization of the original open-source m9sweeper project.
 
-## Run parser tests
+> **Status: v0.1.0-rc2 developer integration candidate. Not production-ready.**
+> This project is not a certified CIS compliance checker; actual scanner results, coverage and benchmark compatibility must be verified for each target cluster.
 
-```bash
-cd backend
-npm install
-npm run build
-npm test
+## Why a new product
+
+The original application is preserved as the migration baseline in [`platform/`](platform/). This branch is **not** a finished rewrite or a claim of compatibility with all current Kubernetes releases. It replaces unsupported and unsafe assumptions with incremental, tested product functionality while retaining the actual user/cluster/scanner/policy/reporting workflows.
+
+### Functional scope (retained from upstream, not necessarily E2E verified)
+
+- Angular application: cluster inventory, image vulnerability dashboards, policies, exceptions, user management, scan history and security reports
+- NestJS API with PostgreSQL persistence, JWT authentication, RabbitMQ and integration with Kubernetes
+- Java trawler for Trivy image scanning; upstream kube-bench, Kubesec, Falco and kube-hunter integration source
+- Admission policy, Gatekeeper, Helm deployment charts, and Docker Compose development stack
+
+### What is new and verified so far
+
+| Track | Actual implementation | Evidence |
+|---|---|---|
+| Product UI | Updated login/navigation; scanner report readiness status using standalone Angular Signals component | Angular production build; live API configuration in RC1 |
+| Backend | Policy and admission fixes; hardened API-key validation; cluster-scoped kube-bench reporting | Jest regression suites, login + database smoke |
+| Kubernetes | CA-required service-account onboarding; clearer failures; token readiness; no insecure TLS fallback on changed paths | Source regressions and Kind client inventory |
+| Scanner | Java worker image using Trivy v0.76.2; corrected Trivy severity classification, unknown finding treatment, malformed scan handling, and secret-safe debug output | Maven + JUnit and real standalone Trivy scan |
+| Compliance | kube-bench Secret-backed HTTP-header auth; observed result counts explicitly not official compliance scores | Helm templates, Kind kube-bench job, m9sweeper PDF integration test |
+| Deployment | Optional Kind Compose overlay; private local defaults and required secrets; CI-gated source candidate | Compose, image build, Helm lint/template, Kind smoke |
+
+**Important:** a unit test or individual scanner run does not prove the full scanner→queue→database→dashboard pipeline.
+
+## Architecture (current implementation)
+
+```text
+Angular UI (Dash)
+     | REST / JWT
+NestJS API ------- PostgreSQL (inventory, findings, policies, reports)
+     | \
+     |  RabbitMQ ---> Java trawler ---> Trivy
+     |
+     +-- Kubernetes API (cluster resources / RBAC)
+     +-- kube-bench / Kubesec / Falco / kube-hunter (varied maturity)
+     +-- Admission and policy hooks (not fully E2E release-validated)
 ```
 
-## Install chart after building/publishing all three images
+## Getting started: development integration
 
-```bash
-kubectl apply -f deploy/manifests/namespace.yaml
-kubectl -n m9sweeper-system create secret generic m9sweeper-credentials \
-  --from-literal=jwt-secret='REPLACE_WITH_RANDOM_32+_BYTES' \
-  --from-literal=agent-api-key='REPLACE_WITH_RANDOM_VALUE' \
-  --from-literal=super-admin-email='admin@example.com' \
-  --from-literal=super-admin-password='REPLACE_WITH_RANDOM_VALUE' \
-  --from-literal=postgres-password='REPLACE_WITH_RANDOM_VALUE'
-helm lint deploy/helm/m9sweeper --set dash.image.repository=registry.example/m9-dash --set dash.image.tag=VERSION --set backend.image.repository=registry.example/m9-backend --set backend.image.tag=VERSION --set trawler.image.repository=registry.example/m9-trawler --set trawler.image.tag=VERSION
-helm upgrade --install m9 deploy/helm/m9sweeper -n m9sweeper-system -f deploy/helm/m9sweeper/values.yaml \
-  --set dash.image.repository=registry.example/m9-dash --set dash.image.tag=VERSION \
-  --set backend.image.repository=registry.example/m9-backend --set backend.image.tag=VERSION \
-  --set trawler.image.repository=registry.example/m9-trawler --set trawler.image.tag=VERSION
-```
+**Prerequisites:** Linux/Unix development host or a compatible Docker environment, Docker Compose, and optionally Kind + kubectl + Helm. This is not a hardened production installer.
 
-For real deployments provide secrets via sealed/external secrets, not literal command-line history; use a managed external PostgreSQL and private image digests. Never install example VAP in real clusters without testing its scope and exemptions. The Helm chart is an infrastructure skeleton; it does **not** provision scanners, migrations, network policies, cert-manager issuers or running service implementations.
+1. Clone and check out the `release/m9sweeper-new-v0.1.0-rc2` branch (once published).
+2. In `platform/docker-compose/`, copy `.env.sample` to `.env` and supply unique credentials. Never commit `.env`.
+3. Run `docker compose up -d --build` and check `http://localhost:3000/api/health`. The login application is available at `http://localhost:3000`.
+4. For **local Kind only**, use `docker compose -f docker-compose.yml -f docker-compose.kind.yml up -d --build`. This automatically attaches Dash to the Docker `kind` bridge; see [Kind integration](docs/local-kind-integration.md).
+5. Set `SCANNER_REPORT_INGESTION_URL` to the **Pod-reachable API origin**, not your browser's `localhost`. Verify from inside the Kubernetes cluster before generating scanner Jobs.
+6. For kube-bench, create the namespace-local API-key Secret referenced by the generated Helm command. See the [RC2 test guide](docs/m9sweeper-new-0.1.0-rc2.md).
+7. Verify new findings are **persisted** and shown by the application; HTTP health alone is not enough.
 
-Legacy configuration field names retained: `dash.init.superAdminEmail`, `dash.init.superAdminPassword`, `global.jwtSecret`, `global.apiKey`; their secret values should be supplied by corresponding Kubernetes Secret keys and `values.yaml` should remain empty.
+For real Kubernetes deployment, use internally routable HTTPS and Secrets, least privilege, trusted CAs and tested image signatures. The bundled Helm stack has not yet passed release-level installation/rollback checks.
+
+## CI and source RC
+
+The [full platform CI workflow](.github/workflows/revamp-platform-ci.yml) covers source parity, Angular and NestJS, Java scanner tests, runtime authentication, PostgreSQL and RabbitMQ, Trivy and Kubesec, Kind inventory/kube-bench, container images and Helm rendering. A versioned source archive is built **only after all existing CI gates pass**. This is a test candidate, not a signed production release.
+
+See [RC2 acceptance criteria](docs/m9sweeper-new-0.1.0-rc2.md), [product release blockers](docs/m9sweeper-new-release-gates.md), and [integration evidence ledger](docs/integration-acceptance.md).
+
+## Blockers before a public product release
+
+- Supported Angular and NestJS framework/tooling upgrades; design-system and browser regression coverage
+- Trivy queue→DB→UI E2E, and full live Falco/kube-hunter ingestion and isolation
+- Short-lived identities, least-privilege Kubernetes RBAC, credential encryption, OIDC/RBAC and multicluster authorization
+- Full Helm lifecycle tests, admission webhook TLS/outage behavior, DB migration backup/restore, and audited release artifacts
+- Validated version-specific CIS benchmark mappings with reviewable evidence and remediation; no fabricated certification or score
+
+**Do not advertise this branch as production-certified or fully modernized until the blockers have tested evidence.**
+
+## Licensing and upstream attribution
+
+This project is based on the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) repository, pinned at upstream revision `2bc394b5db0d00e3a5784d388ba26be6451ff9c0`. The original **Apache License 2.0** is retained unmodified at [`platform/LICENSE`](platform/LICENSE); original file notices, attribution and third-party notices must remain intact. See [`ATTRIBUTION.md`](ATTRIBUTION.md).
+
+The `m9sweeper-new` development name does **not** imply endorsement or affiliation by upstream maintainers. Trademark, upstream notices and third-party scanner licenses require review before distributing independently.
