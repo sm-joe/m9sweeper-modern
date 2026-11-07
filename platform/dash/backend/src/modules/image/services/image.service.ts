@@ -269,7 +269,8 @@ export class ImageService {
     async saveImageScanDataByImageId(clusterId: number,
                                      imageId: number,
                                      imageTrawlerResultDto: ImageTrawlerResultDto,
-                                     createdAt: number): Promise<number[]> {
+                                     createdAt: number,
+                                     scanRunId?: string): Promise<number[]> {
 
         const getImageByImageId = await this.getImageByImageId(clusterId, imageId);
 
@@ -278,6 +279,9 @@ export class ImageService {
             plainImageScanResults.image_id = imageId;
             plainImageScanResults.issues = JSON.stringify(plainImageScanResults.issues);
             plainImageScanResults.created_at = createdAt;
+            if (scanRunId) {
+                plainImageScanResults.scan_run_id = scanRunId;
+            }
             const saveImageScan = await this.imageDao.saveImageScanByImageId(plainImageScanResults);
             const clusterEventObject = this.clusterEventService.createClusterEventObject(0, 'Image Scan', 'Create', 'Info', `${getImageByImageId.name} has been scanned.`, plainImageScanResults);
             await this.clusterEventService.createClusterEvent(clusterEventObject, clusterId);
