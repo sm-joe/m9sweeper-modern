@@ -33,7 +33,7 @@ export class KubeHunterDialogComponent implements OnInit {
   };
 
   private unsubscribe$ = new Subject<void>();
-  apiKey: string;
+
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: { clusterId: number },
@@ -69,11 +69,6 @@ export class KubeHunterDialogComponent implements OnInit {
       }
     });
     this.clusterId = this.data.clusterId;
-    this.kubeHunterService.getKubeHunterApiKey().pipe(take(1)).subscribe({
-      next: response => {
-        this.apiKey = response[0]?.api;
-      }
-    });
     this.lookForReport();
   }
 
