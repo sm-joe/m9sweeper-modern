@@ -44,4 +44,15 @@ describe('Trivy report ingestion security', () => {
     expect(imageService.getImageByImageId).toHaveBeenCalledWith(9, 22);
     expect(imageService.getImageById).not.toHaveBeenCalled();
   });
+
+  it('rejects an absent cluster image even when the lookup returns undefined', async () => {
+    imageService.getImageByImageId.mockResolvedValue(undefined);
+    await expect(controller.saveImageScanResults(9, 22, {
+      data: [{
+        policyId: 1, issues: [], criticalIssues: 0, majorIssues: 0,
+        mediumIssues: 0, lowIssues: 0, negligibleIssues: 0
+      }]
+    } as any)).rejects.toMatchObject({status: 404});
+    expect(imageService.getImageById).not.toHaveBeenCalled();
+  });
 });
