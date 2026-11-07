@@ -1,3 +1,4 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
 import {parseScannerClusterId, selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
 import {Controller, Get, Headers, HttpException, HttpStatus, Param, Post, Query, UseGuards} from '@nestjs/common';
 import {QuotedBody} from "../../../decorators/quoted-body.decorator";
@@ -58,7 +59,7 @@ export class KubeHunterController {
 
     @Get('/apiKey')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200
     })
@@ -73,14 +74,14 @@ export class KubeHunterController {
 
     @Get('/:id')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getKubeHunterReportById(@Param('id') id: string): Promise<KubeHunterDto> {
         return await this.kubeHunterService.getKubeHunterReportById(+id);
     }
 
     @Get('/cluster/:clusterId')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getAllReportsForCluster(@Param('clusterId') clusterId: number, @Query('page') page?: number, @Query('limit') limit?: number):
         Promise<{reportCount: number, list: KubeHunterDto[]}> {
         return this.kubeHunterService.getAllReportsForCluster(clusterId, page, limit);
@@ -88,7 +89,7 @@ export class KubeHunterController {
 
     @Get('/cluster/:clusterId/recent')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getRecentReportsForCluster(@Param('clusterId') clusterId: number, @Query('minDate') minDate: number): Promise<KubeHunterDto> {
         return await this.kubeHunterService.getRecentKubeHunterReportForCluster(clusterId, minDate);
     }
