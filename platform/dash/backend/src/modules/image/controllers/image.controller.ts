@@ -1,5 +1,5 @@
 import {
-    BadRequestException, Body, Controller,
+    BadRequestException, Body, Controller, Headers,
     Delete, Get, HttpException, HttpStatus, Param, Post, Put,
     Query, UseGuards, UseInterceptors
 } from '@nestjs/common';
@@ -288,7 +288,8 @@ export class ImageController {
     async saveImageScanResults(
         @Param('clusterId') clusterId: number,
         @Param('imageId') imageId: number,
-        @Body() trawlerScanResults: TrawlerScanResults
+        @Body() trawlerScanResults: TrawlerScanResults,
+        @Headers('x-scan-run-id') scanRunId?: string
     ):Promise<ImageScanResultDto>{
         // Fail closed before any new image or partial scan evidence is persisted.
         if (!trawlerScanResults || !Array.isArray(trawlerScanResults.data) ||
@@ -311,6 +312,24 @@ export class ImageController {
             throw new HttpException('Image does not belong to the selected cluster', HttpStatus.NOT_FOUND);
         }
         const targetImage: ListOfImagesDto = await this.imageService.getImageById(+imageId);
+
+        // RC4 runs are claimed atomically. An acknowledged duplicate returns the
+        // original decision and must not append new scan results or create events.
+        if (scanRunId) {
+            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(scanRunId)) {
+                throw new BadRequestException('Invalid scan run identifier');
+            }
+            const run = await this.imageService.getScanRun(scanRunId);
+            if (!run || +run.cluster_id !== +clusterId || +run.image_id !== +imageId) {
+                throw new HttpException('Unknown scan run for image or cluster', HttpStatus.NOT_FOUND);
+            }
+            if (run.status === 'completed') {
+                return plainToInstance(ImageScanResultDto, {complaint: run.compliant});
+            }
+            if (!await this.imageService.claimScanRun(scanRunId, +clusterId, +imageId)) {
+                throw new HttpException('Scan run is already processing or failed', HttpStatus.CONFLICT);
+            }
+        }
 
         await Promise.all(trawlerScanResults.data.map(async (rsByPolicy: ImageTrawlerResultDto) => {
             const facadeDto = new ImageScanResultPerPolicyFacadeDto();
@@ -336,7 +355,7 @@ export class ImageController {
         // save scan results
         const createdAt = Date.now();
         await Promise.all(trawlerScanResults.data.map((rsByPolicy: ImageTrawlerResultDto) =>
-          this.imageService.saveImageScanDataByImageId(clusterId, targetImage.id, rsByPolicy, createdAt)));
+          this.imageService.saveImageScanDataByImageId(clusterId, targetImage.id, rsByPolicy, createdAt, scanRunId)));
 
         // update image data
         const critical_issues = trawlerScanResults.data.map(r => r.criticalIssues).reduce((a, b) => a + b, 0);
@@ -358,6 +377,9 @@ export class ImageController {
             medium_issues, low_issues, negligible_issues); // Keep Kubernetes runtime image ID unchanged
 
         await this.imageService.setImageScanQueueStatus(targetImage.id, false);
+        if (scanRunId) {
+            await this.imageService.completeScanRun(scanRunId, status === 'Compliant');
+        }
 
         return plainToInstance(ImageScanResultDto, {complaint: status === 'Compliant'});
     }
