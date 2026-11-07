@@ -423,6 +423,53 @@ export class ImageDao {
         return knexnest(knex.where(searchClause).update(deletedTime, ['id']).into('images as i')).then(image => image.id);
     }
 
+    async createScanRun(id: string, clusterId: number, imageId: number): Promise<void> {
+        const knex = await this.databaseService.getConnection();
+        const now = Date.now();
+        await knex('image_scan_runs').insert({
+            id, cluster_id: clusterId, image_id: imageId,
+            status: 'queued', created_at: now, updated_at: now
+        });
+    }
+
+    async markScanRunPublished(id: string): Promise<void> {
+        const knex = await this.databaseService.getConnection();
+        await knex('image_scan_runs')
+            .where({id, status: 'queued'})
+            .update({status: 'published', updated_at: Date.now()});
+    }
+
+    async markScanRunFailed(id: string, reason: string): Promise<void> {
+        const knex = await this.databaseService.getConnection();
+        await knex('image_scan_runs').where({id})
+            .whereNot('status', 'completed')
+            .update({status: 'failed', failure_reason: reason.slice(0, 500), updated_at: Date.now()});
+    }
+
+    async getScanRun(id: string): Promise<{
+        id: string; cluster_id: number; image_id: number;
+        status: string; compliant: boolean | null
+    } | undefined> {
+        const knex = await this.databaseService.getConnection();
+        return knex('image_scan_runs').where({id}).first();
+    }
+
+    async claimScanRun(id: string, clusterId: number, imageId: number): Promise<boolean> {
+        const knex = await this.databaseService.getConnection();
+        const claimed = await knex('image_scan_runs')
+            .where({id, cluster_id: clusterId, image_id: imageId})
+            .whereIn('status', ['queued', 'published'])
+            .update({status: 'processing', updated_at: Date.now()})
+            .returning('id');
+        return claimed.length === 1;
+    }
+
+    async completeScanRun(id: string, compliant: boolean): Promise<void> {
+        const knex = await this.databaseService.getConnection();
+        await knex('image_scan_runs').where({id, status: 'processing'})
+            .update({status: 'completed', compliant, updated_at: Date.now()});
+    }
+
     async saveImageScanByImageId(scanImageData: any): Promise<number[]> {
         const knex = await this.databaseService.getConnection();
 
