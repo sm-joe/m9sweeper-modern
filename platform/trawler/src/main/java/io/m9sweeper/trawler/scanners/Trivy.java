@@ -150,14 +150,11 @@ public class Trivy implements Scanner {
         trivyScanCommandBuilder.append(escapeXsi(
                 config.getImage().buildFullPath(true, false)
         ));
-        trivyScanCommandBuilder.append("';");
+        trivyScanCommandBuilder.append("'");
 
-        if (registry.getIsLoginRequired()) {
-            trivyScanCommandBuilder.append(" unset TRIVY_USERNAME; unset TRIVY_PASSWORD;");
-        }
-        if ("AZCR".equals(registry.getAuthType())) {
-            trivyScanCommandBuilder.append(" unset AZURE_CLIENT_ID; unset AZURE_CLIENT_SECRET; unset AZURE_TENANT_ID;");
-        }
+        // Each scan uses a short-lived shell process. Credentials exported there
+        // disappear with that process; appended "unset" commands are unnecessary
+        // and could mask the Trivy exit status.
 
         if (TrawlerConfiguration.getInstance().getDebug()) {
             // The shell command may contain private registry credentials.
@@ -213,7 +210,7 @@ public class Trivy implements Scanner {
                 }
             }
         }
-        String errorMessage = errorOutput.length() > 0 ? errorOutput.substring(errorOutput.indexOf("FATAL") + 10, errorOutput.length()) : errorOutput.toString();
+        String errorMessage = errorOutput.toString().trim();
         if (TrawlerConfiguration.getInstance().getDebug() && errorMessage.length() > 0) {
             System.err.println("ERROR: " + errorMessage);
         }
@@ -227,7 +224,8 @@ public class Trivy implements Scanner {
                 rawResults = jsonScanResultOutput.toString();
             }
         } else {
-            throw new Exception(errorMessage);
+            throw new Exception(errorMessage.isEmpty() ?
+                    "Trivy process failed with exit code " + exitVal + " (no JSON report)" : errorMessage);
         }
     }
 
