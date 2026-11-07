@@ -48,6 +48,11 @@ export class KubeHunterController {
             throw new HttpException('Unauthorized  - log may not have been saved', HttpStatus.UNAUTHORIZED);
         }
 
+        if (currentUserAuthObj[0].isActive === false ||
+            (process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS === 'true' &&
+             !await this.userDao.scannerHasClusterGrant(currentUserAuthObj[0].id, clusterId))) {
+            throw new HttpException('Scanner identity is not authorized for this cluster', HttpStatus.UNAUTHORIZED);
+        }
         this.logger.log({label: 'User has been authorized; saving KH scan report', data: { clusterId }}, 'KubeHunterController.saveKubeHunterReport');
         const reportAsDto = Object.assign(new KubeHunterDto(), report);
         reportAsDto.uuid = uuid();
