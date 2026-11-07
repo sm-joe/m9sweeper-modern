@@ -1,3 +1,4 @@
+import {ClusterAccessController} from './controllers/cluster-access.controller';
 import {Global, Module} from '@nestjs/common';
 import { ClusterDao } from './dao/cluster.dao';
 import { ClusterController } from './controllers/cluster.controller';
@@ -10,6 +11,7 @@ import {ExceptionBlockService} from "../command-line/services/exception-block.se
 @Module({
   controllers: [
     ClusterController,
+    ClusterAccessController,
   ],
   exports: [
     ClusterDao,
