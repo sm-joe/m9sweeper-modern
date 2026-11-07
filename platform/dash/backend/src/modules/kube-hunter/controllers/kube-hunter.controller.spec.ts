@@ -42,4 +42,22 @@ describe('kube-hunter ingestion authentication', () => {
       else process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT = original;
     }
   });
+
+  it('rejects a scanner credential without a grant for the selected cluster in enforced mode', async () => {
+    const previous = process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS;
+    process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS = 'true';
+    users.loadUserByApiKey.mockResolvedValue([{
+      id: 17, authorities: ['SCANNER'], isActive: true
+    }]);
+    users.scannerHasClusterGrant = jest.fn().mockResolvedValue(false);
+    try {
+      await expect(controller.saveKubeHunterReport({nodes: {}}, 3, 'scanner-key'))
+        .rejects.toMatchObject({status: 401});
+      expect(reports.saveKubeHunterReport).not.toHaveBeenCalled();
+      expect(users.scannerHasClusterGrant).toHaveBeenCalledWith(17, 3);
+    } finally {
+      if (previous === undefined) delete process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS;
+      else process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS = previous;
+    }
+  });
 });
