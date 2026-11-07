@@ -50,7 +50,7 @@ docker compose -f docker-compose.yml -f docker-compose.kind.yml logs --tail=120 
 docker exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT r.id,r.image_id,i.cluster_id,to_timestamp(r.created_at / 1000.0) AS scanned_at FROM image_scan_results r JOIN images i ON i.id=r.image_id ORDER BY r.id DESC LIMIT 10;"'
 ```
 
-**Pass:** a new scan result ID exists for the selected image and cluster. Its timestamp must postdate the scan trigger. The queue must not be stuck unacknowledged. Do not share unredacted logs: registry credentials and previous legacy token URLs may appear.
+**Pass:** a new scan result ID exists for the selected image and cluster. Its timestamp must postdate the scan trigger. The queue must not be stuck unacknowledged. Repeated scanner failures may place the message in the durable `trawler_queue.failed` queue after three retries; inspect that queue before treating a missing result as a lost scan. Do not share unredacted logs: registry credentials and previous legacy token URLs may appear.
 
 ## 5. Confirm evidence in Angular
 
@@ -60,7 +60,7 @@ Open **Images → selected image → scan results**. Match the report date, poli
 
 Do not stop RabbitMQ or alter a real production system. On an isolated test copy, interrupt the Dash ingestion service while a scan is outstanding. Verify that the trawler **does not acknowledge** a scan when it cannot persist the report, and that RabbitMQ still carries the message. Restore the service and confirm the report eventually persists. Beware of repeated attempts and duplicates if the server persisted a report just before the connection failed.
 
-**Not yet production hardened:** the current worker uses requeue-on-failure without bounded retries or a dead-letter queue. At-least-once delivery can create duplicate reports if the API commits but its response is lost. A transactional/idempotent scan-run identifier and bounded retry policy are required before claiming production reliability.
+**Not yet production hardened:** the worker now republishes failed deliveries with a bounded retry count and quarantines them in `trawler_queue.failed`. A queued message is acknowledged only after a confirmed broker publish or a completed Dash submission. At-least-once delivery can still create duplicate reports if the API commits but its response is lost. A transactional/idempotent scan-run identifier, operator-visible dead-letter handling and monitored retries are required before claiming production reliability.
 
 ## Fail-closed conditions
 
