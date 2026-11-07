@@ -1,4 +1,5 @@
 import { HttpModule } from '@nestjs/axios';
+import {ScheduleModule} from '@nestjs/schedule';
 import { MiddlewareConsumer } from '@nestjs/common/interfaces/middleware/middleware-consumer.interface';
 import { Module } from '@nestjs/common/decorators/modules/module.decorator';
 import { NestModule } from '@nestjs/common/interfaces/modules/nest-module.interface';
@@ -72,6 +73,7 @@ const myFormatter = info => {
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     WinstonModule.forRoot({
       levels: {
         error: 0,
