@@ -1,0 +1,36 @@
+.pod-score.row  div{
+  font: 400 27px Roboto, Helvetica Neue, sans-serif;
+  display: flex;
+  align-items: center;
+
+  &.kubesec-score {
+    justify-content: center;
+  }
+}
+
+mat-toolbar {
+  div {
+    padding-inline: 0;
+  }
+
+  .table-score {
+    text-align: center;
+  }
+}
+
+.critical-table, .advise-table, .passed-table {}
+
+.mat-column-criticalId, .mat-column-adviseId, .mat-column-passedId {
+  min-width: 150px;
+  max-width: 200px;
+}
+
+.mat-column-criticalPoints, .mat-column-advisePoints, .mat-column-passedPoints {
+  min-width: 45px;
+  max-width: 50px;
+  justify-content: center;
+}
+
+.mat-column-criticalReason, .mat-column-adviseReason, .mat-column-passedReason {
+  min-width: 500px
+}

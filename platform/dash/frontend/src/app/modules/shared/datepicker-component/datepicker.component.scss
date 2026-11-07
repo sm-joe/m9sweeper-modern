@@ -1,0 +1,14 @@
+mat-form-field {
+  margin-right: 10px;
+  width: 150px;
+  .mat-datepicker-input {
+    width: 100%;
+    min-width: 180px;
+  }
+  mat-icon {
+    position: relative;
+    float: right;
+    margin-top: -21px;
+    cursor: pointer;
+  }
+}

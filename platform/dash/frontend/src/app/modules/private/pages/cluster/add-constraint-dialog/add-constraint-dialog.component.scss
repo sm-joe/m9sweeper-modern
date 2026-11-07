@@ -1,0 +1,57 @@
+#constraintTemplateDialogToolbar {
+  padding-inline: 0;
+}
+
+.constraint-template-container {
+  height: 91%;
+}
+
+.no-templates-text {
+  font-size: medium;
+}
+
+.sidenav-content {
+  display: flex;
+  margin: 20px 0 0 20px;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.action-btn {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.check-item-list {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidenav {
+  width: 265px;
+  user-select: none;
+  box-shadow: 3px 0 5px -3px #333;
+  overflow-x: auto;
+}
+
+.submenu-color {
+  background-color: #d1d9de;
+  padding-left: 10px;
+}
+
+.constraints-header {
+  padding-left: 20px;
+}
+
+::ng-deep .mat-mdc-dialog-surface,
+::ng-deep .mat-expansion-panel-body {
+    padding: 0!important;
+}
+
+.mat-expansion-panel {
+  box-shadow: none !important;
+}
+
+mat-dialog-actions {
+  border-top: rgba(0, 0, 0, 0.12) solid 1px;
+}

@@ -1,0 +1,9 @@
+
+.revamp-dashboard-intro{display:flex;justify-content:space-between;align-items:center;gap:22px;padding:32px 38px 24px;background:linear-gradient(115deg,#112840,#173951);color:white;flex-wrap:wrap}
+.revamp-dashboard-eyebrow{font-size:11px;font-weight:750;letter-spacing:2px;color:#69ddc8}
+.revamp-dashboard-intro h1{margin:12px 0 8px;font-size:clamp(26px,3vw,38px);font-weight:650;letter-spacing:-.8px;line-height:1.2}
+.revamp-dashboard-intro p{margin:0;color:#b6ccdf;line-height:1.6;font-size:14px}
+.revamp-dashboard-actions{display:flex;align-items:center;gap:14px}
+.revamp-cluster-counter{background:#294b62;padding:8px 12px;border-radius:999px;font-size:12px}
+.revamp-dashboard-actions button{background:#e7fcf6;color:#0b263b;border-radius:10px;padding:6px 14px}
+@media(max-width:700px){.revamp-dashboard-intro{padding:24px 18px}}

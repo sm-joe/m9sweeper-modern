@@ -1,0 +1,65 @@
+// @import '@angular/material/theming';
+@use 'sass:map';
+@use '@angular/material' as mat;
+
+@mixin app-root-theme($theme) {
+  $color-config: mat.get-color-config($theme);
+  $primary: map.get($color-config, primary);
+  $accent: map.get($color-config, accent);
+  //$foreground: map.get($color-config, foreground);
+  //$background: map.get($color-config, background);
+
+  app-root {
+    .app-container {
+      background-color:  mat.get-color-from-palette(mat.$gray-palette, 300);
+      > div {
+        //&.theme-changer-container {
+        //  background:  mat.get-color-from-palette(mat.$gray-palette, A100);
+        //}
+      }
+    }
+  }
+  .primary-side-nav-container {
+    a.side-nav-menu-item.active {
+      background-color: #c7e0f4;
+      border-left: #0078d4 3px solid;
+    }
+
+    span.mat-mdc-list-item-unscoped-content {
+      display: flex !important;
+      align-items: center;
+
+      .menu-item-name {
+        margin-left: 0.55em;
+      }
+      .menu-item-abbreviation {
+        align-self: center;
+        display: flex;
+        flex-wrap: wrap;
+        align-content: center;
+        justify-content: center;
+        border-radius: 0.5em;
+        width: 0.75em;
+        height: 0.75em;
+        color: white;
+        text-transform: uppercase;
+        padding: 0.8em;
+        font-size: 0.95em;
+      }
+      mat-icon {
+        font-size: 2em;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-content: center;
+        height: 100%;
+        width: 1.15em;
+      }
+    }
+
+    .mat-drawer-inner-container {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+}
