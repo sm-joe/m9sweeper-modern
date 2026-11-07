@@ -47,3 +47,15 @@ Kube-bench report counts and latest-result queries are now explicitly cluster sc
 - A `caFile` path must be readable from the backend container, and is converted into embedded `certificate-authority-data` for downstream connections; a CA embedded in kubeconfig is preferred.
 - Service-account token provisioning must be complete before a newly issued kubeconfig is saved. Token-only helper requires a CA parameter.
 - Legacy long-lived service-account tokens and broad RBAC remain an open production blocker; adopt time-limited TokenRequest / workload identity with least privilege before a general release.
+
+## RC2 implementation checkpoint (security, not complete product modernization)
+
+Implemented on modernization branch after RC1:
+
+- Reject unverified Kubernetes TLS and missing cluster CAs before onboarding object mutations.
+- Embed readable CA data in the returned kubeconfig, fail if service-account token is absent, and prevent token-only insecure config creation.
+- Require trusted certificate-authority-data in the manual service-account wizard and reject insecure prebuilt service-account kubeconfigs.
+- Remove direct logging of credential-bearing kubeconfig objects in initial cluster seeding.
+- Introduce a local Kind-specific Docker Compose overlay that preserves Dash membership in the external `kind` network across recreation.
+
+**Unsupported or not verified as complete:** legacy service-account token storage and broad RBAC model, 100% UI modernization, framework upgrades, full scanner ingestion, Helm runtime and rollback, complete authentication isolation, and official CIS compatibility. The source RC is for test environments only.

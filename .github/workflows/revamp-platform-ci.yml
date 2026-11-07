@@ -342,11 +342,11 @@ jobs:
           mkdir -p dist
           commit="$(git rev-parse HEAD)"
           printf 'product=m9sweeper-new\nstatus=developer-preview-not-production\ncommit=%s\nupstream=%s\n'             "$commit" "$(cat platform/.upstream-source-revision)" > dist/BUILD-IDENTITY.txt
-          tar --exclude='node_modules' --exclude='.git' -czf dist/m9sweeper-new-0.1.0-rc1-source.tar.gz             platform docs tools README.md ATTRIBUTION.md
-          (cd dist && sha256sum m9sweeper-new-0.1.0-rc1-source.tar.gz > SHA256SUMS)
+          tar --exclude='node_modules' --exclude='.git' -czf dist/m9sweeper-new-0.1.0-rc2-source.tar.gz             platform docs tools README.md ATTRIBUTION.md
+          (cd dist && sha256sum m9sweeper-new-0.1.0-rc2-source.tar.gz > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
-          name: m9sweeper-new-0.1.0-rc1-source-${{ github.sha }}
+          name: m9sweeper-new-0.1.0-rc2-source-${{ github.sha }}
           path: dist/
           if-no-files-found: error
           retention-days: 30

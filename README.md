@@ -21,7 +21,7 @@ Use `platform/docker-compose/.env.sample` as a starting point and supply strong 
 
 Set `SERVER_BASE_URL=http://localhost:3000` only for browser access. When generating kube-bench jobs, configure `SCANNER_REPORT_INGESTION_URL` as an **address reachable from the scanner Pod**, such as a private in-cluster service URL for a Kubernetes deployment. Do not use `localhost` or assume Docker Compose service DNS is reachable from Kind. Enable authenticated TLS for a public or cross-network deployment.
 
-See [product scope and release gates](docs/m9sweeper-new-release-gates.md) and [existing acceptance ledger](docs/integration-acceptance.md).
+For local Docker/Kind use the optional [Kind Compose overlay](docs/local-kind-integration.md). See [product scope and release gates](docs/m9sweeper-new-release-gates.md) and [existing acceptance ledger](docs/integration-acceptance.md).
 
 ## Licensing and independence
 
