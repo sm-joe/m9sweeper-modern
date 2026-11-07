@@ -38,14 +38,14 @@ spec:
             {{- with .Values.customArguments }}
 {{ toYaml . | indent 12 }}
             {{- end }}
+          {{ if .Values.reportAuth.existingSecret }}
           env:
-            {{- if .Values.reportAuth.existingSecret }}
-            - name: KUBE_BENCH_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.reportAuth.existingSecret | quote }}
-                  key: {{ .Values.reportAuth.keyName | quote }}
-            {{- end }}
+          - name: KUBE_BENCH_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.reportAuth.existingSecret | quote }}
+                key: {{ .Values.reportAuth.keyName | quote }}
+          {{ end }}
           volumeMounts:
             - name: var-lib-etcd
               mountPath: /var/lib/etcd
