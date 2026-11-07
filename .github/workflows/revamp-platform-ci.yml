@@ -9,6 +9,10 @@ on:
       - 'README.md'
       - 'ATTRIBUTION.md'
       - 'docs/**'
+concurrency:
+  group: full-platform-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
