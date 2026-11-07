@@ -145,9 +145,14 @@ public class Trivy implements Scanner {
         clearCacheProcess.waitFor();
         
         // run trivy scan
-        trivyScanCommandBuilder.append("trivy -q image --timeout 30m --scanners vuln -f json '");
+        // Kubernetes image IDs often contain a container config digest, which is
+        // NOT a registry manifest digest. Appending that value as @sha256
+        // produces MANIFEST_UNKNOWN even when the tagged image is valid.
+        // Scan the remote registry tag; Trivy's result supplies the resolved
+        // artifact identity, rather than guessing the manifest digest.
+        trivyScanCommandBuilder.append("trivy -q image --image-src remote --timeout 30m --scanners vuln -f json '");
         trivyScanCommandBuilder.append(escapeXsi(
-                config.getImage().buildFullPath(true, true)
+                config.getImage().buildFullPath(true, false)
         ));
         trivyScanCommandBuilder.append("';");
 
