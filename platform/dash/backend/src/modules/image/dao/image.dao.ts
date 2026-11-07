@@ -521,6 +521,77 @@ export class ImageDao {
             .update({status: 'completed', compliant, updated_at: Date.now()});
     }
 
+    /**
+     * RC4 atomic scan commit. A run is either fully persisted or not persisted;
+     * retries observing completed status receive its original result.
+     */
+    async commitScanRun(
+        runId: string, clusterId: number, imageId: number,
+        reports: any[], status: string,
+        counts: {critical: number; major: number; medium: number; low: number; negligible: number},
+        createdAt: number
+    ): Promise<boolean> {
+        const knex = await this.databaseService.getConnection();
+        return knex.transaction(async trx => {
+            const run = await trx('image_scan_runs')
+                .where({id: runId, cluster_id: clusterId, image_id: imageId})
+                .forUpdate().first();
+            if (!run) throw new Error('Unknown scan run');
+            if (run.status === 'completed') return !!run.compliant;
+            if (run.status !== 'processing') throw new Error('Scan run cannot be committed in current state');
+
+            const image = await trx('images').where({id: imageId, cluster_id: clusterId})
+                .whereNull('deleted_at').forUpdate().first('id');
+            if (!image) throw new Error('Scan run image no longer exists');
+
+            await trx('image_scan_results')
+                .where({image_id: imageId})
+                .update({is_latest: false});
+
+            for (const result of reports) {
+                const payload: any = instanceToPlain(result);
+                const issues = Array.isArray(payload.issues) ? payload.issues : [];
+                delete payload.issues;
+                delete payload.docker_image_id;
+                payload.image_id = imageId;
+                payload.scan_run_id = runId;
+                payload.created_at = createdAt;
+                payload.is_latest = true;
+                const inserted = await trx('image_scan_results').insert(payload).returning('id');
+                const resultId = inserted[0]?.id;
+                if (!resultId) throw new Error('Unable to persist scan policy report');
+                if (issues.length) {
+                    await trx('image_scan_results_issues').insert(issues.map(issue => {
+                        const issueData = typeof issue.data === 'string' ?
+                            JSON.parse(issue.data) : (issue.data || {});
+                        return {
+                            ...issue, image_results_id: resultId,
+                            package_name: issueData.PkgName,
+                            installed_version: issueData.InstalledVersion,
+                            fixed_version: issueData.FixedVersion
+                        };
+                    }));
+                }
+            }
+
+            const updated = await trx('images').where({id: imageId, cluster_id: clusterId})
+                .update({
+                    updated_at: createdAt, last_scanned: createdAt,
+                    scan_results: status, scan_queued: false,
+                    critical_issues: counts.critical, major_issues: counts.major,
+                    medium_issues: counts.medium, low_issues: counts.low,
+                    negligible_issues: counts.negligible
+                });
+            if (updated !== 1) throw new Error('Unable to finalize image scan status');
+
+            const completed = await trx('image_scan_runs')
+                .where({id: runId, status: 'processing'})
+                .update({status: 'completed', compliant: status === 'Compliant', updated_at: Date.now()});
+            if (completed !== 1) throw new Error('Unable to finalize scan run');
+            return status === 'Compliant';
+        });
+    }
+
     async saveImageScanByImageId(scanImageData: any): Promise<number[]> {
         const knex = await this.databaseService.getConnection();
 
