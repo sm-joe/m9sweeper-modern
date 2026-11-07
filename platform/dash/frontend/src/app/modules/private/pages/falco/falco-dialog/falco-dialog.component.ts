@@ -1,10 +1,8 @@
 import {Component, Inject, OnInit} from '@angular/core';
 import {take} from 'rxjs/operators';
-import {Subject} from 'rxjs';
 import {MAT_DIALOG_DATA, MatDialogRef} from '@angular/material/dialog';
 import {CommonService} from '../../../../../core/services/common.service';
 import {NgxUiLoaderService} from 'ngx-ui-loader';
-import {FalcoService} from '../../../../../core/services/falco.service';
 
 @Component({
   selector: 'app-falco-dialog',
@@ -13,10 +11,10 @@ import {FalcoService} from '../../../../../core/services/falco.service';
 })
 export class FalcoDialogComponent implements OnInit {
 
-  backendUrl: string;
+  backendUrl = '';
+  reportEndpointReady = false;
+  reportEndpointError = 'Scanner report ingestion endpoint is not configured.';
   clusterId: number;
-  private unsubscribe$ = new Subject<void>();
-  apiKey: string;
   level = 'Error';
   priorityLevels: string [] = ['', 'Emergency', 'Alert', 'Critical', 'Error', 'Warning', 'Notice', 'Informational', 'Debug'];
 
@@ -25,20 +23,29 @@ export class FalcoDialogComponent implements OnInit {
     private matDialogRef: MatDialogRef<FalcoDialogComponent>,
     private commonService: CommonService,
     private loaderService: NgxUiLoaderService,
-    private falcoService: FalcoService,
   ) {}
 
   ngOnInit(): void {
     this.loaderService.start();
-    this.commonService.getBaseUrl().pipe(take(1)).subscribe(url => {
-      this.backendUrl = url.data.baseUrl;
-      this.loaderService.stop();
-    });
-    this.clusterId = this.data.clusterId;
-    this.falcoService.getFalcoApiKey().pipe(take(1)).subscribe({
+    this.commonService.getBaseUrl().pipe(take(1)).subscribe({
       next: response => {
-        this.apiKey = response.data[0]?.api;
+        const endpoint = (response.data as {reportIngestionUrl?: string | null}).reportIngestionUrl;
+        if (endpoint && /^https?:\/\//.test(endpoint) && !/^https?:\/\/(?:localhost|127(?:\.\d{1,3}){3}|\[::1\])(?::|\/|$)/i.test(endpoint)) {
+          this.backendUrl = endpoint.replace(/\/$/, '');
+          this.reportEndpointReady = true;
+          this.reportEndpointError = '';
+        } else {
+          this.reportEndpointReady = false;
+          this.reportEndpointError = 'Configure a Kubernetes Pod-reachable SCANNER_REPORT_INGESTION_URL; browser localhost cannot receive Falco webhook events.';
+        }
+        this.loaderService.stop();
+      },
+      error: () => {
+        this.reportEndpointReady = false;
+        this.reportEndpointError = 'Unable to load scanner report-ingestion configuration.';
+        this.loaderService.stop();
       }
     });
+    this.clusterId = this.data.clusterId;
   }
 }
