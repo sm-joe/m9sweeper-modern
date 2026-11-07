@@ -20,7 +20,7 @@ describe('kube-bench data isolation across clusters', () => {
   }
   it('counts only results belonging to the requested cluster', async () => {
     const {dao,calls} = daoWithMockQuery();
-    await expect(dao.countReport(7)).resolves.toBe('3');
+    await expect(dao.countReport(7)).resolves.toBe(3);
     expect(calls).toContainEqual(['where','kb.cluster_id',7]);
   });
   it('returns only latest report for requested cluster, even with timestamp ties', async () => {

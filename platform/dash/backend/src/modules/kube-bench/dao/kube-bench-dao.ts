@@ -53,12 +53,12 @@ export class KubeBenchDao {
             .then(report => plainToInstance(KubeBenchDto, report));
     }
 
-    async countReport(clusterId: number): Promise<Number> {
+    async countReport(clusterId: number): Promise<number> {
         const knex = await this.databaseService.getConnection();
         const result = await knex('kube_bench as kb')
             .where('kb.cluster_id', clusterId)
             .count('kb.id', {as: 'count'});
-        return (result && result[0] && result[0].count) ? result[0].count : 0;
+        return Number(result?.[0]?.count ?? 0);
     }
 
     async getLastBenchReportSummary(clusterId: number): Promise<KubeBenchDto[]> {
