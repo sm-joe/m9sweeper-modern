@@ -215,8 +215,8 @@ export class ImageService {
             const scanInput = matches[0];
             if ((+scanInput.policyCount) + (+globalPolicies.globalPolicyCount) <= 0) {
                 throw new HttpException({
-                    message: `No policy is found for "${scanInput.image.name}:${scanInput.image.tag}"`
-                }, HttpStatus.NOT_FOUND);
+                    message: `No enabled Trivy policy is assigned to cluster ${clusterId} for "${scanInput.image.name}:${scanInput.image.tag}". Create or enable a policy with an enabled Trivy scanner and assign it to this cluster, then retry.`
+                }, HttpStatus.UNPROCESSABLE_ENTITY);
             }
 
             scanInput.image.path = null;
