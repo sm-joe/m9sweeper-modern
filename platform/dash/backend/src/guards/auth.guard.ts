@@ -11,7 +11,8 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    if (this._loggedInUser) {
+    if (this._loggedInUser && Number.isInteger(this._loggedInUser.id) &&
+        this._loggedInUser.id > 0 && this._loggedInUser.isActive !== false) {
       this.logger.log(
         {
           label: 'User authenticated',
