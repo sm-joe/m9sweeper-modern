@@ -464,6 +464,34 @@ export class ImageDao {
         return claimed.length === 1;
     }
 
+    /**
+     * Fail abandoned scanner jobs after an hour; a subsequent run must not have
+     * its queue state cleared by an older failed job.
+     */
+    async expireStaleScanRuns(maxAgeMs = 60 * 60 * 1000): Promise<number> {
+        const knex = await this.databaseService.getConnection();
+        const now = Date.now();
+        return knex.transaction(async trx => {
+            const stale = await trx('image_scan_runs')
+                .whereIn('status', ['queued', 'published', 'processing'])
+                .where('updated_at', '<', now - maxAgeMs)
+                .update({status: 'failed', failure_reason: 'Scan timed out', updated_at: now})
+                .returning(['image_id']);
+            for (const row of stale) {
+                // Do not mark a newer active rescan failed.
+                const active = await trx('image_scan_runs')
+                    .where('image_id', row.image_id)
+                    .whereIn('status', ['queued', 'published', 'processing'])
+                    .first('id');
+                if (!active) {
+                    await trx('images').where('id', row.image_id)
+                        .update({scan_queued: false, scan_results: 'Failed'});
+                }
+            }
+            return stale.length;
+        });
+    }
+
     async completeScanRun(id: string, compliant: boolean): Promise<void> {
         const knex = await this.databaseService.getConnection();
         await knex('image_scan_runs').where({id, status: 'processing'})
