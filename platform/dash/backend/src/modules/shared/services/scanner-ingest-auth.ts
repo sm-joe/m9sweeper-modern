@@ -25,3 +25,13 @@ export function selectScannerIngestKey(
     }
     return allowLegacy ? safeToken(legacyQueryKey) : '';
 }
+
+/** Strictly positive, safe integer cluster ID for unguarded external webhooks. */
+export function parseScannerClusterId(value: number | string): number {
+    const raw = String(value);
+    if (!/^[1-9][0-9]*$/.test(raw)) {
+        return NaN;
+    }
+    const id = Number(raw);
+    return Number.isSafeInteger(id) ? id : NaN;
+}
