@@ -33,8 +33,10 @@ First backup (choose a private local backup destination and restrict access):
 
 ```powershell
 cd ..\docker-compose
-docker exec postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner' > "$env:TEMP\m9sweeper-pre-rc4.dump"
+docker exec postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --file=/tmp/m9sweeper-pre-rc4.dump'
 if ($LASTEXITCODE -ne 0) { throw 'Postgres backup failed' }
+docker cp postgres:/tmp/m9sweeper-pre-rc4.dump "$env:TEMP\m9sweeper-pre-rc4.dump"
+if ($LASTEXITCODE -ne 0) { throw 'Postgres backup copy failed' }
 ```
 
 Run Compose initialization and the new application (no `down -v`):
