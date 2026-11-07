@@ -180,7 +180,9 @@ export class KubernetesApiService {
     buildServiceAccountConfig(token: string, server: string, context: string): KubeConfig {
         const config = new KubeConfig();
         config.addUser({token, name: "m9sweeper"});
-        config.addCluster({server, name: "m9sweeper", skipTLSVerify: true});
+        // Explicitly refuse to generate a connection with certificate checks disabled.
+        // A caller must supply a trusted CA to establish secure token-based access.
+        throw new Error('Token-only kubeconfig requires a trusted CA; use an authenticated kubeconfig with certificate-authority-data.');
         config.addContext({cluster: "m9sweeper", name: context, user: "m9sweeper"});
         config.setCurrentContext(context);
         return config;
@@ -337,6 +339,26 @@ export class KubernetesApiService {
         if (execCommand) {
             throw new Error('Kubeconfig uses an external exec credential command (' + String(execCommand).split(/[\\/]/).pop() + '). Container onboarding requires credentials available to the backend; configure a supported service-account connection.');
         }
+        // Never trust a cluster API if TLS verification has been bypassed. The
+        // outgoing service-account kubeconfig inherits the verified CA instead.
+        const currentCluster = config.getCurrentCluster();
+        if (currentCluster.skipTLSVerify) {
+            throw new Error('Kubeconfig disables Kubernetes TLS verification; provide a trusted cluster certificate authority.');
+        }
+        if (!currentCluster.caData && !currentCluster.caFile) {
+            throw new Error('Kubeconfig does not contain a trusted cluster CA; provide certificate-authority-data or a readable CA file.');
+        }
+        if (currentCluster.caFile && !currentCluster.caData) {
+            try {
+                currentCluster.caData = fs.readFileSync(currentCluster.caFile, 'utf8');
+                currentCluster.caFile = undefined;
+            } catch {
+                throw new Error('Kubeconfig cluster CA file is not available in the backend container; embed certificate-authority-data.');
+            }
+        }
+        if (!currentCluster.caData?.trim()) {
+            throw new Error('Kubeconfig cluster certificate authority is empty.');
+        }
         const coreApi = this.makeCoreV1ApiFromConfig(config);
 
         // Figure out whether the service account exists in the m9sweeper system namespace, the default namespace, or not at all
@@ -449,6 +471,9 @@ export class KubernetesApiService {
 
         // Get the service account's token, and replace the user in the config with that service account
         const token = await this.getServiceAccountToken(coreApi, 'm9sweeper', serviceAccountNamespace);
+        if (!token) {
+            throw new Error('Kubernetes service-account token not yet provisioned; retry onboarding after the Secret contains its token.');
+        }
         this.switchCurrentUserAuthToToken(config, token);
         const user = config.getCurrentUser();
         const userIndex = config.users.indexOf(user);
