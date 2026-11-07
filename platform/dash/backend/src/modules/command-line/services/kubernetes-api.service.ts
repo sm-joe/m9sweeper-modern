@@ -350,7 +350,7 @@ export class KubernetesApiService {
         }
         if (currentCluster.caFile && !currentCluster.caData) {
             try {
-                currentCluster.caData = fs.readFileSync(currentCluster.caFile, 'utf8');
+                currentCluster.caData = fs.readFileSync(currentCluster.caFile).toString('base64');
                 currentCluster.caFile = undefined;
             } catch {
                 throw new Error('Kubeconfig cluster CA file is not available in the backend container; embed certificate-authority-data.');
