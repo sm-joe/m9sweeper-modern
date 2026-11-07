@@ -1,0 +1,42 @@
+name: Import original m9sweeper product source
+on:
+  push:
+    branches: [revamp/original-platform]
+    paths:
+      - '.github/workflows/import-original-platform.yml'
+      - 'tools/import-platform/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  source-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Import pinned upstream product and apply the modernization foundation
+        run: bash tools/import-platform/import.sh
+      - name: Verify that core original application modules exist
+        run: |
+          test -f platform/dash/frontend/src/app/modules/private/private-routing.module.ts
+          test -f platform/dash/backend/src/modules/auth/auth.module.ts
+          test -f platform/dash/backend/src/modules/policy/policy.module.ts
+          test -f platform/dash/backend/src/modules/kube-bench/kube-bench.module.ts
+          test -f platform/dash/backend/src/modules/kube-hunter/kube-hunter.module.ts
+          test -f platform/dash/backend/src/modules/kubesec/kubesec.module.ts
+          test -f platform/dash/backend/src/modules/falco/falco.module.ts
+          test -f platform/dash/backend/src/modules/gatekeeper/gatekeeper.module.ts
+          test -f platform/trawler/pom.xml
+          test -f platform/manifests/charts/dash/Chart.yaml
+          python3 tools/import-platform/verify.py
+      - name: Commit actual original source to modernization branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add platform
+          if ! git diff --cached --quiet; then
+            git commit -m "import: preserve complete upstream m9sweeper application as modernization baseline"
+            git push origin HEAD:revamp/original-platform
+          fi

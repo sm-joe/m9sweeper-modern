@@ -1,0 +1,266 @@
+<div class="row h-xs-100 display-xs-block me-xs-1 overflow-xs-auto">
+  <div class="col-xs ms-xs-6 my-xs-6">
+    <mat-card id="scanInformation" class="mb-xs-3 pt-xs-3" *ngIf="dataSource">
+      <div class="row header-row m-xs-0">
+        <div class="col-lg-9 col-xs-12">
+          <span id="image-name" [matTooltip]="dataSource.url + '/' + dataSource.name + ':' + dataSource.tag" >Image: {{dataSource.name+':'+dataSource.tag}}</span>
+        </div>
+        <div class="col-lg-2 col-lg-offset-1 justify-content-lg-end col-xs-12 justify-content-xs-start display-print-none">
+          <div class="me-lg-3 me-xs-0">
+            <mat-spinner *ngIf="displayImageScanSpinner$ | async" [diameter]="30"></mat-spinner>
+          </div>
+          <!-- This button should not be disabled, as it allows re-queueing image scans where image scans get "stuck"-->
+          <button type="button" color="primary" mat-raised-button
+             [allowedRoles]="['ADMIN', 'SUPER_ADMIN']"
+             *ngIf="dataSource || !dataSource"
+             (click)="scanImage()">{{ scanButtonText }}</button>
+        </div>
+      </div>
+      <div class="row header-row m-xs-0">
+        <div class="col-lg-9 col-xs-12">
+          <span [matTooltip]="dataSource.dockerImageId"
+                matTooltipClass="image-id-tooltip"
+                style="overflow:hidden; text-overflow:ellipsis"
+          >Image ID: {{dataSource.dockerImageId}}</span>
+
+          <span style="display: none" [matTooltip]="dataSource.dockerImageId"
+                matTooltipClass="image-id-tooltip"
+          >Image ID: {{dataSource.dockerImageId.length > 15 ?
+            dataSource.dockerImageId.substring(0, 15) + '...' : dataSource.dockerImageId}}</span>
+        </div>
+        <div class="col-lg-2 col-lg-offset-1 justify-content-lg-end col-xs-12 justify-content-xs-start display-print-none">
+          <div class="me-lg-3 me-xs-0">
+          </div>
+          <button type="button" color="primary" mat-raised-button
+             class="mb-half-rem"
+             (click)="downloadReport()">
+            <mat-icon>print</mat-icon>
+            Print Report
+          </button>
+        </div>
+      </div>
+      <div class="justify-content-xs-space-between overflow-x-xs-auto flex-direction-xs-row background-color-xs-grey">
+        <table class="w-100 image-details-table">
+          <tr>
+            <th>Compliant</th>
+            <th>Last Scanned</th>
+            <th>Running</th>
+            <th>{{VulnerabilitySeverity.CRITICAL | titlecase}}</th>
+            <th>{{VulnerabilitySeverity.MAJOR | titlecase}}</th>
+            <th>{{VulnerabilitySeverity.MEDIUM | titlecase}}</th>
+            <th>{{VulnerabilitySeverity.LOW | titlecase}}</th>
+            <th>{{VulnerabilitySeverity.NEGLIGIBLE | titlecase}}</th>
+          </tr>
+          <tr class="text-align-center">
+            <td>
+              <app-readonly-checkbox [checked]="scanResultText === 'Compliant'"></app-readonly-checkbox>
+            </td>
+            <td>
+              <ng-container *ngIf="dataSource.lastScanned; else unscanned">
+                {{dataSource.lastScanned | date: 'MM/dd/yyyy hh:mma'}}
+              </ng-container>
+              <ng-template #unscanned>
+                Not Scanned
+              </ng-template>
+            </td>
+            <td>
+              <app-readonly-checkbox [checked]="dataSource.runningInCluster"></app-readonly-checkbox>
+            </td>
+            <td>{{dataSource.criticalIssues}}</td>
+            <td>{{dataSource.majorIssues}}</td>
+            <td>{{dataSource.mediumIssues}}</td>
+            <td>{{dataSource.lowIssues}}</td>
+            <td>{{dataSource.negligibleIssues}}</td>
+          </tr>
+        </table>
+      </div>
+    </mat-card>
+    <mat-card id="scannerError" class="mb-xs-3 pt-xs-3" *ngIf="lastScanReport?.encounterError">
+      <h3 class="error-msg" style="margin: unset; padding: 5px 10px;">Error</h3>
+      <div [innerHTML]="lastScanReport?.summary" class="error-msg"></div>
+    </mat-card>
+    <mat-card id="scannerComplianceList" class="mb-xs-3 pt-xs-3 pb-xs-4 scrollable-table-card" *ngIf="displayComplianceAndIssueTable">
+      <div class="row header-row m-xs-0">
+        <div class="col-xs-12 col-sm-9 col-lg-10" id="compliance-report-title">
+          <span matTooltip="Scanner Compliance Report">Scanner Compliance Report</span>
+        </div>
+        <div class="col-xs-10 col-sm-3 col-lg-2 advanced-search" id="compliance-report-buttons" *ngIf="imageScanDates">
+          <mat-select class="p-xs-2 title=font" [formControl]="scanDateDefault" (selectionChange)="onChangeScanDate($event)">
+            <mat-option *ngFor="let scanDate of imageScanDates" [value]="scanDate.created_at"> {{scanDate.created_at | date: 'MM/dd/yyyy hh:mma'}}</mat-option>
+          </mat-select>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <mat-table [dataSource]="scannerComplianceReport" #complianceSort="matSort" matSort  matSortActive="policy" matSortDisableClear matSortDirection="asc">
+          <ng-container matColumnDef="policy">
+            <mat-header-cell *matHeaderCellDef mat-sort-header disableClear matTooltip="Policy">Policy</mat-header-cell>
+            <mat-cell *matCellDef="let result"> {{result.policyName}} </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <mat-header-cell *matHeaderCellDef mat-sort-header disableClear matTooltip="Passed/Failed">Passed/Failed</mat-header-cell>
+            <mat-cell *matCellDef="let result">  {{result.policyStatus ? 'Passed' : 'Failed' }} </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="compliant">
+            <mat-header-cell *matHeaderCellDef matTooltip="Compliant">Compliant</mat-header-cell>
+            <mat-cell *matCellDef="let result">
+              <app-readonly-checkbox [checked]="result.policyStatus"></app-readonly-checkbox>
+            </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="required">
+            <mat-header-cell *matHeaderCellDef matTooltip="Required">Required</mat-header-cell>
+            <mat-cell *matCellDef="let result">
+              <app-readonly-checkbox [checked]="result.policyRequirement"></app-readonly-checkbox>
+            </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="critical_issues">
+            <mat-header-cell *matHeaderCellDef mat-sort-header disableClear [matTooltip]="VulnerabilitySeverity.CRITICAL">{{VulnerabilitySeverityAbbreviations.CRITICAL |titlecase }}</mat-header-cell>
+            <mat-cell *matCellDef="let result"> {{result.criticalIssues}} </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="major_issues">
+            <mat-header-cell *matHeaderCellDef mat-sort-header disableClear [matTooltip]="VulnerabilitySeverity.MAJOR">{{VulnerabilitySeverityAbbreviations.MAJOR |titlecase }}</mat-header-cell>
+            <mat-cell *matCellDef="let result"> {{result.majorIssues}} </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="medium_issues" >
+            <mat-header-cell *matHeaderCellDef mat-sort-header disableClear [matTooltip]="VulnerabilitySeverity.MEDIUM">{{VulnerabilitySeverityAbbreviations.MEDIUM |titlecase }}</mat-header-cell>
+            <mat-cell *matCellDef="let result"> {{result.mediumIssues}} </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="low_issues">
+            <mat-header-cell *matHeaderCellDef mat-sort-header disableClear [matTooltip]="VulnerabilitySeverity.LOW">{{VulnerabilitySeverityAbbreviations.LOW |titlecase }}</mat-header-cell>
+            <mat-cell *matCellDef="let result" > {{result.lowIssues}} </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="negligible_issues">
+            <mat-header-cell *matHeaderCellDef mat-sort-header disableClear [matTooltip]="VulnerabilitySeverity.NEGLIGIBLE">{{VulnerabilitySeverityAbbreviations.NEGLIGIBLE |titlecase }}</mat-header-cell>
+            <mat-cell *matCellDef="let result"> {{result.negligibleIssues}} </mat-cell>
+          </ng-container>
+          <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+          <mat-row *matRowDef="let row; columns: displayedColumns;" (click)="getIssuesByPolicy(row)" class="table-row"></mat-row>
+        </mat-table>
+      </div>
+      <mat-paginator
+        class="display-print-none"
+        [length]="totalCount"
+        [pageSize]="limit"
+        [pageSizeOptions]="[10, 20, 50, 100, 200, 500, 1000]"
+        (page)="scannerPageEvent($event)"
+        showFirstLastButtons #compliancePaginator></mat-paginator>
+    </mat-card>
+    <mat-card id="issuesList" class="mb-xs-3 pt-xs-3 pb-xs-4 scrollable-table-card" *ngIf="displayComplianceAndIssueTable">
+      <div class="row header-row m-xs-0">
+        <div class="col-xs-9 col-sm-3" id="issuesTitle">
+          Issues
+        </div>
+        <div class="col-xs-3 col-sm-9" id="issuesButtons">
+          <button class="display-print-none" mat-icon-button (click)="downloadCsv()"><mat-icon>download</mat-icon></button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <mat-table [dataSource]="imageScanResultIssueData" id="issuesTable" #issueSort="matSort" matSort matSortActive="severity" matSortDisableClear matSortDirection="desc">
+          <ng-container matColumnDef="scanner">
+            <mat-header-cell *matHeaderCellDef mat-sort-header="scanner" disableClear> Scanner</mat-header-cell>
+            <mat-cell *matCellDef="let issue">
+              <app-ellipsis-text [text]="issue.scannerName" dialogHeader="Scanner"></app-ellipsis-text>
+            </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="isCompliant">
+            <mat-header-cell class="ps-xs-0" *matHeaderCellDef mat-sort-header="required_for_compliance" disableClear> Compliant</mat-header-cell>
+            <mat-cell *matCellDef="let issue">
+              <div class="row">
+                <app-readonly-checkbox class="mr-3" [checked]="issue.isCompliant"></app-readonly-checkbox>
+                <div>
+                  <mat-icon *ngIf="issue.complianceReason" [matTooltip]="issue.complianceReason">info</mat-icon>
+                </div>
+              </div>
+            </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="severity">
+            <mat-header-cell *matHeaderCellDef mat-sort-header="severity" disableClear> Severity </mat-header-cell>
+            <mat-cell *matCellDef="let issue"> {{issue.severity}} </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="type">
+            <mat-header-cell *matHeaderCellDef mat-sort-header="type" disableClear> Type </mat-header-cell>
+            <mat-cell *matCellDef="let issue">
+              <div class="row">
+                <div class="col-xs-8">
+                  <ng-container *ngIf="issue.vulnerabilityDescUrl">
+                    <a [href]="issue.vulnerabilityDescUrl" target="_blank"> {{issue.type}} </a>
+                  </ng-container>
+                  <ng-container *ngIf="!issue.vulnerabilityDescUrl">
+                    {{issue.type}}
+                  </ng-container>
+                </div>
+                <div class="col-xs-4">
+                  <button mat-icon-button (click)="searchCVE(issue.type)">
+                    <mat-icon>search</mat-icon>
+                  </button>
+                </div>
+              </div>
+            </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="packageName">
+            <mat-header-cell *matHeaderCellDef mat-sort-header="package_name" disableClear> Package </mat-header-cell>
+            <mat-cell *matCellDef="let issue" [matTooltip]="issue.packageName">
+              {{ issue.packageName ? issue.packageName : 'N/A' }}
+            </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="name">
+            <mat-header-cell *matHeaderCellDef mat-sort-header="scanner_name" disableClear> Issue Title</mat-header-cell>
+            <mat-cell *matCellDef="let issue" [matTooltip]="issue.name">
+              <app-ellipsis-text [text]="issue.name" dialogHeader="Issue Titles"></app-ellipsis-text>
+            </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="installedVersion">
+            <mat-header-cell *matHeaderCellDef mat-sort-header="installed_version" disableClear> Installed </mat-header-cell>
+            <mat-cell *matCellDef="let issue" [matTooltip]="issue.installedVersion">
+              {{ issue.installedVersion ? issue.installedVersion : 'N/A' }}
+            </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="isFixable" >
+            <mat-header-cell *matHeaderCellDef mat-sort-header="is_fixable" disableClear> Fixable </mat-header-cell>
+            <mat-cell *matCellDef="let issue">
+              <div class="display-flex w-100 overflow-hidden">
+                <app-readonly-checkbox [checked]="issue.isFixable"></app-readonly-checkbox>
+                <div class="overflow-hidden">
+                  <app-ellipsis-text class="w-100" *ngIf="issue.isFixable"
+                                     [text]="'(' + (issue.fixedVersion ? issue.fixedVersion : 'N/A') + ')'"
+                  ></app-ellipsis-text>
+                </div>
+              </div>
+            </mat-cell>
+          </ng-container>
+          <ng-container matColumnDef="more">
+            <mat-header-cell matSort="false" *matHeaderCellDef disableClear></mat-header-cell>
+            <mat-cell *matCellDef="let issue">
+              <button mat-raised-button color="primary"
+                      id="details-button"
+                      class="display-print-none"
+                      (click)="showMoreIssueDetails(issue)"
+              >Details</button>
+              <button color="accent" id="request-exception-button"  class="display-print-none" mat-raised-button *ngIf="issue.isFixable"
+                      [routerLink]="['/private', 'exceptions','create']"
+                      [queryParams]="{clusterId: clusterId, scannerId: issue.scannerId, cve: issue.type, policyIds: policyIds, namespaces: imageNamespaces, imageName: dataSource.url + '/' + dataSource.name  }"
+              > Request Exception</button>
+            </mat-cell>
+          </ng-container>
+<!--          <ng-container matColumnDef="request_exception">-->
+<!--            <mat-header-cell *matHeaderCellDef mat-sort-header disableClear> Request Exception </th>-->
+<!--            <mat-cell *matCellDef="let issue">-->
+<!--              <a color="primary" mat-raised-button *ngIf="issue.isFixable"-->
+<!--                 [routerLink]="['/private', 'exceptions','create']"-->
+<!--                 [queryParams]="{clusterId: clusterId, scannerId: issue.scannerId, cve: issue.type, policyIds: policyIds, namespaces: imageNamespaces, imageName: dataSource.url + '/' + dataSource.name  }"-->
+<!--              > Request Exception</a>-->
+<!--            </mat-cell>-->
+<!--          </ng-container>-->
+          <mat-header-row *matHeaderRowDef="issuesDisplayedColumns"></mat-header-row>
+          <mat-row *matRowDef="let row; columns: issuesDisplayedColumns;"></mat-row>
+        </mat-table>
+      </div>
+      <mat-paginator
+        class="display-print-none"
+        [length]="totalImageScanResultData"
+        [pageSize]="imageScanResultLimit"
+        [pageSizeOptions]="[10, 20, 50, 100, 200, 500, 1000]"
+        (page)="pageIssues($event)"
+        showFirstLastButtons #issuePaginator></mat-paginator>
+    </mat-card>
+  </div>
+</div>

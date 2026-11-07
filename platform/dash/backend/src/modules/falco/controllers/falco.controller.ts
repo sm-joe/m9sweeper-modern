@@ -1,0 +1,264 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
+import {parseScannerClusterId, selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
+import {
+    Body,
+    Controller,
+    Headers,
+    Delete,
+    Get,
+    Header,
+    HttpException,
+    HttpStatus,
+    Param,
+    Post,
+    Put,
+    Query,
+    UnauthorizedException,
+    UseGuards,
+    UseInterceptors
+} from '@nestjs/common';
+import {AllowedAuthorityLevels} from '../../../decorators/allowed-authority-levels.decorator';
+import {AuthorityGuard} from '../../../guards/authority.guard';
+import {AuthGuard} from '../../../guards/auth.guard';
+import {FalcoDto} from '../dto/falco.dto';
+import {FalcoService} from '../service/falco.service';
+import {ResponseTransformerInterceptor} from '../../../interceptors/response-transformer.interceptor';
+import {ApiResponse, ApiTags} from '@nestjs/swagger';
+import {FalcoWebhookInputDto} from '../dto/falco-webhook-input.dto';
+import {Authority} from '../../user/enum/Authority';
+import {ApiKeyDao} from '../../api-key/dao/api-key.dao';
+import {ApiKeyDto} from '../../api-key/dto/api-key-dto';
+import {UserDao} from '../../user/dao/user.dao';
+import {AuthService} from '../../auth/services/auth.service';
+import {AuthorityId} from '../../user/enum/authority-id';
+import {FalcoCountDto} from '../dto/falco-count.dto';
+import {FalcoSettingDto} from '../dto/falco-setting.dto';
+import {FalcoCsvDto} from '../dto/falco-csv-dto';
+import {FalcoRuleCreateDto, FalcoRuleDto} from '../dto/falco-rule.dto';
+import {FalcoRuleAction} from '../enums/falco-rule-action';
+import {MineLoggerService} from '../../shared/services/mine-logger.service';
+
+
+@ApiTags('Project Falco')
+@Controller()
+@UseInterceptors(ResponseTransformerInterceptor)
+export class FalcoController {
+    constructor(
+        private readonly falcoService: FalcoService,
+        private readonly apiKeyDao: ApiKeyDao,
+        private readonly userDao: UserDao,
+        private readonly authService: AuthService,
+        protected readonly logger: MineLoggerService
+        // private readonly falcoEmailCommand: FalcoEmailCommand,
+    ) {}
+
+    @Get()
+    @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    async getFalcoLogs(
+        @Query('cluster-id') clusterId: number,
+        @Query('limit') limit?: number,
+        @Query('page') page?: number,
+        @Query('priority') priorities?: string [],
+        @Query('orderBy') orderBy?: string,
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+        @Query('namespace') namespace?: string,
+        @Query('pod') pod?: string,
+        @Query('image') image?: string,
+        @Query('signature') signature?: string,
+    ): Promise<{ logCount: number, list: FalcoDto[], }>
+    {
+        // default values - seems to be filling with NaN instead of null which causes the defaults in Dao to not work right
+        if (!limit) limit = null;
+        if (!page) page = null;
+
+        return this.falcoService.getFalcoLogs(clusterId, limit, page, priorities, orderBy, startDate, endDate, namespace, pod, image, signature);
+    }
+
+    @Get('/count')
+    @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    @ApiResponse({
+        status: 200
+    })
+    async getCountOfFalcoLogsBySignature(
+        @Query('cluster-id') clusterId: number,
+        @Query('signature') signature?: string
+    ): Promise<FalcoCountDto[]>
+    {
+        return this.falcoService.getCountOfFalcoLogsBySignature(clusterId, signature);
+    }
+
+    @Get('/apiKey')
+    @AllowedAuthorityLevels( Authority.SUPER_ADMIN )
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    @ApiResponse({
+        status: 200
+    })
+    async getApiKey(): Promise<ApiKeyDto[]> {
+        if (process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT !== 'true') {
+            throw new HttpException('Legacy scanner key export is disabled', HttpStatus.GONE);
+        }
+        const apiKeyFalco = await this.apiKeyDao.getApiKeyByUserEmail('Falco');
+        if (!apiKeyFalco) throw new HttpException(`Falco APi key ${apiKeyFalco} not found`, HttpStatus.NOT_FOUND);
+        return apiKeyFalco;
+    }
+
+    @Get('/download')
+    @AllowedAuthorityLevels(Authority.ADMIN, Authority.SUPER_ADMIN, Authority.READ_ONLY)
+    @Header('Content-Type', 'text/csv')
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    async downloadFalcoExport(
+        @Query('cluster-id') clusterId: number,
+        @Query('limit') limit?: number,
+        @Query('page') page?: number,
+        @Query('priority') priorities?: string [],
+        @Query('orderBy') orderBy?: string,
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+        @Query('namespace') namespace?: string,
+        @Query('pod') pod?: string,
+        @Query('image') image?: string,
+        @Query('signature') signature?: string,
+    ): Promise< FalcoCsvDto >
+     {
+        //  use frontend result and pass them as parameters
+         // default values - seems to be filling with NaN instead of null which causes the defaults in Dao to not work right
+         if (!limit) limit = null;
+         if (!page) page = null;
+
+        return this.falcoService.getFalcoCsv(clusterId,  limit, page, priorities, orderBy, startDate, endDate, namespace, pod, image, signature);
+    }
+
+    @Get('/:clusterid/findsetting')
+    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    @ApiResponse({
+        status: 201
+    })
+    async findFalcoSettingByClusterId(
+        @Param('clusterid') clusterId: number,
+    ): Promise< FalcoSettingDto>
+    {
+        return this.falcoService.findFalcoSettingByClusterId(clusterId);
+    }
+
+
+    @Post(':clusterid/create')
+    async createFalcoLog(
+        @Param('clusterid') clusterId: number,
+        @Body() falcoLog: FalcoWebhookInputDto,
+        @Query('key') key: string,
+        @Headers('x-api-key') headerKey?: string
+    ): Promise<FalcoDto> {
+        const parsedClusterId = parseScannerClusterId(clusterId);
+        if (!Number.isFinite(parsedClusterId)) {
+            throw new HttpException('Invalid cluster identifier', HttpStatus.BAD_REQUEST);
+        }
+        clusterId = parsedClusterId;
+
+        if (!falcoLog || typeof falcoLog !== 'object' ||
+            typeof falcoLog.rule !== 'string' || !falcoLog.rule.trim() ||
+            typeof falcoLog.priority !== 'string' || !falcoLog.priority.trim() ||
+            typeof falcoLog.output !== 'string' ||
+            !falcoLog.outputFields || typeof falcoLog.outputFields !== 'object' ||
+            Array.isArray(falcoLog.outputFields)) {
+            throw new HttpException('Malformed Falco webhook event', HttpStatus.BAD_REQUEST);
+        }
+
+        // look up user by api key
+        const currentUserAuthObj = await this.userDao.loadUserByApiKey(selectScannerIngestKey(headerKey, key));
+        if (!Array.isArray(currentUserAuthObj) || currentUserAuthObj.length === 0) {
+            throw new UnauthorizedException('Access Denied!');
+        }
+
+        // get all authorities from the current user
+        const currentUserAuth = currentUserAuthObj[0].authorities;
+        const isFalcoUser = this.authService.checkAuthority(currentUserAuth, [AuthorityId.FALCO]);
+        if (!isFalcoUser) {
+            throw new UnauthorizedException('Access Denied!');
+        }
+
+        const action = await this.falcoService.checkRules(clusterId, falcoLog);
+        // An ignore rule applied,
+        if (action === FalcoRuleAction.Ignore) {
+            this.logger.log('Ignoring Falco Event', {
+                clusterId,
+                namespace: falcoLog?.outputFields?.k8sNamespaceName,
+                rule: falcoLog?.rule,
+                image: falcoLog?.outputFields?.containerImage,
+                imageRepository: falcoLog?.outputFields?.containerImageRepository,
+            });
+            return;
+        }
+
+        // Save new falco log
+        return await this.falcoService.createFalcoLog(clusterId, falcoLog, action === FalcoRuleAction.Silence);
+    }
+
+    @Post(':clusterid/settings')
+    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    async createFalcoSetting(
+        @Param('clusterid') clusterId: number,
+        @Body() falcoSetting: FalcoSettingDto
+    ): Promise <any> {
+        const result = this.falcoService.createFalcoSetting(clusterId, falcoSetting);
+        return result;
+    }
+
+    @Post('/rules')
+    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    async createFalcoRule(
+      @Param('clusterId') clusterId: number,
+      @Body() rule: FalcoRuleCreateDto
+    ): Promise<FalcoRuleDto> {
+        delete rule.id;
+        return await this.falcoService.createFalcoRule(rule);
+    }
+
+    @Get('/rules')    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY )
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    async listActiveFalcoRulesForCluster(@Query('clusterId') clusterId?: number): Promise<FalcoRuleDto[]> {
+        return this.falcoService.listActiveFalcoRules({ clusterId });
+    }
+
+    @Put('/rules/:ruleId')
+    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    async updateFalcoRule(
+      @Param('clusterId') clusterId: number,
+      @Param('ruleId') ruleId: number,
+      @Body() rule: FalcoRuleCreateDto
+    ): Promise<FalcoRuleDto> {
+        if (ruleId !== rule?.id) {
+            throw new HttpException({ message: 'rule id in path does not match the body.' }, HttpStatus.BAD_REQUEST);
+        }
+        return this.falcoService.updateFalcoRule(rule, ruleId);
+    }
+
+    @Delete('/rules/:ruleId')
+    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    async deleteFalcoRule(
+      @Param('clusterId') clusterId: number,
+      @Param('ruleId') ruleId: number
+    ): Promise<number>  {
+        return this.falcoService.deleteFalcoRule(clusterId, ruleId);
+    }
+
+    @Get('/:eventId')
+    @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    @ApiResponse({
+        status: 201
+    })
+    async getFalcoLogByEventId(
+      @Param('eventId') eventId: number
+    ): Promise< FalcoDto>
+    {
+        return this.falcoService.getFalcoLogByEventId(eventId);
+    }
+}

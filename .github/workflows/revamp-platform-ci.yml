@@ -1,0 +1,372 @@
+name: Full m9sweeper platform source validation
+on:
+  push:
+    branches: [revamp/original-platform, product/m9sweeper-new-foundation, 'fix/rc3-trivy-queue-fail-closed', 'release/m9sweeper-new-rc4-security-reliability']
+    paths:
+      - 'platform/**'
+      - '.github/workflows/revamp-platform-ci.yml'
+      - 'tools/import-platform/**'
+      - 'README.md'
+      - 'ATTRIBUTION.md'
+      - 'docs/**'
+concurrency:
+  group: full-platform-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+jobs:
+  source-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate upstream product modules and UI routes
+        run: |
+          python3 tools/import-platform/verify.py
+          python3 tools/import-platform/test_product.py
+  original-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: platform/dash/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: platform/dash/backend/package-lock.json
+      - name: Install locked NestJS dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Build original NestJS services
+        run: npm run build:api
+      - name: Regression test original policy compliance and exception behavior
+        run: npm test -- --runInBand
+  original-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: platform/dash/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: platform/dash/frontend/package-lock.json
+      - name: Install backend DTO dependencies consumed by the original Angular compiler
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+        working-directory: platform/dash/backend
+      - name: Install locked Angular dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Build original Angular application with modernized routes and layout
+        run: npm run build:prod
+  helm-charts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.17.3
+      - name: Build vendored Helm subcharts (no public chart repo dependency)
+        run: helm dependency update platform/manifests/charts/m9sweeper
+      - name: Lint authenticated production values
+        run: |
+          JWT_SECRET="$(openssl rand -hex 32)"
+          API_KEY="$(openssl rand -hex 32)"
+          helm lint platform/manifests/charts/m9sweeper \
+            --set-string global.jwtSecret="$JWT_SECRET" \
+            --set-string global.apiKey="$API_KEY" \
+            --set-string dash.init.superAdminEmail="ci@example.invalid" \
+            --set-string dash.init.superAdminPassword="$JWT_SECRET"
+      - name: Validate kube-bench Secret-backed report auth (no query-string key)
+        run: |
+          set -euo pipefail
+          helm lint platform/manifests/charts/kube-bench \
+            --set provider=master --set cronjob.enabled=false \
+            --set-string reportsurl="http://m9-test-api.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1" \
+            --set-string reportAuth.existingSecret="m9sweeper-kube-bench-api-key"
+          helm template test-scan platform/manifests/charts/kube-bench \
+            --namespace m9sweeper-system --set provider=master --set cronjob.enabled=false \
+            --set-string reportsurl="http://m9-test-api.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1" \
+            --set-string reportAuth.existingSecret="m9sweeper-kube-bench-api-key" >/tmp/m9-secret-backed-job.yaml
+          grep -q 'secretKeyRef:' /tmp/m9-secret-backed-job.yaml
+          grep -q 'name: "m9sweeper-kube-bench-api-key"' /tmp/m9-secret-backed-job.yaml
+          grep -q 'X-API-Key:' /tmp/m9-secret-backed-job.yaml
+          if grep -q '?key=' /tmp/m9-secret-backed-job.yaml; then exit 1; fi
+          echo 'PASS: scanner credential comes from Kubernetes Secret and header, not URL'
+      - name: Lint and render kube-hunter Job and CronJob using a Secret
+        run: |
+          set -euo pipefail
+          chart=platform/manifests/charts/kube-hunter
+          for scheduled in true false; do
+            helm lint "$chart" --strict --set cronjob.enabled="$scheduled" --set-string dispatchAuth.existingSecret=m9sweeper-kube-hunter-dispatch
+            helm template kube-hunter "$chart" --namespace m9sweeper-system --kube-version 1.31.0 --set cronjob.enabled="$scheduled" --set-string dispatchAuth.existingSecret=m9sweeper-kube-hunter-dispatch >"/tmp/kube-hunter-$scheduled.yaml"
+            grep -q 'secretKeyRef:' "/tmp/kube-hunter-$scheduled.yaml"
+            grep -q 'm9sweeper-kube-hunter-dispatch' "/tmp/kube-hunter-$scheduled.yaml"
+            if grep -E 'batch/v1beta1|localhost:3000|key=' "/tmp/kube-hunter-$scheduled.yaml"; then exit 1; fi
+          done
+          grep -q 'kind: CronJob' /tmp/kube-hunter-true.yaml
+          grep -q 'kind: Job' /tmp/kube-hunter-false.yaml
+      - name: Render Kubernetes resources for a modern API target
+        run: |
+          JWT_SECRET="$(openssl rand -hex 32)"
+          API_KEY="$(openssl rand -hex 32)"
+          helm template m9sweeper platform/manifests/charts/m9sweeper \
+            --namespace m9sweeper-system \
+            --kube-version 1.31.0 \
+            --set-string global.jwtSecret="$JWT_SECRET" \
+            --set-string global.apiKey="$API_KEY" \
+            --set-string dash.init.superAdminEmail="ci@example.invalid" \
+            --set-string dash.init.superAdminPassword="$JWT_SECRET" \
+            >/dev/null
+  original-trawler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: platform/trawler
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: platform/trawler/pom.xml
+      - name: Test and compile existing Java trawler scanner engine
+        run: mvn -B -ntp test
+  dash-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the actual NestJS + Angular dashboard image, not the old prototype
+        uses: docker/build-push-action@v6
+        with:
+          context: platform
+          file: platform/Dockerfile
+          push: false
+          tags: m9sweeper-modern/dash:ci
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate full original product Compose stack with safe local bindings
+        run: |
+          cp platform/docker-compose/.env.sample platform/docker-compose/.env
+          sed -i 's/^SUPER_ADMIN_EMAIL=.*/SUPER_ADMIN_EMAIL=ci@example.invalid/' platform/docker-compose/.env
+          sed -i 's/^SUPER_ADMIN_PASSWORD=.*/SUPER_ADMIN_PASSWORD=ci-secret-strong-2026-test/' platform/docker-compose/.env
+          sed -i 's/^SECURITY_JWT_SECRET=.*/SECURITY_JWT_SECRET=ci-jwt-strong-2026-test-0123456789/' platform/docker-compose/.env
+          sed -i 's/^DATABASE_PASSWORD=.*/DATABASE_PASSWORD=ci-database-strong-2026-test/' platform/docker-compose/.env
+          sed -i 's/^TRAWLER_API_KEY=.*/TRAWLER_API_KEY=ci-trawler-strong-2026-test-012345/' platform/docker-compose/.env
+          sed -i 's/^RABBITMQ_USERNAME=.*/RABBITMQ_USERNAME=m9ci/' platform/docker-compose/.env
+          sed -i 's/^RABBITMQ_PASSWORD=.*/RABBITMQ_PASSWORD=ci-rabbit-strong-test-0123456789/' platform/docker-compose/.env
+          sed -i 's/^FALCO_API_KEY=.*/FALCO_API_KEY=ci-falco-strong-01234567890123456789/' platform/docker-compose/.env
+          sed -i 's/^KUBE_HUNTER_API_KEY=.*/KUBE_HUNTER_API_KEY=ci-hunter-strong-012345678901234/' platform/docker-compose/.env
+          sed -i 's/^KUBE_BENCH_API_KEY=.*/KUBE_BENCH_API_KEY=ci-bench-strong-0123456789012345/' platform/docker-compose/.env
+          docker compose -f platform/docker-compose/docker-compose.yml --env-file platform/docker-compose/.env config --quiet
+          docker compose -f platform/docker-compose/docker-compose.yml -f platform/docker-compose/docker-compose.kind.yml --env-file platform/docker-compose/.env config --quiet
+          rendered="$(docker compose -f platform/docker-compose/docker-compose.yml --env-file platform/docker-compose/.env config --format json)"
+          echo "$rendered" | python3 -c 'import json,sys; d=json.load(sys.stdin); expected={"dash":"3000","postgres":"5432","rabbitmq":"5672","kubesec":"6116"}; [(lambda p: (_ for _ in ()).throw(AssertionError(s)) if any(x.get("host_ip") != "127.0.0.1" for x in p) else None)(d["services"][s].get("ports",[])) for s in expected]; print("Compose public bindings: none")'
+  runtime-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start original complete NestJS/Angular application and prove live admin auth
+        run: bash tools/integration/runtime-smoke.sh
+      - name: Dump full-stack logs on failure
+        if: failure()
+        run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime logs --tail=150
+      - name: Stop integration stack, keep evidence in CI logs
+        if: always()
+        run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime down --remove-orphans
+  kubesec-live-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Start real upstream Kubesec scanner
+        run: docker run --name m9-kubesec -d -p 127.0.0.1:6116:6116 kubesec/kubesec:v2.13.0 http 6116
+      - name: Scan secure and insecure Kubernetes manifests and assert evidence differs
+        run: |
+          cat > /tmp/secure-pod.yaml <<'YAML'
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: m9-secure
+          spec:
+            securityContext:
+              runAsNonRoot: true
+            containers:
+              - name: app
+                image: registry.k8s.io/pause:3.10
+                securityContext:
+                  readOnlyRootFilesystem: true
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop: ["ALL"]
+          YAML
+          cat > /tmp/insecure-pod.yaml <<'YAML'
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: m9-insecure
+          spec:
+            containers:
+              - name: app
+                image: registry.k8s.io/pause:3.10
+                securityContext:
+                  privileged: true
+          YAML
+          ready=0
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 3 -X POST --data-binary @/tmp/secure-pod.yaml http://127.0.0.1:6116/scan > /tmp/secure.json; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = 1
+          curl -fsS --max-time 15 -X POST --data-binary @/tmp/insecure-pod.yaml http://127.0.0.1:6116/scan >/tmp/insecure.json
+          python3 - <<'PY'
+          import json
+          good=json.load(open('/tmp/secure.json'))
+          bad=json.load(open('/tmp/insecure.json'))
+          assert isinstance(good,list) and isinstance(bad,list) and good and bad
+          assert good[0].get("valid") and bad[0].get("valid"), (good,bad)
+          assert good[0]["score"] > bad[0]["score"], (good[0]["score"],bad[0]["score"])
+          print("PASS: real Kubesec HTTP scanner scores secure Pod above privileged Pod",good[0]["score"],bad[0]["score"])
+          PY
+      - name: Scanner logs on failure
+        if: failure()
+        run: docker logs m9-kubesec
+      - name: Remove scanner container
+        if: always()
+        run: docker rm -f m9-kubesec || true
+  trivy-live-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Execute pinned Trivy v0.76.2 against a real container image
+        run: |
+          docker run --rm aquasec/trivy:0.76.2 --version
+          docker run --rm -v "$PWD:/result" aquasec/trivy:0.76.2 image \
+            --scanners vuln --format json --output /result/trivy-report.json alpine:3.21
+          python3 - <<'PY'
+          import json
+          x=json.load(open('trivy-report.json'))
+          assert x.get('ArtifactName')=='alpine:3.21',x.get('ArtifactName')
+          assert isinstance(x.get('Results'),list)
+          for result in x['Results']:
+            for item in result.get('Vulnerabilities',[]) or []:
+              assert item.get('VulnerabilityID') and item.get('Severity')
+          print('PASS: Trivy produced structured real-image findings with CVE IDs and severities')
+          PY
+          rm -f trivy-report.json
+  trawler-jvm-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build actual Java trawler image with patched Trivy
+        run: docker build --progress plain -f platform/trawler/Dockerfile.jvm -t m9-trawler:ci platform/trawler
+      - name: Verify Trivy binary and executable Java worker
+        run: |
+          docker run --rm --entrypoint trivy m9-trawler:ci --version
+          docker run --rm --entrypoint java m9-trawler:ci -version
+  kind-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: m9-inventory
+          node_image: kindest/node:v1.31.4
+      - name: Create live namespace and workload for original inventory service
+        run: |
+          kubectl create namespace m9-inventory
+          cat <<'YAML' | kubectl apply -f -
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: m9-inventory-pod
+            namespace: m9-inventory
+          spec:
+            containers:
+              - name: test-container
+                image: registry.k8s.io/pause:3.10
+          YAML
+          kind get kubeconfig --name m9-inventory > /tmp/m9-kind-kubeconfig
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: platform/dash/backend/package-lock.json
+      - name: Install real original Kubernetes client dependencies
+        working-directory: platform/dash/backend
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Verify original KubernetesApiService discovers actual Kind resources
+        working-directory: platform/dash/backend
+        env:
+          KUBECONFIG: /tmp/m9-kind-kubeconfig
+        run: npx ts-node -r tsconfig-paths/register test/kind-inventory.ts
+      - name: Run real kube-bench CIS node assessment inside ephemeral Kind
+        run: |
+          kubectl apply -f tools/integration/kube-bench-job.yaml
+          kubectl wait --for=condition=complete job/m9-kube-bench-smoke -n m9-inventory --timeout=240s
+          kubectl logs -n m9-inventory job/m9-kube-bench-smoke >/tmp/m9-cis.json
+          python3 - <<'PY'
+          import json
+          report=json.load(open('/tmp/m9-cis.json'))
+          assert report, 'kube-bench report empty'
+          assert isinstance(report,(dict,list)), type(report)
+          assert 'Controls' in report or (isinstance(report,list) and report), 'No CIS controls present'
+          print('PASS: real kube-bench completed a CIS node run against ephemeral Kind')
+          PY
+      - name: Show kube-bench diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get pods,jobs -n m9-inventory -o wide || true
+          kubectl logs -n m9-inventory job/m9-kube-bench-smoke --tail=100 || true
+
+  rc-source-package:
+    name: m9sweeper-new source RC (only after all current CI gates pass)
+    if: github.ref == 'refs/heads/product/m9sweeper-new-foundation'
+    needs:
+      - source-parity
+      - original-backend
+      - original-frontend
+      - helm-charts
+      - original-trawler
+      - dash-image
+      - compose-config
+      - runtime-integration
+      - kubesec-live-scan
+      - trivy-live-scan
+      - trawler-jvm-image
+      - kind-inventory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source attribution and build a traceable developer-preview archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s platform/LICENSE
+          test -s platform/.upstream-source-revision
+          test -s ATTRIBUTION.md
+          test -s docs/m9sweeper-new-release-gates.md
+          mkdir -p dist
+          commit="$(git rev-parse HEAD)"
+          printf 'product=m9sweeper-new\nstatus=developer-preview-not-production\ncommit=%s\nupstream=%s\n'             "$commit" "$(cat platform/.upstream-source-revision)" > dist/BUILD-IDENTITY.txt
+          tar --exclude='node_modules' --exclude='.git' -czf dist/m9sweeper-new-0.1.0-rc2-source.tar.gz             platform docs tools README.md ATTRIBUTION.md
+          (cd dist && sha256sum m9sweeper-new-0.1.0-rc2-source.tar.gz > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m9sweeper-new-0.1.0-rc2-source-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

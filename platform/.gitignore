@@ -1,0 +1,7 @@
+.idea/
+**/.DS_Store
+**/.idea
+dash/backend/.env*
+!backend/.env.sample
+docker-compose/.env
+docker-compose.*.yml
