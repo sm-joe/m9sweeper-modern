@@ -1,3 +1,4 @@
+import {selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
 import {Controller, Get, Headers, HttpException, HttpStatus, Param, Post, Query, UseGuards} from '@nestjs/common';
 import {QuotedBody} from "../../../decorators/quoted-body.decorator";
 import {KubeHunterService} from "../service/kube-hunter.service";
@@ -34,7 +35,7 @@ export class KubeHunterController {
         // @TODO: use LOGGED_IN_USER
 
         // find user authority by user's apikey
-        const currentUserAuthObj = await this.userDao.loadUserByApiKey(headerKey || key || '');
+        const currentUserAuthObj = await this.userDao.loadUserByApiKey(selectScannerIngestKey(headerKey, key));
         if (!Array.isArray(currentUserAuthObj) || currentUserAuthObj.length === 0 || !this.authService.checkAuthority(currentUserAuthObj[0].authorities, [AuthorityId.KUBEHUNTER])) {
             this.logger.log({label: 'User is unauthorized; skip saving KH scan report', data: { clusterId }}, 'KubeHunterController.saveKubeHunterReport');
             throw new HttpException('Unauthorized  - log may not have been saved', HttpStatus.UNAUTHORIZED);
