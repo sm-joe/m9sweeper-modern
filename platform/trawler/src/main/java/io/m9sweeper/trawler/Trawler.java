@@ -2,6 +2,7 @@ package io.m9sweeper.trawler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import io.m9sweeper.trawler.commands.AbstractCommand;
@@ -22,6 +23,8 @@ import java.io.IOException;
 import io.m9sweeper.trawler.framework.exception.NoncompliantException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 @CommandLine.Command(name = "trawler", description = "Run Trawler in its RabbitMQ mode where it will monitor " +
@@ -97,6 +100,15 @@ public class Trawler extends AbstractCommand implements Runnable {
         }
     }
 
+    static final int MAX_SCAN_DELIVERY_RETRIES = 3;
+
+    static int retryCount(Map<String, Object> headers) {
+        if (headers == null) return 0;
+        Object count = headers.get("x-m9sweeper-retries");
+        if (count instanceof Number) return Math.max(0, ((Number) count).intValue());
+        return 0;
+    }
+
     private Connection getAmpqConnection(ConnectionFactory factory, int retry) throws InterruptedException {
         try {
             return factory.newConnection();
@@ -145,7 +157,12 @@ public class Trawler extends AbstractCommand implements Runnable {
             Channel channel = connection.createChannel();
 
             // Select the right RabbitMQ Queue to monitor
-            channel.queueDeclare(TrawlerConfiguration.getInstance().rabbitmqQueueName(), true, false, false, null);
+            String scanQueue = TrawlerConfiguration.getInstance().rabbitmqQueueName();
+            String failedQueue = scanQueue + ".failed";
+            channel.queueDeclare(scanQueue, true, false, false, null);
+            // Quarantine permanently failing jobs without dropping the evidence.
+            channel.queueDeclare(failedQueue, true, false, false, null);
+            channel.confirmSelect();
 
             // Display a message stating that Trawler is listening for messages
             System.out.println("Trawler is waiting for scan jobs...");
@@ -210,16 +227,35 @@ public class Trawler extends AbstractCommand implements Runnable {
                     }
                     channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
                 } catch (Exception e) {
-                    // Preserve work when the API, worker or scanner fails. No clean report
-                    // is synthesized. Requires a bounded retry / dead-letter queue for
-                    // long-lived production environments to prevent poison-message loops.
-                    System.err.println("Queued image scan failed; requeueing: " + e.getClass().getSimpleName());
+                    // Republish durably, verify broker confirmation, then ACK the original.
+                    // This bounds poison-message loops while preserving failed scan evidence.
+                    int previousRetries = retryCount(delivery.getProperties().getHeaders());
+                    int nextRetries = previousRetries + 1;
+                    String destination = nextRetries > MAX_SCAN_DELIVERY_RETRIES ? failedQueue : scanQueue;
+                    System.err.println("Queued image scan failed; retry " + nextRetries +
+                            " routed to " + destination + ": " + e.getClass().getSimpleName());
                     try {
-                        Thread.sleep(1000);
-                        channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, true);
-                    } catch (Exception nackFailure) {
-                        System.err.println("Unable to requeue failed scan; RabbitMQ connection must recover");
-                        try { channel.close(); } catch (Exception ignored) { }
+                        Map<String, Object> headers = new HashMap<>();
+                        if (delivery.getProperties().getHeaders() != null) {
+                            headers.putAll(delivery.getProperties().getHeaders());
+                        }
+                        headers.put("x-m9sweeper-retries", nextRetries);
+                        AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder()
+                                .deliveryMode(2)
+                                .contentType("application/json")
+                                .headers(headers)
+                                .build();
+                        channel.basicPublish("", destination, properties, delivery.getBody());
+                        channel.waitForConfirmsOrDie(10000);
+                        channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+                    } catch (Exception retryFailure) {
+                        // If publication confirmation fails, preserve the original delivery.
+                        System.err.println("Unable to confirm retry publication; broker will redeliver");
+                        try {
+                            channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, true);
+                        } catch (Exception nackFailure) {
+                            try { channel.close(); } catch (Exception ignored) { }
+                        }
                     }
                 }
             }, consumerTag -> {});
