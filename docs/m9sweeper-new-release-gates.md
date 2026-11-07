@@ -59,3 +59,14 @@ Implemented on modernization branch after RC1:
 - Introduce a local Kind-specific Docker Compose overlay that preserves Dash membership in the external `kind` network across recreation.
 
 **Unsupported or not verified as complete:** legacy service-account token storage and broad RBAC model, 100% UI modernization, framework upgrades, full scanner ingestion, Helm runtime and rollback, complete authentication isolation, and official CIS compatibility. The source RC is for test environments only.
+
+## RC3 kube-hunter follow-up (2026-11-07)
+
+- Fixed the kube-hunter dialog to use the server-validated Pod-reachable scanner ingestion origin instead of browser `localhost`.
+- Local Job and CronJob charts now obtain the callback from a named Secret; both are linted/rendered in CI using `batch/v1`.
+- Fixed the dashboard severity counters starting from 1, which inflated displayed vulnerability counts.
+- The operator reported that the live kube-hunter scan now works in Kind. This is operator-observed evidence, **not** independently collected database or browser evidence.
+- Fresh database-row correlation and Angular display acceptance commands are documented in [kube-hunter RC3 acceptance](kube-hunter-rc3-acceptance.md); until they pass, the persisted report and UI checks remain unverified.
+- The legacy kube-hunter dispatcher still places the credential in an HTTP URL internally. Keep production publication blocked until header-based dispatch, authorization, and secret rotation are verified.
+- RC3 CI is configured on the fix branch; mark it successful only when the **latest commit SHA** has a completed green run.
+
