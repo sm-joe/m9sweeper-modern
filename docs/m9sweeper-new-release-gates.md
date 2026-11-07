@@ -70,3 +70,13 @@ Implemented on modernization branch after RC1:
 - The legacy kube-hunter dispatcher still places the credential in an HTTP URL internally. Keep production publication blocked until header-based dispatch, authorization, and secret rotation are verified.
 - RC3 CI is configured on the fix branch; mark it successful only when the **latest commit SHA** has a completed green run.
 
+
+## RC3 Trivy queue, authentication and Falco hardening (2026-11-07)
+
+- Java trawler switched from automatic broker acknowledgment to explicit acknowledgment **after** Dash report submission. API and scanner failures requeue the delivery rather than losing it.
+- Trivy report ingestion rejects missing/empty/invalid vulnerability counts and validates image membership in the claimed cluster before processing.
+- NestJS regression tests cover invalid image reports and cross-cluster image IDs. Existing Trivy severity and scan-error regressions remain mandatory.
+- kube-hunter report **read** routes require authenticated allowed roles; kube-hunter and Falco **ingest** routes now accept `X-API-Key` preferentially to legacy URL query credentials. Header-based migration does not mean query-string authentication has been removed.
+- Live, non-synthetic queue→worker→database→Angular acceptance is documented in [trivy-rc3-live-acceptance.md](trivy-rc3-live-acceptance.md). Until fresh DB and browser evidence are recorded, full integration is **not confirmed**.
+- **Production blockers:** bounded message retries/dead-letter queue, idempotent scan-run records, cluster-scoped role authorization, token rotation/revocation, removal of legacy URL credentials, Falco runtime verification, Angular/NestJS framework upgrades and browser/UI regression tests.
+- Do not merge or publish the entire product as production-ready based on compile-only checks or a green standalone scanner job.
