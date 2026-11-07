@@ -1,10 +1,6 @@
 {{- if .Values.cronjob.enabled }}
 ---
-{{- if .Capabilities.APIVersions.Has "batch/v1/CronJob" -}}
 apiVersion: batch/v1
-{{- else -}}
-apiVersion: batch/v1beta1
-{{- end }}
 kind: CronJob
 metadata:
   name: {{ template "kube-hunter.fullname" . }}
@@ -13,8 +9,10 @@ metadata:
     chart: {{ template "kube-hunter.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
+  {{- with .Values.cronjob.annotations }}
   annotations:
-{{ toYaml .Values.cronjob.annotations | indent 4 }}
+{{ toYaml . | indent 4 }}
+  {{- end }}
 spec:
   schedule: "{{ .Values.cronjob.schedule }}"
   {{- with .Values.cronjob.concurrencyPolicy }}
@@ -37,8 +35,10 @@ spec:
           labels:
             app: {{ template "kube-hunter.name" . }}
             release: {{ .Release.Name }}
+          {{- with .Values.pod.annotations }}
           annotations:
-{{ toYaml .Values.pod.annotations | indent 12 }}
+{{ toYaml . | indent 12 }}
+          {{- end }}
         spec:
           serviceAccount: {{ include "kube-hunter.name" . }}-sa
 {{- if .Values.securityContext.enabled }}
@@ -82,6 +82,6 @@ spec:
     {{- end }}
     {{- with .Values.tolerations }}
           tolerations:
-{{ toYaml . | indent 12 }}:
+{{ toYaml . | indent 12 }}
 {{- end }}
 {{- end }}
