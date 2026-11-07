@@ -168,6 +168,20 @@ export class UserDao {
     return result;
   }
 
+  /**
+   * Scanner keys are user identities and must be explicitly scoped to a
+   * cluster when SCANNER_REQUIRE_CLUSTER_BINDINGS=true.
+   */
+  async scannerHasClusterGrant(userId: number, clusterId: number): Promise<boolean> {
+    if (!Number.isSafeInteger(userId) || userId <= 0 ||
+        !Number.isSafeInteger(clusterId) || clusterId <= 0) return false;
+    const knex = await this.databaseService.getConnection();
+    const grant = await knex('cluster_user_access')
+      .where({user_id: userId, cluster_id: clusterId, can_write: true})
+      .first('user_id');
+    return !!grant;
+  }
+
   async loadAllActiveUsers(): Promise<UserListDto[]> {
     const knex = await this.databaseService.getConnection();
     const query = knex.select('u.id as id',
