@@ -1,11 +1,14 @@
 name: Full m9sweeper platform source validation
 on:
   push:
-    branches: [revamp/original-platform]
+    branches: [revamp/original-platform, product/m9sweeper-new-foundation]
     paths:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
       - 'tools/import-platform/**'
+      - 'README.md'
+      - 'ATTRIBUTION.md'
+      - 'docs/**'
 permissions:
   contents: read
 jobs:
@@ -74,6 +77,22 @@ jobs:
             --set-string global.apiKey="$API_KEY" \
             --set-string dash.init.superAdminEmail="ci@example.invalid" \
             --set-string dash.init.superAdminPassword="$JWT_SECRET"
+      - name: Validate kube-bench Secret-backed report auth (no query-string key)
+        run: |
+          set -euo pipefail
+          helm lint platform/manifests/charts/kube-bench \
+            --set provider=master --set cronjob.enabled=false \
+            --set-string reportsurl="http://m9-test-api.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1" \
+            --set-string reportAuth.existingSecret="m9sweeper-kube-bench-api-key"
+          helm template test-scan platform/manifests/charts/kube-bench \
+            --namespace m9sweeper-system --set provider=master --set cronjob.enabled=false \
+            --set-string reportsurl="http://m9-test-api.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1" \
+            --set-string reportAuth.existingSecret="m9sweeper-kube-bench-api-key" >/tmp/m9-secret-backed-job.yaml
+          grep -q 'secretKeyRef:' /tmp/m9-secret-backed-job.yaml
+          grep -q 'name: "m9sweeper-kube-bench-api-key"' /tmp/m9-secret-backed-job.yaml
+          grep -q 'X-API-Key:' /tmp/m9-secret-backed-job.yaml
+          if grep -q '?key=' /tmp/m9-secret-backed-job.yaml; then exit 1; fi
+          echo 'PASS: scanner credential comes from Kubernetes Secret and header, not URL'
       - name: Render Kubernetes resources for a modern API target
         run: |
           JWT_SECRET="$(openssl rand -hex 32)"
@@ -133,6 +152,7 @@ jobs:
           sed -i 's/^KUBE_HUNTER_API_KEY=.*/KUBE_HUNTER_API_KEY=ci-hunter-strong-012345678901234/' platform/docker-compose/.env
           sed -i 's/^KUBE_BENCH_API_KEY=.*/KUBE_BENCH_API_KEY=ci-bench-strong-0123456789012345/' platform/docker-compose/.env
           docker compose -f platform/docker-compose/docker-compose.yml --env-file platform/docker-compose/.env config --quiet
+          docker compose -f platform/docker-compose/docker-compose.yml -f platform/docker-compose/docker-compose.kind.yml --env-file platform/docker-compose/.env config --quiet
           rendered="$(docker compose -f platform/docker-compose/docker-compose.yml --env-file platform/docker-compose/.env config --format json)"
           echo "$rendered" | python3 -c 'import json,sys; d=json.load(sys.stdin); expected={"dash":"3000","postgres":"5432","rabbitmq":"5672","kubesec":"6116"}; [(lambda p: (_ for _ in ()).throw(AssertionError(s)) if any(x.get("host_ip") != "127.0.0.1" for x in p) else None)(d["services"][s].get("ports",[])) for s in expected]; print("Compose public bindings: none")'
   runtime-integration:
@@ -294,3 +314,42 @@ jobs:
         run: |
           kubectl get pods,jobs -n m9-inventory -o wide || true
           kubectl logs -n m9-inventory job/m9-kube-bench-smoke --tail=100 || true
+
+  rc-source-package:
+    name: m9sweeper-new source RC (only after all current CI gates pass)
+    if: github.ref == 'refs/heads/product/m9sweeper-new-foundation'
+    needs:
+      - source-parity
+      - original-backend
+      - original-frontend
+      - helm-charts
+      - original-trawler
+      - dash-image
+      - compose-config
+      - runtime-integration
+      - kubesec-live-scan
+      - trivy-live-scan
+      - trawler-jvm-image
+      - kind-inventory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source attribution and build a traceable developer-preview archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s platform/LICENSE
+          test -s platform/.upstream-source-revision
+          test -s ATTRIBUTION.md
+          test -s docs/m9sweeper-new-release-gates.md
+          mkdir -p dist
+          commit="$(git rev-parse HEAD)"
+          printf 'product=m9sweeper-new\nstatus=developer-preview-not-production\ncommit=%s\nupstream=%s\n'             "$commit" "$(cat platform/.upstream-source-revision)" > dist/BUILD-IDENTITY.txt
+          tar --exclude='node_modules' --exclude='.git' -czf dist/m9sweeper-new-0.1.0-rc2-source.tar.gz             platform docs tools README.md ATTRIBUTION.md
+          (cd dist && sha256sum m9sweeper-new-0.1.0-rc2-source.tar.gz > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m9sweeper-new-0.1.0-rc2-source-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

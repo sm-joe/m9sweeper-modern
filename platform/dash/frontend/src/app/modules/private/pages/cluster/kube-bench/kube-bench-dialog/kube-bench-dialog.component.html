@@ -19,6 +19,8 @@
 
   <mat-step>
     <ng-template matStepLabel>Create Job</ng-template>
+    <p *ngIf="!reportEndpointReady" role="alert" class="mat-error">{{reportEndpointError}}</p>
+    <p *ngIf="reportEndpointReady" role="note">Create a Kubernetes Secret named <code>m9sweeper-kube-bench-api-key</code> in namespace <code>m9sweeper-system</code>, containing the scanner API key under <code>apiKey</code>. The generated Job sends it as an HTTP header; no API key is included in the URL or Helm command. See the release documentation for a file-based Secret creation example.</p>
 
     <div class="modal-content-left-align-no-margin">
       <h3>Choose whether to run kube-bench periodically or manually</h3>
@@ -31,7 +33,7 @@
         </mat-radio-button>
       </mat-radio-group>
     </div>
-  <div class="modal-content-left-align-no-margin">
+  <div class="modal-content-left-align-no-margin" *ngIf="reportEndpointReady">
     <div *ngIf="cronjobOpt === true">
       <div>
         <mat-form-field appearance="fill" >
@@ -60,11 +62,10 @@
         </div>
       </div>
       <div>
-        <textarea matInput [cdkTextareaAutosize]="true" #run class="code-snippet w-100" readonly>helm repo add m9sweeper https://m9sweeper.github.io/m9sweeper && \
-helm repo update && \
-helm upgrade --install kube-bench m9sweeper/kube-bench \
+        <textarea matInput [cdkTextareaAutosize]="true" #run class="code-snippet w-100" readonly>helm upgrade --install kube-bench ./platform/manifests/charts/kube-bench \
   -n m9sweeper-system --create-namespace \
-  --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}/?key={{apiKey}}' \
+  --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}' \
+  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
   --set-string provider={{selectedProvider}} \
   --set cronjob.enabled=true \
   --set-string cronjob.schedule="{{cronjobScheduleOpts[cronjobTime]}}"</textarea>
@@ -74,7 +75,7 @@ helm upgrade --install kube-bench m9sweeper/kube-bench \
 
 
 
-  <div class="modal-content-left-align-no-margin">
+  <div class="modal-content-left-align-no-margin" *ngIf="reportEndpointReady">
     <div *ngIf="cronjobOpt === false">
       <ng-template matStepLabel>Create Job</ng-template>
       <div class="page-title-button-group-spacing">
@@ -88,11 +89,10 @@ helm upgrade --install kube-bench m9sweeper/kube-bench \
         </div>
       </div>
       <div >
-        <textarea #cliCommand class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm repo add m9sweeper https://m9sweeper.github.io/m9sweeper && \
-helm repo update && \
-helm upgrade --install kube-bench m9sweeper/kube-bench \
+        <textarea #cliCommand class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-bench ./platform/manifests/charts/kube-bench \
   -n m9sweeper-system --create-namespace \
-  --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}/?key={{apiKey}}'\
+  --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}' \
+  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key\
   --set-string provider={{selectedProvider}} \
   --set cronjob.enabled=false</textarea>
       </div>
@@ -100,7 +100,7 @@ helm upgrade --install kube-bench m9sweeper/kube-bench \
   </div>
 
   <div class="next-button">
-    <button mat-raised-button [matDialogClose]="true" color="primary">Done</button>
+    <button mat-raised-button [matDialogClose]="true" [disabled]="!reportEndpointReady" color="primary">Done</button>
   </div>
 
   </mat-step>

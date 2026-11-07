@@ -129,6 +129,7 @@ import {FalcoJsonDataDialogComponent} from './pages/falco/falco-json-data-dialog
 import {FalcoRelatedEventsTableComponent} from './pages/falco/falco-related-events-table/falco-related-events-table.component';
 import {KubesecReportComponent} from './pages/cluster/kubesec/kubesec-report/kubesec-report.component';
 import { SecurityAuditReportComponent } from './pages/reports/security-audit-report/security-audit-report.component';
+import { ScannerConnectivityComponent } from './pages/dashboard/scanner-connectivity.component';
 
 
 @NgModule({
@@ -263,6 +264,7 @@ import { SecurityAuditReportComponent } from './pages/reports/security-audit-rep
       MatExpansionModule,
       MatButtonToggleModule,
       NgOptimizedImage,
+      ScannerConnectivityComponent,
   ],
   providers: [
     DatePipe

@@ -17,6 +17,13 @@ provider: "commonjob"
 #### URL of your kube-bench api of app to send reports
 reportsurl: ""
 
+# Secure preferred authentication: provision a Kubernetes Secret in the same
+# namespace with the scanner API key (keyName defaults to apiKey). The report
+# URL must NOT contain a ?key= query parameter when using this mode.
+reportAuth:
+  existingSecret: ""
+  keyName: "apiKey"
+
 cronjob:
   enabled: true
   # At 01:00 every day

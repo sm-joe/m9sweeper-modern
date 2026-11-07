@@ -100,8 +100,9 @@ export class KubernetesApiService {
             const config = new KubeConfig();
             config.loadFromString(decodedJson);
             return config;
-        } catch (error) {
-            console.log(error);
+        } catch {
+            // Never log the raw kubeconfig or token on parse failure.
+            return null;
         }
     }
 
@@ -163,10 +164,10 @@ export class KubernetesApiService {
     /**
      * Builds a kubeconfig using the provided server & raw (base64 encoded) token, and attempts to test it
      * */
-    async buildAndTestServiceAccountConfig(server: string, rawToken: string, context: string): Promise<{valid: boolean, config: string, context?: string}> {
+    async buildAndTestServiceAccountConfig(server: string, rawToken: string, context: string, caData?: string): Promise<{valid: boolean, config: string, context?: string}> {
         try {
             const token = Buffer.from(rawToken, 'base64').toString('utf-8');
-            const config = this.buildServiceAccountConfig(token, server, context);
+            const config = this.buildServiceAccountConfig(token, server, context, caData);
             const api = this.makeCoreV1ApiFromConfig(config);
             const valid = await this.testApi(api);
             return valid
@@ -177,10 +178,13 @@ export class KubernetesApiService {
         }
     }
 
-    buildServiceAccountConfig(token: string, server: string, context: string): KubeConfig {
+    buildServiceAccountConfig(token: string, server: string, context: string, caData?: string): KubeConfig {
+        if (!caData?.trim()) {
+            throw new Error('Token-only kubeconfig requires a trusted CA; supply certificate-authority-data.');
+        }
         const config = new KubeConfig();
         config.addUser({token, name: "m9sweeper"});
-        config.addCluster({server, name: "m9sweeper", skipTLSVerify: true});
+        config.addCluster({server, name: "m9sweeper", caData, skipTLSVerify: false});
         config.addContext({cluster: "m9sweeper", name: context, user: "m9sweeper"});
         config.setCurrentContext(context);
         return config;
@@ -337,6 +341,30 @@ export class KubernetesApiService {
         if (execCommand) {
             throw new Error('Kubeconfig uses an external exec credential command (' + String(execCommand).split(/[\\/]/).pop() + '). Container onboarding requires credentials available to the backend; configure a supported service-account connection.');
         }
+        // Never trust a cluster API if TLS verification has been bypassed. The
+        // outgoing service-account kubeconfig inherits the verified CA instead.
+        const currentCluster = config.getCurrentCluster();
+        if (currentCluster.skipTLSVerify) {
+            throw new Error('Kubeconfig disables Kubernetes TLS verification; provide a trusted cluster certificate authority.');
+        }
+        if (!currentCluster.caData && !currentCluster.caFile) {
+            throw new Error('Kubeconfig does not contain a trusted cluster CA; provide certificate-authority-data or a readable CA file.');
+        }
+        let trustedCaData = currentCluster.caData;
+        if (currentCluster.caFile && !trustedCaData) {
+            try {
+                trustedCaData = fs.readFileSync(currentCluster.caFile).toString('base64');
+            } catch {
+                throw new Error('Kubeconfig cluster CA file is not available in the backend container; embed certificate-authority-data.');
+            }
+        }
+        if (!trustedCaData?.trim()) {
+            throw new Error('Kubeconfig cluster certificate authority is empty.');
+        }
+        // Kubernetes client Cluster fields are readonly: replace the entry rather
+        // than mutating it, preserving a self-contained CA-verified configuration.
+        const clusterIndex = config.clusters.findIndex(c => c.name === currentCluster.name);
+        config.clusters[clusterIndex] = {...currentCluster, caData: trustedCaData, caFile: undefined, skipTLSVerify: false};
         const coreApi = this.makeCoreV1ApiFromConfig(config);
 
         // Figure out whether the service account exists in the m9sweeper system namespace, the default namespace, or not at all
@@ -449,6 +477,9 @@ export class KubernetesApiService {
 
         // Get the service account's token, and replace the user in the config with that service account
         const token = await this.getServiceAccountToken(coreApi, 'm9sweeper', serviceAccountNamespace);
+        if (!token) {
+            throw new Error('Kubernetes service-account token not yet provisioned; retry onboarding after the Secret contains its token.');
+        }
         this.switchCurrentUserAuthToToken(config, token);
         const user = config.getCurrentUser();
         const userIndex = config.users.indexOf(user);

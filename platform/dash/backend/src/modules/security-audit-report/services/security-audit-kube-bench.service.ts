@@ -67,7 +67,9 @@ export class SecurityAuditKubeBenchService implements IAuditReportSectionService
         text: [
           'kube-bench compares your cluster’s configuration against the Center for Internet Security’s ',
           'best practices for running a Kubernetes Cluster. It runs as an application with elevated privileges in your cluster ',
-          'and then attempts to see whether the cluster is configured securely.',
+          'and then attempts to see whether the cluster is configured securely. ',
+          'PASS, FAIL and WARN are scanner observations, not a certified CIS compliance score. ',
+          'WARN may represent manual checks. Benchmark/Kubernetes version compatibility must be validated separately.',
         ]
       },
       table
@@ -81,7 +83,13 @@ export class SecurityAuditKubeBenchService implements IAuditReportSectionService
     if (report?.resultsJson) {
       const results = report.resultsJson; // convenience
       const total = results.Totals.total_pass + results.Totals.total_fail + results.Totals.total_warn;
-      scannedMessage = `${results.Totals.total_pass}/${total} Tests Passed`;
+      scannedMessage = `${results.Totals.total_pass}/${total} Checks Passed (not a compliance score)`;
+
+      body.push({
+        text: 'Assessment limitation: this report displays the benchmark name and detected Kubernetes version as supplied by kube-bench. Compatibility between those versions has NOT been verified by m9sweeper-new. Manual checks (WARN) require human review; PASS counts are not certification.',
+        style: 'alert',
+        marginBottom: 12
+      });
 
       // Outer loop over the high level sections (ex: 3. Worker Node Security Configuration), and appears in Table of Contents
       for (const section of results.Controls) {
@@ -145,7 +153,8 @@ export class SecurityAuditKubeBenchService implements IAuditReportSectionService
         style: 'body',
         text: [
           'kube-bench compares your cluster\'s configuration against the Center for Internet Security\'s best practices for running a Kubernetes Cluster. ',
-          'It runs as an application with elevated privileges in your cluster and then attempts to see whether the cluster is configured correctly. '
+          'It runs as an application with elevated privileges in your cluster and then attempts to see whether the cluster is configured correctly. ',
+          'Results reflect the scanner at the time of execution, not a verified current CIS benchmark compliance statement.'
         ]
       },
       body

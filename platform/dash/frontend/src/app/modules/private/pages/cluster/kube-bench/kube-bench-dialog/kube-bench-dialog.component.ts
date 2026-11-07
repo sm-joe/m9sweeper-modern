@@ -14,7 +14,9 @@ import {take} from 'rxjs/operators';
 
 export class KubeBenchDialogComponent implements OnInit{
   selectedProvider = '';
-  backendUrl: string;
+  backendUrl = '';
+  reportEndpointReady = false;
+  reportEndpointError = 'Scanner report ingestion endpoint is not configured.';
   clusterId: number;
   report: IKubeBenchReport;
   environments: {name: string, value: string}[];
@@ -26,7 +28,7 @@ export class KubeBenchDialogComponent implements OnInit{
     monthly: '0 0 1 * *'
   };
   nextButtonDisabled = true;
-  apiKey: string;
+  // The scanner API key is deliberately not retrieved into the browser's Helm command.
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: { clusterId: number },
@@ -37,16 +39,26 @@ export class KubeBenchDialogComponent implements OnInit{
 
   ngOnInit(): void {
     this.getConfigFileList();
-    this.commonService.getBaseUrl().pipe(take(1)).subscribe(url => {
-      this.backendUrl = url.data.baseUrl;
+    this.commonService.getBaseUrl().pipe(take(1)).subscribe({
+      next: response => {
+        const endpoint = (response.data as {reportIngestionUrl?: string | null}).reportIngestionUrl;
+        if (endpoint && /^https?:\/\//.test(endpoint)) {
+          this.backendUrl = endpoint;
+          this.reportEndpointReady = true;
+          this.reportEndpointError = '';
+        } else {
+          this.reportEndpointReady = false;
+          this.reportEndpointError = 'Configure SCANNER_REPORT_INGESTION_URL with an address reachable from Kubernetes Pods. Browser localhost URLs cannot receive scanner reports.';
+        }
+      },
+      error: () => {
+        this.reportEndpointReady = false;
+        this.reportEndpointError = 'Unable to load scanner report-ingestion configuration.';
+      }
     });
     this.clusterId = this.data.clusterId;
 
-    this.kubeBenchService.getKubeBenchApiKey().pipe(take(1)).subscribe({
-      next: response => {
-      this.apiKey = response[0]?.api;
-    }
-    });
+
 
   }
 

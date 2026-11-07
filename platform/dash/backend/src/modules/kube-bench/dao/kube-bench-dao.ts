@@ -43,26 +43,32 @@ export class KubeBenchDao {
     async getAllBenchReportsByCluster(clusterId: number, page = 0, limit = 20):
         Promise<KubeBenchDto[]> {
         const knex = await this.databaseService.getConnection();
+        const safePage = Number.isSafeInteger(+page) && +page >= 0 ? +page : 0;
+        const safeLimit = Number.isSafeInteger(+limit) && +limit >= 1 ? Math.min(+limit, 100) : 20;
         return knex.select('*').from('kube_bench')
             .where('cluster_id', clusterId)
-            .limit(limit)
-            .offset(page * limit)
+            .limit(safeLimit)
+            .offset(safePage * safeLimit)
             .orderBy('created_at', 'DESC')
             .then(report => plainToInstance(KubeBenchDto, report));
     }
 
-    async countReport(clusterId: number): Promise<Number> {
+    async countReport(clusterId: number): Promise<number> {
         const knex = await this.databaseService.getConnection();
         const result = await knex('kube_bench as kb')
-            .count('kb.id', {as: 'count'})
-            .returning('count');
-        return (result && result[0] && result[0].count) ? result[0].count : 0;
+            .where('kb.cluster_id', clusterId)
+            .count('kb.id', {as: 'count'});
+        return Number(result?.[0]?.count ?? 0);
     }
 
     async getLastBenchReportSummary(clusterId: number): Promise<KubeBenchDto[]> {
         const knex = await this.databaseService.getConnection();
-        const mostRecentEntry = knex('kube_bench').where('cluster_id', '=', clusterId).max('created_at');
-        return knex.select('*').from('kube_bench').where('created_at', mostRecentEntry).then(report => plainToInstance(KubeBenchDto, report));
+        return knex.select('*').from('kube_bench')
+            .where('cluster_id', clusterId)
+            .orderBy('created_at', 'desc')
+            .orderBy('id', 'desc')
+            .limit(1)
+            .then(report => plainToInstance(KubeBenchDto, report));
     }
 
     async getConfigFileContents(filename: string): Promise<string> {

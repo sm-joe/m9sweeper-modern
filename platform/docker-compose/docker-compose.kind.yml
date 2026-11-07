@@ -1,0 +1,14 @@
+# Local Kind integration only. Docker Compose connects the dashboard to both
+# application services and the existing Kind bridge network. This prevents the
+# manual "docker network connect kind m9sweeper-dash" step after recreation.
+# It does not make docker bridge DNS resolvable by Kubernetes CoreDNS.
+services:
+  dash:
+    networks:
+      - default
+      - kind
+
+networks:
+  kind:
+    name: kind
+    external: true

@@ -159,7 +159,8 @@ public class Trivy implements Scanner {
         }
 
         if (TrawlerConfiguration.getInstance().getDebug()) {
-            System.out.println("Scan command: " + trivyScanCommandBuilder.toString());
+            // The shell command may contain private registry credentials.
+            System.out.println("Invoking Trivy image vulnerability scanner (arguments redacted)");
         }
 
         ProcessBuilder processBuilder = new ProcessBuilder();
@@ -240,16 +241,29 @@ public class Trivy implements Scanner {
     public void parseResults() {
 
         Gson parser = new Gson();
-        JsonObject imageScanObject = parser.fromJson(rawResults, JsonObject.class);
-        if (TrawlerConfiguration.getInstance().getDebug() || imageScanObject == null) {
-            System.out.println("Parsed Trivy Scan Results: " + imageScanObject.toString());
+        JsonObject imageScanObject;
+        try {
+            imageScanObject = parser.fromJson(rawResults, JsonObject.class);
+        } catch (com.google.gson.JsonParseException e) {
+            throw new IllegalStateException("Trivy did not produce a valid JSON report; refusing to treat this image as compliant.", e);
+        }
+        if (imageScanObject == null) {
+            throw new IllegalStateException("Trivy did not produce a valid JSON report; refusing to treat this image as compliant.");
+        }
+        if (TrawlerConfiguration.getInstance().getDebug()) {
+            System.out.println("Parsed a Trivy JSON report");
         }
 
         if (imageScanObject.get("Metadata") != null && !imageScanObject.get("Metadata").isJsonNull()) {
             JsonObject imageScanMetadata = imageScanObject.getAsJsonObject("Metadata");
             if (imageScanMetadata.get("RepoDigests") != null && !imageScanMetadata.get("RepoDigests").isJsonNull()) {
                 JsonArray repoDigests = imageScanMetadata.getAsJsonArray("RepoDigests");
-                this.imageHash = repoDigests.get(0).getAsString().split("sha256:")[1];
+                if (repoDigests.size() > 0) {
+                    String digest = repoDigests.get(0).getAsString();
+                    if (digest.contains("sha256:")) {
+                        this.imageHash = digest.substring(digest.indexOf("sha256:") + "sha256:".length());
+                    }
+                }
             }
         }
 
@@ -267,12 +281,20 @@ public class Trivy implements Scanner {
                                 System.out.println("Total vulnerabilities found: " + vulnerabilities.size());
                             vulnerabilities.forEach(vulnerability -> {
                                 JsonObject v = vulnerability.getAsJsonObject();
-                                boolean isHighSeverity = IssueSeverity.CRITICAL.equals(v.get("Severity")) || IssueSeverity.HIGH.equals(v.get("Severity"));
+                                String severityText = v.has("Severity") && !v.get("Severity").isJsonNull()
+                                        ? v.get("Severity").getAsString() : "UNKNOWN";
+                                IssueSeverity severity;
+                                try {
+                                    severity = IssueSeverity.valueOf(severityText.toUpperCase(java.util.Locale.ROOT));
+                                } catch (IllegalArgumentException e) {
+                                    severity = IssueSeverity.UNKNOWN;
+                                }
+                                boolean isHighSeverity = severity == IssueSeverity.CRITICAL || severity == IssueSeverity.HIGH;
                                 ScanResultIssue issue = new ScanResultIssueBuilder(config.getScanId(), config.getScannerName())
                                         .withName(v.get("Title") == null ? "" : v.get("Title").getAsString())
                                         .withDescription(v.get("Description") == null ? "" : v.get("Description").getAsString())
-                                        .withSeverity(v.get("Severity") == null ? null : IssueSeverity.valueOf(v.get("Severity").getAsString()))
-                                        .withIsCompliant(!isHighSeverity) // TODO: Should reflect policy settings when the feature becomes available
+                                        .withSeverity(severity)
+                                        .withIsCompliant(!isHighSeverity && severity != IssueSeverity.UNKNOWN) // Unknown severity needs manual review
                                         .withType(v.get("VulnerabilityID") == null ? "" : v.get("VulnerabilityID").getAsString())
                                         .withIsFixable(!(v.get("FixedVersion") == null ? "" : v.get("FixedVersion").getAsString()).isEmpty())
                                         .withVulnerabilityDescUrl(v.get("PrimaryURL") == null ? "" : v.get("PrimaryURL").getAsString())
@@ -280,9 +302,8 @@ public class Trivy implements Scanner {
                                         .build();
 
                                 // only valid issues
-                                if (!IssueSeverity.UNKNOWN.equals(issue.getSeverity())) {
-                                    allIssues.add(issue);
-                                }
+                                // Unknown severities must not disappear from reports.
+                                allIssues.add(issue);
                             });
                         }
                     }

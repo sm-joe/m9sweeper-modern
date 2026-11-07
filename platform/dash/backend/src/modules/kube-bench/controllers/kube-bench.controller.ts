@@ -3,6 +3,7 @@ import {
     Controller,
     Delete,
     Get,
+    Headers,
     HttpException,
     HttpStatus,
     Inject,
@@ -44,13 +45,21 @@ export class KubeBenchController {
     @ApiResponse({
         status: 201,
     })
-    async saveKubeBenchReport(@Body() report: any, @Param('clusterId') clusterId: number, @Query('key') key: string): Promise<KubeBenchDto> {
+    async saveKubeBenchReport(@Body() report: any, @Param('clusterId') clusterId: number, @Query('key') legacyKey: string, @Headers('x-api-key') headerKey?: string): Promise<KubeBenchDto> {
+        // Header credentials supersede the legacy URL query credential. Never log either.
+        const key = typeof headerKey === 'string' && headerKey.trim() ? headerKey : legacyKey;
+        if (!Number.isSafeInteger(+clusterId) || +clusterId <= 0) {
+            throw new HttpException('Invalid cluster ID', HttpStatus.BAD_REQUEST);
+        }
 
         // find user authority by user's apikey
+        if (typeof key !== 'string' || !key.trim()) {
+            throw new HttpException('Missing kube-bench API key', HttpStatus.UNAUTHORIZED);
+        }
         const currentUserAuthObj = await this.userDao.loadUserByApiKey(key);
 
         // if the current user's api is valid
-        if (currentUserAuthObj !== null && currentUserAuthObj != undefined ) {
+        if (Array.isArray(currentUserAuthObj) && currentUserAuthObj.length > 0 && currentUserAuthObj[0]) {
            //  get all authorities from the current user
             const currentUserAuth = currentUserAuthObj[0].authorities;
             // get Kubebench authority from Authorityid
@@ -60,6 +69,11 @@ export class KubeBenchController {
             if (isKBUser) {
                 this.logger.log({label: 'User has been authorized; saving KB scan report', data: { clusterId }}, 'KubeBenchController.saveKubeBenchReport');
                 //return key as any; // no reports;  remove when done
+                if (!report || !Array.isArray(report.Controls) || !report.Controls.length ||
+                    !report.Totals || !['total_pass', 'total_fail', 'total_warn'].every(
+                      field => Number.isSafeInteger(report.Totals[field]) && report.Totals[field] >= 0)) {
+                    throw new HttpException('Malformed kube-bench report: expected nonempty Controls and numeric Totals', HttpStatus.BAD_REQUEST);
+                }
                 const reportAsLogDto = Object.assign(new KubeBenchLogDto(), report);
                 const reportAsDto: KubeBenchDto = {
                     uuid: uuid(),
@@ -76,7 +90,7 @@ export class KubeBenchController {
                 throw new HttpException('Unauthorized  - log may not have been saved', HttpStatus.UNAUTHORIZED);
             }
         }
-
+        throw new HttpException('Invalid kube-bench API key', HttpStatus.UNAUTHORIZED);
     }
 
     @Get('/apiKey')

@@ -14,6 +14,7 @@ import {take} from 'rxjs/operators';
 export class ServiceAccountWizardComponent {
 
   tokenControl = this.fb.control('', [Validators.required]);
+  caDataControl = this.fb.control('', [Validators.required]);
   config: string;
   context: string;
   badConfig = false;
@@ -31,7 +32,7 @@ export class ServiceAccountWizardComponent {
 
   testConfig() {
     this.testingConnection = true;
-    this.clusterService.testServiceAccount(this.tokenControl.value, this.data.server, this.data.context)
+    this.clusterService.testServiceAccount(this.tokenControl.value, this.data.server, this.data.context, this.caDataControl.value)
       .pipe(take(1))
       .subscribe(res => {
         if (res.data?.valid) {
