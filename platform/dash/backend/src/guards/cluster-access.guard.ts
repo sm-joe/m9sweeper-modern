@@ -34,7 +34,7 @@ export class ClusterAccessGuard implements CanActivate {
             (req.method === 'POST' && /^\/api\/clusters\/[1-9][0-9]*\/images\/?$/.test(path)) ||
             (req.method === 'GET' && /\/image-by-docker-url\/?$/.test(path));
         if (this.user.authorities.some(role => role?.type === 'TRAWLER') &&
-            legacyTrawlerEndpoint) {
+            legacyTrawlerEndpoint && process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS !== 'true') {
             return true;
         }
         const params = req.params || {};
