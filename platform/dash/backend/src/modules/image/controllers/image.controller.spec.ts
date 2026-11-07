@@ -55,4 +55,61 @@ describe('Trivy report ingestion security', () => {
     } as any)).rejects.toMatchObject({status: 404});
     expect(imageService.getImageById).not.toHaveBeenCalled();
   });
+  it('persists HIGH findings on the requested image and clears its queue flag', async () => {
+    const image = {id: 1, clusterId: 4, dockerImageId: 'old-runtime-digest'};
+    imageService.getImageByImageId.mockResolvedValue(image);
+    imageService.getImageById.mockResolvedValue(image);
+    imageService.saveImageScanDataByImageId = jest.fn().mockResolvedValue([51]);
+    imageService.updateImageScanDateByImageId = jest.fn().mockResolvedValue(undefined);
+    imageService.setImageScanQueueStatus = jest.fn().mockResolvedValue(undefined);
+    imageService.getImageByImageHash = jest.fn();
+    imageService.createImage = jest.fn();
+    (controller as any).imageComplianceFacadeService = {
+      isImageClusterCompliant: jest.fn().mockResolvedValue({
+        compliant: true,
+        complianceMap: {getResultForCve: jest.fn()}
+      })
+    };
+
+    const response = await controller.saveImageScanResults(4, 1, {data: [{
+      policyId: 7, policyStatus: true, encounterError: false,
+      imageHash: 'different-registry-digest', issues: [],
+      criticalIssues: 0, majorIssues: 34,
+      mediumIssues: 23, lowIssues: 1, negligibleIssues: 4
+    }]} as any);
+
+    expect(imageService.getImageByImageHash).not.toHaveBeenCalled();
+    expect(imageService.createImage).not.toHaveBeenCalled();
+    expect(imageService.saveImageScanDataByImageId).toHaveBeenCalledWith(
+      4, 1, expect.any(Object), expect.any(Number)
+    );
+    expect(imageService.updateImageScanDateByImageId).toHaveBeenCalledWith(
+      1, 'Non-compliant', 0, 34, 23, 1, 4
+    );
+    expect(imageService.setImageScanQueueStatus).toHaveBeenCalledWith(1, false);
+    expect(response.complaint).toBe(false);
+  });
+
+  it('does not mark an errored scan compliant when its vulnerability counts are zero', async () => {
+    const image = {id: 1, clusterId: 4, dockerImageId: 'runtime-digest'};
+    imageService.getImageByImageId.mockResolvedValue(image);
+    imageService.getImageById.mockResolvedValue(image);
+    imageService.saveImageScanDataByImageId = jest.fn().mockResolvedValue([52]);
+    imageService.updateImageScanDateByImageId = jest.fn();
+    imageService.setImageScanQueueStatus = jest.fn();
+    (controller as any).imageComplianceFacadeService = {
+      isImageClusterCompliant: jest.fn().mockResolvedValue({
+        compliant: true, complianceMap: {getResultForCve: jest.fn()}
+      })
+    };
+    await controller.saveImageScanResults(4, 1, {data: [{
+      policyId: 7, policyStatus: true, encounterError: true,
+      issues: [], criticalIssues: 0, majorIssues: 0,
+      mediumIssues: 0, lowIssues: 0, negligibleIssues: 0
+    }]} as any);
+    expect(imageService.updateImageScanDateByImageId).toHaveBeenCalledWith(
+      1, 'Non-compliant', 0, 0, 0, 0, 0
+    );
+  });
+
 });
