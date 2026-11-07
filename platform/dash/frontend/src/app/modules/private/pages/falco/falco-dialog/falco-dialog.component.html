@@ -40,14 +40,15 @@ helm upgrade --install falco falcosecurity/falco \
   --set-string falcosidekick.config.existingSecret=m9sweeper-falco-webhook \
   --set falcosidekick.config.webhook.checkcert=true \
   --set-string falcosidekick.config.webhook.minimumpriority='{{level.toLowerCase()}}'</textarea>
-    </div>
-    <div class="modal-content-left-align-no-margin row start-sm between-xs pt-xs-2">
-      <button mat-raised-button matDialogClose [disabled]="!reportEndpointReady" color="primary" class="me-xs-2 mb-xs-2 mb-md-0">Done</button>
-      <app-copy-to-clipboard-button *ngIf="reportEndpointReady"
+      <app-copy-to-clipboard-button
         successMessage="Command copied to clipboard!"
         errorMessage="Command could not be copied"
         [text]="run.value"
         ></app-copy-to-clipboard-button>
+    </div>
+    <div class="modal-content-left-align-no-margin row start-sm between-xs pt-xs-2">
+      <button mat-raised-button matDialogClose [disabled]="!reportEndpointReady" color="primary" class="me-xs-2 mb-xs-2 mb-md-0">Done</button>
+
     </div>
   </div>
 </div>
