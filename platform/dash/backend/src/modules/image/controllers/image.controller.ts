@@ -276,6 +276,25 @@ export class ImageController {
           clusterId, imageId, imageTrawlerResultDto, createdAt);
     }
 
+    @Post(':clusterId/images/:imageId/trawler/scan/fail')
+    @AllowedAuthorityLevels(Authority.TRAWLER)
+    @UseGuards(AuthGuard, AuthorityGuard)
+    async quarantineFailedScan(
+        @Param('clusterId') clusterId: number,
+        @Param('imageId') imageId: number,
+        @Body() body: {scanRunId?: string}
+    ): Promise<{failed: boolean}> {
+        const runId = body?.scanRunId;
+        if (!runId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(runId)) {
+            throw new BadRequestException('Invalid scan run identifier');
+        }
+        if (!Number.isSafeInteger(+clusterId) || +clusterId <= 0 ||
+            !Number.isSafeInteger(+imageId) || +imageId <= 0) {
+            throw new BadRequestException('Invalid image or cluster identifier');
+        }
+        return {failed: await this.imageService.recordQuarantinedScanRun(runId, +clusterId, +imageId)};
+    }
+
     @ApiTags('M9Sweeper')
     @ApiSecurity('x-auth-token')
     @ApiResponse({
