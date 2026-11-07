@@ -1,3 +1,4 @@
+import {selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
 import {
     Body,
     Controller,
@@ -148,7 +149,7 @@ export class FalcoController {
         @Headers('x-api-key') headerKey?: string
     ): Promise<FalcoDto> {
         // look up user by api key
-        const currentUserAuthObj = await this.userDao.loadUserByApiKey(headerKey || key || '');
+        const currentUserAuthObj = await this.userDao.loadUserByApiKey(selectScannerIngestKey(headerKey, key));
         if (!Array.isArray(currentUserAuthObj) || currentUserAuthObj.length === 0) {
             throw new UnauthorizedException('Access Denied!');
         }
