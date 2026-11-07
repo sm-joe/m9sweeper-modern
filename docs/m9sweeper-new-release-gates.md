@@ -78,5 +78,9 @@ Implemented on modernization branch after RC1:
 - NestJS regression tests cover invalid image reports and cross-cluster image IDs. Existing Trivy severity and scan-error regressions remain mandatory.
 - kube-hunter report **read** routes require authenticated allowed roles; kube-hunter and Falco **ingest** routes now accept `X-API-Key` preferentially to legacy URL query credentials. Header-based migration does not mean query-string authentication has been removed.
 - Live, non-synthetic queue→worker→database→Angular acceptance is documented in [trivy-rc3-live-acceptance.md](trivy-rc3-live-acceptance.md). Until fresh DB and browser evidence are recorded, full integration is **not confirmed**.
-- **Production blockers:** bounded message retries/dead-letter queue, idempotent scan-run records, cluster-scoped role authorization, token rotation/revocation, removal of legacy URL credentials, Falco runtime verification, Angular/NestJS framework upgrades and browser/UI regression tests.
+- **Production blockers:** monitored dead-letter recovery, idempotent scan-run records, cluster-scoped role authorization, token rotation/revocation, removal of legacy URL credentials, Falco runtime verification, Angular/NestJS framework upgrades and browser/UI regression tests.
 - Do not merge or publish the entire product as production-ready based on compile-only checks or a green standalone scanner job.
+
+### RC3 queue retry update
+
+RabbitMQ scan delivery now uses manual acknowledgment and confirmed durable publication for retries. After three retries, the job is moved to `trawler_queue.failed` for investigation rather than endlessly hot-looping. This is a quarantine queue, **not** a full operator-visible incident workflow; it still needs monitoring, error classification and tested replay procedures. At-least-once delivery can generate duplicate database rows until scan-run idempotency is implemented.
