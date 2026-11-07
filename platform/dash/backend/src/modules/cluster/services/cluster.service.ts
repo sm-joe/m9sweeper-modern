@@ -63,7 +63,33 @@ export class ClusterService {
 
     cluster.kubeConfig = serviceAccountConfig
       || await this.kubernetesApiService.AddServiceAccount(cluster.kubeConfig)
-        .catch(() => { throw new HttpException({status: HttpStatus.BAD_REQUEST, message: 'Could not connect to cluster using provided kube config', entityType: this.entityType}, HttpStatus.BAD_REQUEST);});
+        .catch((error) => {
+          const status = Number(error?.statusCode || error?.response?.statusCode || error?.response?.status || error?.status);
+          const code = String(error?.code || '').toUpperCase();
+          const reason = String(error?.message || '');
+          let message = 'Could not connect to cluster using provided kube config.';
+          if (/Invalid kubeconfig|Kubeconfig API server is localhost|Kubeconfig uses an external exec/.test(reason)) {
+            message = reason;
+          } else if (status === 401) {
+            message = 'Kubernetes authentication failed (401): kubeconfig credentials are invalid or unavailable inside the backend.';
+          } else if (status === 403) {
+            message = 'Kubernetes authorization failed (403): onboarding needs permissions to read service accounts and create its Kubernetes service account and RBAC objects.';
+          } else if (status === 404) {
+            message = 'Kubernetes API returned 404: check the configured namespace and API endpoint.';
+          } else if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+            message = 'Kubernetes API hostname cannot be resolved from the backend container.';
+          } else if (code === 'ECONNREFUSED' || code === 'ETIMEDOUT' || code === 'EHOSTUNREACH' || /timeout/i.test(reason)) {
+            message = 'Kubernetes API endpoint cannot be reached from the backend container.';
+          } else if (/CERT_|UNABLE_TO_VERIFY|SELF_SIGNED_CERT|certificate|TLS|SSL/i.test(reason)) {
+            message = 'Kubernetes API TLS certificate validation failed. Supply the cluster CA in kubeconfig.';
+          }
+          this.logger.error({label: 'Kubernetes cluster onboarding failed', data: {
+            httpStatus: Number.isFinite(status) ? status : undefined,
+            networkCode: /^[A-Z_]+$/.test(code) ? code : undefined,
+            category: message
+          }}, undefined, 'ClusterService.createCluster');
+          throw new HttpException({status: HttpStatus.BAD_REQUEST, message, entityType: this.entityType}, HttpStatus.BAD_REQUEST);
+        });
     if (!cluster.kubeConfig) {
       throw new HttpException({status: HttpStatus.BAD_REQUEST, message: 'Could not create service account with provided kubeconfig', entityType: this.entityType}, HttpStatus.BAD_REQUEST);
     }

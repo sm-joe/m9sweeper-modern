@@ -317,8 +317,26 @@ export class KubernetesApiService {
         let serviceAccountNamespace = 'default';
         const m9sweeperSystemNamespaceName = this.configService.get('releaseNamespace.serviceAccountNamespace');
 
-        // Get the config & make all of the APIs
+        // Fail with an actionable configuration error before making any Kubernetes
+        // mutations. This method runs in the backend container, not on the operator's laptop.
         const config = this.loadConfigFromBase64Json(base64KubeConfig);
+        if (!config?.getCurrentCluster() || !config?.getCurrentUser() || !config?.getCurrentContext()) {
+            throw new Error('Invalid kubeconfig: current context, cluster or user is missing');
+        }
+        const endpoint = config.getCurrentCluster().server || '';
+        try {
+            const host = new URL(endpoint).hostname.toLowerCase();
+            if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]') {
+                throw new Error('Kubeconfig API server is localhost; the backend container cannot reach a host-only Kubernetes endpoint. Use a network-reachable cluster API address.');
+            }
+        } catch (error) {
+            if (String(error?.message || '').startsWith('Kubeconfig API server is localhost')) throw error;
+            throw new Error('Invalid kubeconfig cluster API server URL');
+        }
+        const execCommand = (config.getCurrentUser() as any)?.exec?.command;
+        if (execCommand) {
+            throw new Error('Kubeconfig uses an external exec credential command (' + String(execCommand).split(/[\\/]/).pop() + '). Container onboarding requires credentials available to the backend; configure a supported service-account connection.');
+        }
         const coreApi = this.makeCoreV1ApiFromConfig(config);
 
         // Figure out whether the service account exists in the m9sweeper system namespace, the default namespace, or not at all
