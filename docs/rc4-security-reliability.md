@@ -10,7 +10,8 @@
 - `SCANNER_ALLOW_LEGACY_QUERY_KEYS=false` disables insecure `?key=` ingestion after **all clients have migrated to header authentication**. Default is legacy-compatible to preserve the working Kind kube-hunter collector.
 - `GET /api/falco/apiKey` and `GET /api/kubehunter/apiKey` no longer expose API keys by default and are restricted to SUPER_ADMIN even when legacy export is explicitly enabled. For temporary migration only, `SCANNER_ALLOW_LEGACY_KEY_EXPORT=true` enables these sensitive endpoints; never enable outside a controlled maintenance window.
 - External webhook cluster ID must be a strictly positive safe integer; invalid IDs are rejected before persistence.
-- New unit tests cover both security guards, credential selection, export restrictions, and invalid cluster IDs.
+- Falco webhook rejects malformed event bodies before persistence; once an event is saved, email-delivery errors are logged but cannot turn the webhook into a failure response, preventing a duplicate retry caused solely by notification failure.
+- New unit tests cover both security guards, credential selection, export restrictions, invalid cluster IDs, webhook validation and notification failure semantics.
 
 These are **not** a replacement for cluster-scoped RBAC, credential rotation, payload schema validation, or operational monitoring. A scanner-specific key still needs documented cluster binding and revocation.
 
@@ -24,7 +25,7 @@ git pull --ff-only origin release/m9sweeper-new-rc4-security-reliability
 
 cd platform\dash\backend
 npm ci --legacy-peer-deps
-npx jest auth.guard.spec.ts authority.guard.spec.ts scanner-ingest-auth.spec.ts falco.controller.spec.ts kube-hunter.controller.spec.ts --runInBand --no-cache
+npx jest auth.guard.spec.ts authority.guard.spec.ts scanner-ingest-auth.spec.ts falco.controller.spec.ts falco.service.spec.ts kube-hunter.controller.spec.ts --runInBand --no-cache
 npm run build:api
 ```
 
@@ -44,7 +45,8 @@ Keep `SCANNER_ALLOW_LEGACY_QUERY_KEYS` **unset or true** until kube-hunter's ins
 ## Verify negative authentication responses
 
 - With no valid user credentials, requests to protected scan/report routes must be rejected.
-- Invalid scanner keys or invalid cluster IDs must fail without creating a DB row.
+- Invalid scanner keys, invalid cluster IDs or malformed Falco webhook bodies must fail without creating a DB row.
+- Trigger an authorized Falco event and verify a new record in PostgreSQL and the Angular Falco page. A notification failure must not cause the already-saved event to be retried; a DB insertion failure must remain an error.
 - Direct calls to the legacy raw-key export routes must return HTTP 410 for a SUPER_ADMIN when `SCANNER_ALLOW_LEGACY_KEY_EXPORT` is unset; less privileged users must be denied by the guard.
 - Confirm the existing CoreDNS Trivy scan remains attached to the requested image ID with correct HIGH findings; confirm kube-hunter reports remain visible after Dash rebuild.
 - Do **not** paste or log the key value in test output.
