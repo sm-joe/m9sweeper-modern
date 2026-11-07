@@ -349,17 +349,21 @@ export class KubernetesApiService {
         if (!currentCluster.caData && !currentCluster.caFile) {
             throw new Error('Kubeconfig does not contain a trusted cluster CA; provide certificate-authority-data or a readable CA file.');
         }
-        if (currentCluster.caFile && !currentCluster.caData) {
+        let trustedCaData = currentCluster.caData;
+        if (currentCluster.caFile && !trustedCaData) {
             try {
-                currentCluster.caData = fs.readFileSync(currentCluster.caFile).toString('base64');
-                currentCluster.caFile = undefined;
+                trustedCaData = fs.readFileSync(currentCluster.caFile).toString('base64');
             } catch {
                 throw new Error('Kubeconfig cluster CA file is not available in the backend container; embed certificate-authority-data.');
             }
         }
-        if (!currentCluster.caData?.trim()) {
+        if (!trustedCaData?.trim()) {
             throw new Error('Kubeconfig cluster certificate authority is empty.');
         }
+        // Kubernetes client Cluster fields are readonly: replace the entry rather
+        // than mutating it, preserving a self-contained CA-verified configuration.
+        const clusterIndex = config.clusters.findIndex(c => c.name === currentCluster.name);
+        config.clusters[clusterIndex] = {...currentCluster, caData: trustedCaData, caFile: undefined, skipTLSVerify: false};
         const coreApi = this.makeCoreV1ApiFromConfig(config);
 
         // Figure out whether the service account exists in the m9sweeper system namespace, the default namespace, or not at all
