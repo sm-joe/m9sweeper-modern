@@ -312,6 +312,10 @@ export class ImageController {
         @Headers('x-scan-run-id') scanRunId?: string
     ):Promise<ImageScanResultDto>{
         // Fail closed before any new image or partial scan evidence is persisted.
+        if (trawlerScanResults?.data &&
+            new Set(trawlerScanResults.data.map(r => r?.policyId)).size !== trawlerScanResults.data.length) {
+            throw new BadRequestException('Duplicate policy results in scan report');
+        }
         if (!trawlerScanResults || !Array.isArray(trawlerScanResults.data) ||
             trawlerScanResults.data.length === 0 ||
             trawlerScanResults.data.some(result => !result ||
@@ -372,12 +376,9 @@ export class ImageController {
             return rsByPolicy;
         }));
 
-        // save scan results
+        // Stage all policies before committing. RC4 runs are committed in one
+        // transaction so a crashed worker cannot leave a half-written report.
         const createdAt = Date.now();
-        await Promise.all(trawlerScanResults.data.map((rsByPolicy: ImageTrawlerResultDto) =>
-          scanRunId
-            ? this.imageService.saveImageScanDataByImageId(clusterId, targetImage.id, rsByPolicy, createdAt, scanRunId)
-            : this.imageService.saveImageScanDataByImageId(clusterId, targetImage.id, rsByPolicy, createdAt)));
 
         // update image data
         const critical_issues = trawlerScanResults.data.map(r => r.criticalIssues).reduce((a, b) => a + b, 0);
@@ -395,13 +396,24 @@ export class ImageController {
             trawlerScanResults.data.every(r => r.policyStatus === true) ?
             'Compliant' : 'Non-compliant';
 
-        await this.imageService.updateImageScanDateByImageId(targetImage.id, status, critical_issues, major_issues,
-            medium_issues, low_issues, negligible_issues); // Keep Kubernetes runtime image ID unchanged
-
-        await this.imageService.setImageScanQueueStatus(targetImage.id, false);
         if (scanRunId) {
-            await this.imageService.completeScanRun(scanRunId, status === 'Compliant');
+            const compliant = await this.imageService.commitScanRun(
+                scanRunId, +clusterId, +imageId, trawlerScanResults.data, status,
+                {
+                    critical: critical_issues, major: major_issues,
+                    medium: medium_issues, low: low_issues,
+                    negligible: negligible_issues
+                }, createdAt
+            );
+            return plainToInstance(ImageScanResultDto, {complaint: compliant});
         }
+
+        // Backward compatibility for previously queued, pre-RC4 messages.
+        await Promise.all(trawlerScanResults.data.map((rsByPolicy: ImageTrawlerResultDto) =>
+          this.imageService.saveImageScanDataByImageId(clusterId, targetImage.id, rsByPolicy, createdAt)));
+        await this.imageService.updateImageScanDateByImageId(targetImage.id, status, critical_issues, major_issues,
+            medium_issues, low_issues, negligible_issues);
+        await this.imageService.setImageScanQueueStatus(targetImage.id, false);
 
         return plainToInstance(ImageScanResultDto, {complaint: status === 'Compliant'});
     }
