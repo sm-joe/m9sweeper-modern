@@ -31,4 +31,15 @@ describe('kube-hunter ingestion authentication', () => {
       .rejects.toMatchObject({status: 401});
     expect(reports.saveKubeHunterReport).not.toHaveBeenCalled();
   });
+
+  it('disables raw scanner key export by default', async () => {
+    const original = process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT;
+    delete process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT;
+    try {
+      await expect(controller.getApiKey()).rejects.toMatchObject({status: 410});
+    } finally {
+      if (original === undefined) delete process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT;
+      else process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT = original;
+    }
+  });
 });
