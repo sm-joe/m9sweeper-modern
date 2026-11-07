@@ -42,6 +42,7 @@ class TrivyParserTest {
             .getScanResult();
         assertEquals(1, issues.size());
         assertEquals(IssueSeverity.UNKNOWN, issues.get(0).getSeverity());
+        assertFalse(issues.get(0).isCompliant());
     }
 
     @Test void absentScanResultFailsClosed() {

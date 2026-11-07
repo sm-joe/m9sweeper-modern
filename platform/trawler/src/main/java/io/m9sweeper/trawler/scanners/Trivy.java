@@ -289,7 +289,7 @@ public class Trivy implements Scanner {
                                         .withName(v.get("Title") == null ? "" : v.get("Title").getAsString())
                                         .withDescription(v.get("Description") == null ? "" : v.get("Description").getAsString())
                                         .withSeverity(severity)
-                                        .withIsCompliant(!isHighSeverity) // TODO: Should reflect policy settings when the feature becomes available
+                                        .withIsCompliant(!isHighSeverity && severity != IssueSeverity.UNKNOWN) // Unknown severity needs manual review
                                         .withType(v.get("VulnerabilityID") == null ? "" : v.get("VulnerabilityID").getAsString())
                                         .withIsFixable(!(v.get("FixedVersion") == null ? "" : v.get("FixedVersion").getAsString()).isEmpty())
                                         .withVulnerabilityDescUrl(v.get("PrimaryURL") == null ? "" : v.get("PrimaryURL").getAsString())
