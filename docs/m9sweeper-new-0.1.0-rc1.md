@@ -35,3 +35,16 @@ Do not expose this development deployment to untrusted networks.
 ## Publication status
 NOT APPROVED for stable or production release. Do not merge or publish as a
 production-certified security platform until the blockers above have evidence.
+
+## Secure kube-bench report authentication
+
+The new-product kube-bench wizard no longer retrieves API keys into browser-rendered Helm commands. The chart now supports `reportAuth.existingSecret` and `reportAuth.keyName`. A pre-existing Kubernetes Secret named `m9sweeper-kube-bench-api-key` (key `apiKey`) is expected by the default generated command. The scanner sends `X-API-Key` to the backend and does not put the secret in the URL. The backend preserves legacy query-key acceptance temporarily for older deployments; remove this compatibility path after migrations and regression tests.
+
+On an administrator workstation with an API-key file restricted to its owner (not checked into Git):
+
+```bash
+kubectl -n m9sweeper-system create secret generic m9sweeper-kube-bench-api-key \\
+  --from-file=apiKey=/secure/local/path/kube-bench-api-key
+```
+
+The Secret must be in the namespace of the kube-bench Job and contain the actual service account's API key, not the super-admin password. Restrict who may read that Secret. Use HTTPS and certificate validation when traffic crosses a trust boundary. Helm template validation is included in CI; full Kubernetes Secret-to-API report persistence remains a release gate.

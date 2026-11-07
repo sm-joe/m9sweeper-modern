@@ -28,7 +28,7 @@ export class KubeBenchDialogComponent implements OnInit{
     monthly: '0 0 1 * *'
   };
   nextButtonDisabled = true;
-  apiKey: string;
+  // The scanner API key is deliberately not retrieved into the browser's Helm command.
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: { clusterId: number },
@@ -58,11 +58,7 @@ export class KubeBenchDialogComponent implements OnInit{
     });
     this.clusterId = this.data.clusterId;
 
-    this.kubeBenchService.getKubeBenchApiKey().pipe(take(1)).subscribe({
-      next: response => {
-      this.apiKey = response[0]?.api;
-    }
-    });
+
 
   }
 

@@ -20,7 +20,7 @@
   <mat-step>
     <ng-template matStepLabel>Create Job</ng-template>
     <p *ngIf="!reportEndpointReady" role="alert" class="mat-error">{{reportEndpointError}}</p>
-    <p *ngIf="reportEndpointReady" role="note">The generated command uses a scanner API credential in the URL for legacy compatibility. Treat it as a secret; do not paste it into tickets, logs or shared shell histories. Header-based secret injection is the preferred production integration.</p>
+    <p *ngIf="reportEndpointReady" role="note">Create a Kubernetes Secret named <code>m9sweeper-kube-bench-api-key</code> in namespace <code>m9sweeper-system</code>, containing the scanner API key under <code>apiKey</code>. The generated Job sends it as an HTTP header; no API key is included in the URL or Helm command. See the release documentation for a file-based Secret creation example.</p>
 
     <div class="modal-content-left-align-no-margin">
       <h3>Choose whether to run kube-bench periodically or manually</h3>
@@ -64,7 +64,8 @@
       <div>
         <textarea matInput [cdkTextareaAutosize]="true" #run class="code-snippet w-100" readonly>helm upgrade --install kube-bench ./platform/manifests/charts/kube-bench \
   -n m9sweeper-system --create-namespace \
-  --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}/?key={{apiKey}}' \
+  --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}' \
+  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
   --set-string provider={{selectedProvider}} \
   --set cronjob.enabled=true \
   --set-string cronjob.schedule="{{cronjobScheduleOpts[cronjobTime]}}"</textarea>
@@ -90,7 +91,8 @@
       <div >
         <textarea #cliCommand class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-bench ./platform/manifests/charts/kube-bench \
   -n m9sweeper-system --create-namespace \
-  --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}/?key={{apiKey}}'\
+  --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}' \
+  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key\
   --set-string provider={{selectedProvider}} \
   --set cronjob.enabled=false</textarea>
       </div>

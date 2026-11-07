@@ -74,6 +74,22 @@ jobs:
             --set-string global.apiKey="$API_KEY" \
             --set-string dash.init.superAdminEmail="ci@example.invalid" \
             --set-string dash.init.superAdminPassword="$JWT_SECRET"
+      - name: Validate kube-bench Secret-backed report auth (no query-string key)
+        run: |
+          set -euo pipefail
+          helm lint platform/manifests/charts/kube-bench \
+            --set provider=master --set cronjob.enabled=false \
+            --set-string reportsurl="http://m9-test-api.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1" \
+            --set-string reportAuth.existingSecret="m9sweeper-kube-bench-api-key"
+          helm template test-scan platform/manifests/charts/kube-bench \
+            --namespace m9sweeper-system --set provider=master --set cronjob.enabled=false \
+            --set-string reportsurl="http://m9-test-api.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1" \
+            --set-string reportAuth.existingSecret="m9sweeper-kube-bench-api-key" >/tmp/m9-secret-backed-job.yaml
+          grep -q 'secretKeyRef:' /tmp/m9-secret-backed-job.yaml
+          grep -q 'name: "m9sweeper-kube-bench-api-key"' /tmp/m9-secret-backed-job.yaml
+          grep -q 'X-API-Key:' /tmp/m9-secret-backed-job.yaml
+          if grep -q '?key=' /tmp/m9-secret-backed-job.yaml; then exit 1; fi
+          echo 'PASS: scanner credential comes from Kubernetes Secret and header, not URL'
       - name: Render Kubernetes resources for a modern API target
         run: |
           JWT_SECRET="$(openssl rand -hex 32)"
