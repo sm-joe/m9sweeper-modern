@@ -241,7 +241,12 @@ public class Trivy implements Scanner {
     public void parseResults() {
 
         Gson parser = new Gson();
-        JsonObject imageScanObject = parser.fromJson(rawResults, JsonObject.class);
+        JsonObject imageScanObject;
+        try {
+            imageScanObject = parser.fromJson(rawResults, JsonObject.class);
+        } catch (com.google.gson.JsonParseException e) {
+            throw new IllegalStateException("Trivy did not produce a valid JSON report; refusing to treat this image as compliant.", e);
+        }
         if (imageScanObject == null) {
             throw new IllegalStateException("Trivy did not produce a valid JSON report; refusing to treat this image as compliant.");
         }
