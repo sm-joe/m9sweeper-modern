@@ -2,7 +2,9 @@
   <mat-step>
     <ng-template matStepLabel>Create Job</ng-template>
 
-    <div class="modal-content-left-align-no-margin">
+    <p *ngIf="!reportEndpointReady" role="alert" class="mat-error">{{reportEndpointError}}</p>
+    <p *ngIf="reportEndpointReady" role="note">Create a Kubernetes Secret named <code>m9sweeper-kube-hunter-dispatch</code> in namespace <code>m9sweeper-system</code>, with key <code>dispatchUrl</code> containing the complete callback URL and a freshly rotated, scoped ingestion token. The callback origin must be <code>{{backendUrl}}</code> and reachable from the kube-hunter Pod. Never paste the token into Helm values or a URL shown in the browser. The Secret and the rendered Pod environment must be protected; longer-term header-based authentication is required.</p>
+    <div class="modal-content-left-align-no-margin" *ngIf="reportEndpointReady">
       <h3>Choose whether to run kube-hunter periodically or manually</h3>
       <mat-radio-group aria-labelledby="cronjob-options-group-label"  [(ngModel)]="cronjobOpt">
         <mat-radio-button [value]="true">
@@ -30,11 +32,9 @@
         </div>
 
         <div >
-          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm repo add m9sweeper https://m9sweeper.github.io/m9sweeper && \
-helm repo update && \
-helm upgrade --install kube-hunter m9sweeper/kube-hunter \
+          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter ./platform/manifests/charts/kube-hunter \
   -n m9sweeper-system --create-namespace \
-  --set-string dispatchUrl='{{backendUrl}}/api/kubehunter/hunter/{{clusterId}}/?key={{apiKey}}' \
+  --set-string dispatchAuth.existingSecret=m9sweeper-kube-hunter-dispatch \
   --set cronjob.enabled=false</textarea>
         </div>
       </div>
@@ -69,11 +69,9 @@ helm upgrade --install kube-hunter m9sweeper/kube-hunter \
         </div>
 
         <div >
-          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm repo add m9sweeper https://m9sweeper.github.io/m9sweeper && \
-helm repo update && \
-helm upgrade --install kube-hunter m9sweeper/kube-hunter \
+          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter ./platform/manifests/charts/kube-hunter \
   -n m9sweeper-system --create-namespace \
-  --set-string dispatchUrl='{{backendUrl}}/api/kubehunter/hunter/{{clusterId}}/?key={{apiKey}}' \
+  --set-string dispatchAuth.existingSecret=m9sweeper-kube-hunter-dispatch \
   --set-string cronjob.schedule="{{cronjobScheduleOpts[cronjobTime]}}" \
   --set cronjob.enabled=true</textarea>
         </div>
@@ -82,7 +80,7 @@ helm upgrade --install kube-hunter m9sweeper/kube-hunter \
     </div>
 
     <div class="next-button">
-      <button mat-raised-button color="primary" matStepperNext>Next</button>
+      <button mat-raised-button color="primary" matStepperNext [disabled]="!reportEndpointReady">Next</button>
     </div>
   </mat-step>
 
