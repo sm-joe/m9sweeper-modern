@@ -179,6 +179,11 @@ export class FalcoController {
         if (!isFalcoUser) {
             throw new UnauthorizedException('Access Denied!');
         }
+        if (currentUserAuthObj[0].isActive === false ||
+            (process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS === 'true' &&
+             !await this.userDao.scannerHasClusterGrant(currentUserAuthObj[0].id, clusterId))) {
+            throw new UnauthorizedException('Scanner identity is not authorized for this cluster');
+        }
 
         const action = await this.falcoService.checkRules(clusterId, falcoLog);
         // An ignore rule applied,
