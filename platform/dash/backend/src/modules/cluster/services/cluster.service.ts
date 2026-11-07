@@ -61,6 +61,27 @@ export class ClusterService {
       throw new HttpException({status: HttpStatus.NOT_FOUND, message: 'Cluster already exists.'}, HttpStatus.NOT_FOUND)
     }
 
+    // A supplied service-account configuration is still untrusted input.
+    // Refuse bypassed TLS or an absent cluster CA even when automatic onboarding
+    // was skipped; otherwise insecure credentials would be persisted.
+    if (serviceAccountConfig) {
+      let supplied: KubeConfig;
+      try {
+        supplied = new KubeConfig();
+        supplied.loadFromString(Buffer.from(serviceAccountConfig, 'base64').toString('utf8'));
+        const api = supplied.getCurrentCluster();
+        if (!api || api.skipTLSVerify || (!api.caData && !api.caFile) ||
+            !supplied.getCurrentContext() || !supplied.getCurrentUser()) {
+          throw new Error('Untrusted Kubernetes TLS or incomplete kubeconfig');
+        }
+      } catch {
+        throw new HttpException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Service-account kubeconfig requires a valid context, credentials and a trusted Kubernetes CA with TLS verification enabled.',
+          entityType: this.entityType
+        }, HttpStatus.BAD_REQUEST);
+      }
+    }
     cluster.kubeConfig = serviceAccountConfig
       || await this.kubernetesApiService.AddServiceAccount(cluster.kubeConfig)
         .catch((error) => {

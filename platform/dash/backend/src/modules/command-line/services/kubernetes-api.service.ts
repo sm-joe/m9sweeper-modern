@@ -100,8 +100,9 @@ export class KubernetesApiService {
             const config = new KubeConfig();
             config.loadFromString(decodedJson);
             return config;
-        } catch (error) {
-            console.log(error);
+        } catch {
+            // Never log the raw kubeconfig or token on parse failure.
+            return null;
         }
     }
 

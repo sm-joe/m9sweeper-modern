@@ -72,7 +72,7 @@ export class ClusterCommand {
         try {
             console.log('Connecting to default server');
             config = this.kubernetesApiService.loadConfigFromCluster();
-            console.log('Config', config);
+            // Do not log KubeConfig: it may contain cluster certificates or credentials.
             k8sApi = await this.kubernetesApiService.makeValidApi(config);
             if (!k8sApi) {
                 console.log('Couldn\'t connect to default server');
