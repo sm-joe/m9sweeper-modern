@@ -20,6 +20,9 @@ import io.m9sweeper.trawler.framework.queue.Registry;
 import picocli.CommandLine;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.io.OutputStream;
 import io.m9sweeper.trawler.framework.exception.NoncompliantException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -107,6 +110,46 @@ public class Trawler extends AbstractCommand implements Runnable {
         Object count = headers.get("x-m9sweeper-retries");
         if (count instanceof Number) return Math.max(0, ((Number) count).intValue());
         return 0;
+    }
+
+    /**
+     * Report final scan failure to Dash after durable quarantine publication.
+     * If unavailable, the quarantine message remains durable and the backend
+     * timeout reconciler will eventually mark the run failed.
+     */
+    private static void notifyQuarantinedScan(byte[] bytes) {
+        try {
+            Message job = new ObjectMapper().readValue(bytes, Message.class);
+            Object raw = job.getAdditionalProperties().get("scanRunId");
+            if (!(raw instanceof String) || !((String) raw).matches("[0-9a-fA-F-]{36}") ||
+                    job.getCluster() == null || job.getImage() == null) {
+                return;
+            }
+            String root = TrawlerConfiguration.getInstance().m9sweeperUrl().replaceAll("/+$", "");
+            String url = root + "/api/clusters/" + job.getCluster().getId() +
+                    "/images/" + job.getImage().getId() + "/trawler/scan/fail";
+            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+            try {
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("x-auth-token", TrawlerConfiguration.getInstance().m9sweeperApiKey());
+                conn.setDoOutput(true);
+                String json = new ObjectMapper().writeValueAsString(
+                        java.util.Collections.singletonMap("scanRunId", raw));
+                try (OutputStream out = conn.getOutputStream()) {
+                    out.write(json.getBytes(StandardCharsets.UTF_8));
+                }
+                if (conn.getResponseCode() < 200 || conn.getResponseCode() >= 300) {
+                    System.err.println("Dash did not acknowledge scan quarantine; timed reconciliation remains active");
+                }
+            } finally {
+                conn.disconnect();
+            }
+        } catch (Exception error) {
+            System.err.println("Quarantined job retained; Dash failure callback unavailable");
+        }
     }
 
     private Connection getAmpqConnection(ConnectionFactory factory, int retry) throws InterruptedException {
@@ -218,6 +261,17 @@ public class Trawler extends AbstractCommand implements Runnable {
                         throw new IOException("No policies returned for queued cluster");
                     }
 
+                    // Preserve the broker-assigned run identity across delivery retries
+                    // and forward it to the authenticated Dash ingestion endpoint.
+                    Object scanRunId = payload.getAdditionalProperties().get("scanRunId");
+                    if (scanRunId instanceof String &&
+                            ((String) scanRunId).matches("[0-9a-fA-F-]{36}")) {
+                        defaultClient.addDefaultHeader("X-Scan-Run-Id", (String) scanRunId);
+                    } else {
+                        // Legacy jobs cannot be safely deduplicated; never inherit
+                        // the previous delivery's identity on the shared API client.
+                        defaultClient.addDefaultHeader("X-Scan-Run-Id", "");
+                    }
                     try {
                         new ScanRunner(api, payload, policies.getData()).scan();
                     } catch (NoncompliantException expectedFinding) {
@@ -248,6 +302,9 @@ public class Trawler extends AbstractCommand implements Runnable {
                         channel.basicPublish("", destination, properties, delivery.getBody());
                         channel.waitForConfirmsOrDie(10000);
                         channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+                        if (destination.equals(failedQueue)) {
+                            notifyQuarantinedScan(delivery.getBody());
+                        }
                     } catch (Exception retryFailure) {
                         // If publication confirmation fails, preserve the original delivery.
                         System.err.println("Unable to confirm retry publication; broker will redeliver");

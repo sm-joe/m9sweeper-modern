@@ -15,7 +15,10 @@ describe('ImageService scan queue safety', () => {
                 image: {name: 'app', tag: 'v1', path: '/tmp'}
             }]),
             countGlobalPoliciesNotIncludedInPolicyCluster: jest.fn().mockResolvedValue({globalPolicyCount: 0}),
-            setImageScanQueueStatus: jest.fn().mockResolvedValue(imageId)
+            setImageScanQueueStatus: jest.fn().mockResolvedValue(imageId),
+            createScanRun: jest.fn().mockResolvedValue(undefined),
+            markScanRunPublished: jest.fn().mockResolvedValue(undefined),
+            markScanRunFailed: jest.fn().mockResolvedValue(undefined)
         };
         messaging = {send: jest.fn().mockResolvedValue(true)};
         service = new ImageService(
@@ -30,7 +33,14 @@ describe('ImageService scan queue safety', () => {
 
     it('marks queued before broker publication', async () => {
         await expect(service.createImageScanByImageId([{id: imageId}], clusterId)).resolves.toBe(true);
-        expect(messaging.send).toHaveBeenCalledWith('scan-images', expect.objectContaining({image: expect.any(Object)}));
+        expect(messaging.send).toHaveBeenCalledWith('scan-images', expect.objectContaining({
+            image: expect.any(Object),
+            scanRunId: expect.stringMatching(/^[0-9a-f-]{36}$/)
+        }));
+        expect(dao.createScanRun).toHaveBeenCalledWith(
+            expect.any(String), clusterId, imageId
+        );
+        expect(dao.markScanRunPublished).toHaveBeenCalledWith(expect.any(String));
         expect(dao.setImageScanQueueStatus).toHaveBeenCalledWith(imageId, true);
         expect(dao.setImageScanQueueStatus.mock.invocationCallOrder[0]).toBeLessThan(messaging.send.mock.invocationCallOrder[0]);
     });
@@ -40,6 +50,7 @@ describe('ImageService scan queue safety', () => {
         await expect(service.createImageScanByImageId([{id: imageId}], clusterId)).rejects.toMatchObject({status: 503});
         expect(dao.setImageScanQueueStatus).toHaveBeenNthCalledWith(1, imageId, true);
         expect(dao.setImageScanQueueStatus).toHaveBeenNthCalledWith(2, imageId, false);
+        expect(dao.markScanRunFailed).toHaveBeenCalledWith(expect.any(String), 'Broker publication failed');
     });
 
     it('rolls back and propagates broker errors', async () => {

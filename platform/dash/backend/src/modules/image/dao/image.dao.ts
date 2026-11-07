@@ -423,6 +423,175 @@ export class ImageDao {
         return knexnest(knex.where(searchClause).update(deletedTime, ['id']).into('images as i')).then(image => image.id);
     }
 
+    async createScanRun(id: string, clusterId: number, imageId: number): Promise<void> {
+        const knex = await this.databaseService.getConnection();
+        const now = Date.now();
+        await knex('image_scan_runs').insert({
+            id, cluster_id: clusterId, image_id: imageId,
+            status: 'queued', created_at: now, updated_at: now
+        });
+    }
+
+    async markScanRunPublished(id: string): Promise<void> {
+        const knex = await this.databaseService.getConnection();
+        await knex('image_scan_runs')
+            .where({id, status: 'queued'})
+            .update({status: 'published', updated_at: Date.now()});
+    }
+
+    async markScanRunFailed(id: string, reason: string): Promise<void> {
+        const knex = await this.databaseService.getConnection();
+        await knex('image_scan_runs').where({id})
+            .whereNot('status', 'completed')
+            .update({status: 'failed', failure_reason: reason.slice(0, 500), updated_at: Date.now()});
+    }
+
+    async getScanRun(id: string): Promise<{
+        id: string; cluster_id: number; image_id: number;
+        status: string; compliant: boolean | null
+    } | undefined> {
+        const knex = await this.databaseService.getConnection();
+        return knex('image_scan_runs').where({id}).first();
+    }
+
+    async claimScanRun(id: string, clusterId: number, imageId: number): Promise<boolean> {
+        const knex = await this.databaseService.getConnection();
+        const claimed = await knex('image_scan_runs')
+            .where({id, cluster_id: clusterId, image_id: imageId})
+            .whereIn('status', ['queued', 'published'])
+            .update({status: 'processing', updated_at: Date.now()})
+            .returning('id');
+        return claimed.length === 1;
+    }
+
+    /**
+     * Fail abandoned scanner jobs after an hour; a subsequent run must not have
+     * its queue state cleared by an older failed job.
+     */
+    async failScanRunAndRelease(id: string, clusterId: number, imageId: number): Promise<boolean> {
+        const knex = await this.databaseService.getConnection();
+        return knex.transaction(async trx => {
+            const changed = await trx('image_scan_runs')
+                .where({id, cluster_id: clusterId, image_id: imageId})
+                .whereIn('status', ['queued', 'published', 'processing'])
+                .update({status: 'failed', failure_reason: 'Scan exhausted retries', updated_at: Date.now()})
+                .returning('id');
+            if (!changed.length) {
+                return false;
+            }
+            const next = await trx('image_scan_runs')
+                .where({image_id: imageId, cluster_id: clusterId})
+                .whereIn('status', ['queued', 'published', 'processing'])
+                .first('id');
+            if (!next) {
+                await trx('images').where({id: imageId, cluster_id: clusterId})
+                    .update({scan_queued: false, scan_results: 'Failed'});
+            }
+            return true;
+        });
+    }
+
+    async expireStaleScanRuns(maxAgeMs = 60 * 60 * 1000): Promise<number> {
+        const knex = await this.databaseService.getConnection();
+        const now = Date.now();
+        return knex.transaction(async trx => {
+            const stale = await trx('image_scan_runs')
+                .whereIn('status', ['queued', 'published', 'processing'])
+                .where('updated_at', '<', now - maxAgeMs)
+                .update({status: 'failed', failure_reason: 'Scan timed out', updated_at: now})
+                .returning(['image_id']);
+            for (const row of stale) {
+                // Do not mark a newer active rescan failed.
+                const active = await trx('image_scan_runs')
+                    .where('image_id', row.image_id)
+                    .whereIn('status', ['queued', 'published', 'processing'])
+                    .first('id');
+                if (!active) {
+                    await trx('images').where('id', row.image_id)
+                        .update({scan_queued: false, scan_results: 'Failed'});
+                }
+            }
+            return stale.length;
+        });
+    }
+
+    async completeScanRun(id: string, compliant: boolean): Promise<void> {
+        const knex = await this.databaseService.getConnection();
+        await knex('image_scan_runs').where({id, status: 'processing'})
+            .update({status: 'completed', compliant, updated_at: Date.now()});
+    }
+
+    /**
+     * RC4 atomic scan commit. A run is either fully persisted or not persisted;
+     * retries observing completed status receive its original result.
+     */
+    async commitScanRun(
+        runId: string, clusterId: number, imageId: number,
+        reports: any[], status: string,
+        counts: {critical: number; major: number; medium: number; low: number; negligible: number},
+        createdAt: number
+    ): Promise<boolean> {
+        const knex = await this.databaseService.getConnection();
+        return knex.transaction(async trx => {
+            const run = await trx('image_scan_runs')
+                .where({id: runId, cluster_id: clusterId, image_id: imageId})
+                .forUpdate().first();
+            if (!run) throw new Error('Unknown scan run');
+            if (run.status === 'completed') return !!run.compliant;
+            if (run.status !== 'processing') throw new Error('Scan run cannot be committed in current state');
+
+            const image = await trx('images').where({id: imageId, cluster_id: clusterId})
+                .whereNull('deleted_at').forUpdate().first('id');
+            if (!image) throw new Error('Scan run image no longer exists');
+
+            await trx('image_scan_results')
+                .where({image_id: imageId})
+                .update({is_latest: false});
+
+            for (const result of reports) {
+                const payload: any = instanceToPlain(result);
+                const issues = Array.isArray(payload.issues) ? payload.issues : [];
+                delete payload.issues;
+                delete payload.docker_image_id;
+                payload.image_id = imageId;
+                payload.scan_run_id = runId;
+                payload.created_at = createdAt;
+                payload.is_latest = true;
+                const inserted = await trx('image_scan_results').insert(payload).returning('id');
+                const resultId = inserted[0]?.id;
+                if (!resultId) throw new Error('Unable to persist scan policy report');
+                if (issues.length) {
+                    await trx('image_scan_results_issues').insert(issues.map(issue => {
+                        const issueData = typeof issue.data === 'string' ?
+                            JSON.parse(issue.data) : (issue.data || {});
+                        return {
+                            ...issue, image_results_id: resultId,
+                            package_name: issueData.PkgName,
+                            installed_version: issueData.InstalledVersion,
+                            fixed_version: issueData.FixedVersion
+                        };
+                    }));
+                }
+            }
+
+            const updated = await trx('images').where({id: imageId, cluster_id: clusterId})
+                .update({
+                    updated_at: createdAt, last_scanned: createdAt,
+                    scan_results: status, scan_queued: false,
+                    critical_issues: counts.critical, major_issues: counts.major,
+                    medium_issues: counts.medium, low_issues: counts.low,
+                    negligible_issues: counts.negligible
+                });
+            if (updated !== 1) throw new Error('Unable to finalize image scan status');
+
+            const completed = await trx('image_scan_runs')
+                .where({id: runId, status: 'processing'})
+                .update({status: 'completed', compliant: status === 'Compliant', updated_at: Date.now()});
+            if (completed !== 1) throw new Error('Unable to finalize scan run');
+            return status === 'Compliant';
+        });
+    }
+
     async saveImageScanByImageId(scanImageData: any): Promise<number[]> {
         const knex = await this.databaseService.getConnection();
 

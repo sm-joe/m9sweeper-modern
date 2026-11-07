@@ -1,3 +1,4 @@
+import {ClusterAccessGuard} from '../../guards/cluster-access.guard';
 import {Global, Module} from '@nestjs/common';
 import {DatabaseService} from './services/database.service';
 import {MineLoggerService} from './services/mine-logger.service';
@@ -51,6 +52,7 @@ import {PdfMakeService} from './services/pdf-make.service';
     ],
     exports: [
         DatabaseService,
+        ClusterAccessGuard,
         MineLoggerService,
         FileManagementService,
         EmailService,
@@ -65,6 +67,7 @@ import {PdfMakeService} from './services/pdf-make.service';
         CommonController
     ],
     providers: [
+        ClusterAccessGuard,
         DatabaseService,
         MineLoggerService,
         FileUploadService,
