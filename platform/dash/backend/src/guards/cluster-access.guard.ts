@@ -28,8 +28,13 @@ export class ClusterAccessGuard implements CanActivate {
         // Legacy trawler identity must remain usable while service-account
         // keys migrate to per-cluster grants. Only the explicitly protected
         // scan ingestion path can use this transitional exception.
+        const path = String(req.originalUrl || req.url || '').split('?')[0];
+        const legacyTrawlerEndpoint =
+            path.includes('/trawler/') ||
+            (req.method === 'POST' && /^\/api\/clusters\/[1-9][0-9]*\/images\/?$/.test(path)) ||
+            (req.method === 'GET' && /\/image-by-docker-url\/?$/.test(path));
         if (this.user.authorities.some(role => role?.type === 'TRAWLER') &&
-            String(req.originalUrl || req.url || '').includes('/trawler/')) {
+            legacyTrawlerEndpoint) {
             return true;
         }
         const params = req.params || {};
