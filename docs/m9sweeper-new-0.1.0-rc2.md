@@ -52,3 +52,5 @@ modernized or certified security product.
 - Unknown vulnerability severity is retained for review rather than silently dropped, and missing JSON scan reports fail closed.
 - Debug logging no longer prints shell commands potentially containing registry passwords or cloud access tokens.
 - JUnit 5 scanner parsing regression tests exercise the real Java parser on representative Trivy JSON, including HIGH/CRITICAL/LOW, missing severity, and empty digests.
+
+- The Java scan result mapper no longer marks a policy as compliant when a scanner encountered an error, even if all vulnerability counts are zero. Scanner failures remain evidence of an incomplete assessment, not a clean scan.

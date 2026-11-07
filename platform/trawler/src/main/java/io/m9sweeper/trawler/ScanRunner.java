@@ -146,7 +146,7 @@ public class ScanRunner {
                 .lowIssues(new BigDecimal(scanResult.getNumLowIssues()))
                 .negligibleIssues(new BigDecimal(scanResult.getNumNegligibleIssues()))
                 .policyId(new BigDecimal(scanResult.getPolicyId()))
-                .policyStatus(scanResult.getNumCriticalIssues() <= 0 && scanResult.getNumHighIssues() <= 0)
+                .policyStatus(!scanResult.isEncounteredError() && scanResult.getNumCriticalIssues() <= 0 && scanResult.getNumHighIssues() <= 0)
                 .startedAt(new BigDecimal(scanResult.getStartedAt()))
                 .finishedAt(new BigDecimal(scanResult.getFinishedAt()))
                 .imageHash(scanResult.getImageHash())
