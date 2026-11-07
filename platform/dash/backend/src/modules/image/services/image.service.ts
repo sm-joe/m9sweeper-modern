@@ -1,7 +1,6 @@
-import {Interval} from '@nestjs/schedule';
 import {randomUUID} from 'crypto';
 /* eslint-disable no-prototype-builtins */
-import {forwardRef, HttpException, HttpStatus, Inject, Injectable} from '@nestjs/common'
+import {forwardRef, HttpException, HttpStatus, Inject, Injectable, OnModuleInit, OnModuleDestroy} from '@nestjs/common'
 import {instanceToPlain, plainToInstance} from 'class-transformer';
 import {ImageDto} from '../dto/image-dto';
 import {ImageDao} from '../dao/image.dao';
@@ -20,7 +19,28 @@ import {isDefined} from 'class-validator';
 import {MineLoggerService} from '../../shared/services/mine-logger.service';
 
 @Injectable()
-export class ImageService {
+export class ImageService implements OnModuleInit, OnModuleDestroy {
+    private scanReconciliationTimer?: NodeJS.Timeout;
+    private reconciliationInProgress = false;
+
+    onModuleInit(): void {
+        // Avoid the @nestjs/schedule Interval decorator: some supported Node
+        // versions do not expose the util.isString() function it invokes.
+        if (!this.scanReconciliationTimer) {
+            this.scanReconciliationTimer = setInterval(() => {
+                void this.reconcileExpiredScanRuns();
+            }, 5 * 60 * 1000);
+            this.scanReconciliationTimer.unref?.();
+        }
+    }
+
+    onModuleDestroy(): void {
+        if (this.scanReconciliationTimer) {
+            clearInterval(this.scanReconciliationTimer);
+            this.scanReconciliationTimer = undefined;
+        }
+    }
+
     constructor(private readonly imageDao: ImageDao,
                 @Inject(forwardRef(() => ClusterService))
                 private readonly clusterService: ClusterService,
@@ -251,8 +271,9 @@ export class ImageService {
         return true;
     }
 
-    @Interval(5 * 60 * 1000)
     async reconcileExpiredScanRuns(): Promise<void> {
+        if (this.reconciliationInProgress) return;
+        this.reconciliationInProgress = true;
         try {
             const count = await this.imageDao.expireStaleScanRuns();
             if (count > 0) {
@@ -262,6 +283,8 @@ export class ImageService {
             this.logger.warn({label: 'Failed scan-run reconciliation', data: {
                 error: error instanceof Error ? error.name : 'unknown'
             }});
+        } finally {
+            this.reconciliationInProgress = false;
         }
     }
 
