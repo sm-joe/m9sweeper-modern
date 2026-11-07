@@ -84,3 +84,11 @@ Implemented on modernization branch after RC1:
 ### RC3 queue retry update
 
 RabbitMQ scan delivery now uses manual acknowledgment and confirmed durable publication for retries. After three retries, the job is moved to `trawler_queue.failed` for investigation rather than endlessly hot-looping. This is a quarantine queue, **not** a full operator-visible incident workflow; it still needs monitoring, error classification and tested replay procedures. At-least-once delivery can generate duplicate database rows until scan-run idempotency is implemented.
+
+## Trivy policy preflight correction (2026-11-07)
+
+- Fixed policy creation when an unused name returns an empty list from the policy DAO; previously it was compared only with null and could fail to create the new policy.
+- Image scan eligibility now requires an enabled policy with an enabled, nondeleted Trivy scanner, either actively mapped to the target cluster or global.
+- A missing eligible policy returns an actionable HTTP 422 and does **not** publish a scan job; it is not a Trivy engine failure.
+- No policy is auto-created or enabled. Operators must review cluster scope and thresholds in Dash. See [Trivy policy diagnostics](trivy-policy-setup-and-diagnostics.md).
+- Full-stack CI for the newest SHA and one live policy-backed Trivy scan remain release gates.
