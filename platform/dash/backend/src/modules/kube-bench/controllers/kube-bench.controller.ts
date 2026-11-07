@@ -53,7 +53,7 @@ export class KubeBenchController {
         const currentUserAuthObj = await this.userDao.loadUserByApiKey(key);
 
         // if the current user's api is valid
-        if (currentUserAuthObj !== null && currentUserAuthObj != undefined ) {
+        if (Array.isArray(currentUserAuthObj) && currentUserAuthObj.length > 0 && currentUserAuthObj[0]) {
            //  get all authorities from the current user
             const currentUserAuth = currentUserAuthObj[0].authorities;
             // get Kubebench authority from Authorityid
