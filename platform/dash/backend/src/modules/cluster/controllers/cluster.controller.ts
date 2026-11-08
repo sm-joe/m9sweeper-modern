@@ -1,3 +1,4 @@
+import {DatabaseService} from '../../shared/services/database.service';
 import {
     Body,
     Controller,
@@ -45,7 +46,8 @@ export class ClusterController {
       private readonly clusterService: ClusterService,
       private readonly kubernetesClusterService: KubernetesClusterService,
       private readonly  kubernetesApiService: KubernetesApiService,
-      private logger: MineLoggerService
+      private logger: MineLoggerService,
+      private readonly database: DatabaseService
     ) {}
 
     @Get()
@@ -57,7 +59,26 @@ export class ClusterController {
     })
     async getAllClusters(): Promise<ClusterDto[]> {
         const clusters: ClusterDto[] = await this.clusterService.getAllClusters();
-        return clusters && clusters.map(c => {
+        let visible = clusters || [];
+        const actor = this._loggedInUser;
+        if (!actor?.authorities?.some(role => role.type === Authority.SUPER_ADMIN)) {
+            if (!Number.isSafeInteger(actor?.id) || actor.id <= 0) {
+                return [];
+            }
+            const knex = await this.database.getConnection();
+            const [owned, granted] = await Promise.all([
+                knex('clusters as c').join('cluster_group as cg', 'cg.id', 'c.group_id')
+                    .where('cg.user_id', actor.id).whereNull('c.deleted_at')
+                    .whereNull('cg.deleted_at').select('c.id'),
+                knex('cluster_user_access').where('user_id', actor.id).select('cluster_id')
+            ]);
+            const allowed = new Set([
+                ...owned.map(row => Number(row.id)),
+                ...granted.map(row => Number(row.cluster_id))
+            ]);
+            visible = visible.filter(c => allowed.has(Number(c.id)));
+        }
+        return visible.map(c => {
             delete c.kubeConfig;
             delete c.ipAddress;
             delete c.port;
