@@ -504,23 +504,44 @@ export class ImageDao {
         });
     }
 
-    async expireStaleScanRuns(maxAgeMs = 60 * 60 * 1000): Promise<number> {
+    /**
+     * Broker wait time is not scan execution time. With RabbitMQ prefetch=1,
+     * a batch of images can legitimately wait behind several 30-minute scans.
+     * A queued/published job gets a 24-hour orphan limit; ingestion claims
+     * that were not completed get a shorter one-hour limit.
+     *
+     * This only reconciles the database. It must never purge RabbitMQ.
+     */
+    async expireStaleScanRuns(
+        processingMaxAgeMs = 60 * 60 * 1000,
+        queuedMaxAgeMs = 24 * 60 * 60 * 1000
+    ): Promise<number> {
         const knex = await this.databaseService.getConnection();
         const now = Date.now();
         return knex.transaction(async trx => {
             const stale = await trx('image_scan_runs')
-                .whereIn('status', ['queued', 'published', 'processing'])
-                .where('updated_at', '<', now - maxAgeMs)
-                .update({status: 'failed', failure_reason: 'Scan timed out', updated_at: now})
-                .returning(['image_id']);
+                .where(builder => {
+                    builder.where(q => q
+                        .where('status', 'processing')
+                        .where('updated_at', '<', now - processingMaxAgeMs));
+                    builder.orWhere(q => q
+                        .whereIn('status', ['queued', 'published'])
+                        .where('updated_at', '<', now - queuedMaxAgeMs));
+                })
+                .update({
+                    status: 'failed',
+                    failure_reason: 'Scan timed out',
+                    updated_at: now
+                })
+                .returning(['image_id', 'cluster_id']);
             for (const row of stale) {
-                // Do not mark a newer active rescan failed.
                 const active = await trx('image_scan_runs')
-                    .where('image_id', row.image_id)
+                    .where({image_id: row.image_id, cluster_id: row.cluster_id})
                     .whereIn('status', ['queued', 'published', 'processing'])
                     .first('id');
                 if (!active) {
-                    await trx('images').where('id', row.image_id)
+                    await trx('images')
+                        .where({id: row.image_id, cluster_id: row.cluster_id})
                         .update({scan_queued: false, scan_results: 'Failed'});
                 }
             }
