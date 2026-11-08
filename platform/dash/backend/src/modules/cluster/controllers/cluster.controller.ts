@@ -1,3 +1,4 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
 import {DatabaseService} from '../../shared/services/database.service';
 import {
     Body,
@@ -95,7 +96,7 @@ export class ClusterController {
         type: ClusterResponse
     })
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY, Authority.TRAWLER)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getClusterById(@Param('clusterId') clusterId: number): Promise<ClusterDto> {
         const cluster = await this.clusterService.getClusterById(clusterId);
         delete cluster.kubeConfig;
@@ -189,7 +190,7 @@ export class ClusterController {
 
     @Put(':clusterId')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: UPDATE_CLUSTER_SCHEMA_RESPONSE
@@ -216,7 +217,7 @@ export class ClusterController {
 
     @Delete(':id')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: DELETE_CLUSTER_RESPONSE_SCHEMA
@@ -232,7 +233,7 @@ export class ClusterController {
 
     @Put(':clusterId/activate-webhook')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: UPDATE_CLUSTER_SCHEMA_RESPONSE
@@ -249,7 +250,7 @@ export class ClusterController {
 
     @Put(':clusterId/activate-image-scanning-enforcement')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: UPDATE_CLUSTER_SCHEMA_RESPONSE
@@ -272,7 +273,7 @@ export class ClusterController {
      */
     @Put('/opa/:clusterId/:templateName/constraints')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201,
         schema: DELETE_CLUSTER_RESPONSE_SCHEMA
@@ -288,7 +289,7 @@ export class ClusterController {
      */
     @Delete('/opa/:clusterId/gatekeeper-template-constraints/:templateName/:constraintName')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201,
         schema: DELETE_CLUSTER_RESPONSE_SCHEMA
