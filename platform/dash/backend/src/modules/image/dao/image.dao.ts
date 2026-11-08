@@ -425,10 +425,23 @@ export class ImageDao {
 
     async createScanRun(id: string, clusterId: number, imageId: number): Promise<void> {
         const knex = await this.databaseService.getConnection();
-        const now = Date.now();
-        await knex('image_scan_runs').insert({
-            id, cluster_id: clusterId, image_id: imageId,
-            status: 'queued', created_at: now, updated_at: now
+        await knex.transaction(async trx => {
+            // Serialize concurrent rescan requests for the same image to keep a
+            // delayed/failed previous run from overwriting newer findings.
+            const image = await trx('images')
+                .where({id: imageId, cluster_id: clusterId})
+                .whereNull('deleted_at').forUpdate().first('id');
+            if (!image) throw new Error('Image does not belong to the selected cluster');
+            const active = await trx('image_scan_runs')
+                .where({image_id: imageId, cluster_id: clusterId})
+                .whereIn('status', ['queued', 'published', 'processing'])
+                .first('id');
+            if (active) throw new Error('An image scan is already in progress');
+            const now = Date.now();
+            await trx('image_scan_runs').insert({
+                id, cluster_id: clusterId, image_id: imageId,
+                status: 'queued', created_at: now, updated_at: now
+            });
         });
     }
 
