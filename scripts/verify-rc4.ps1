@@ -31,14 +31,31 @@ if ($tables[0] -ne 't') { throw 'RC4 migrations missing: image_scan_runs or clus
 Write-Host 'PASS: RC4 schema present'
 
 $recent = Query-Db @"
-SELECT id || '|' || status || '|' || COALESCE(compliant::text, 'unknown')
+SELECT id || '|' || status || '|' || COALESCE(compliant::text, 'unknown') || '|' || COALESCE(REPLACE(REPLACE(failure_reason, E'\\n', ' '), '|', '/'), '')
 FROM image_scan_runs
 WHERE cluster_id = $ClusterId AND image_id = $ImageId
 ORDER BY created_at DESC LIMIT 1;
 "@
 if ($recent.Count -eq 0) { throw 'No RC4 scan run found for this image/cluster' }
 $parts = ([string]$recent[0]).Split('|')
-if ($parts[1] -ne 'completed') { throw "Latest scan has not completed: $($parts[1])" }
+if ($parts[1] -ne 'completed') {
+    Write-Warning "Latest run $($parts[0]) has status $($parts[1]); reason: $($parts[3])"
+    Write-Host 'Recent runs for this image (newest first):'
+    $history = Query-Db @"
+SELECT id || ' | ' || status || ' | ' ||
+       COALESCE(failure_reason, '(none)') || ' | ' ||
+       to_char(to_timestamp(created_at / 1000.0), 'YYYY-MM-DD HH24:MI:SS TZ')
+FROM image_scan_runs
+WHERE cluster_id = $ClusterId AND image_id = $ImageId
+ORDER BY created_at DESC LIMIT 5;
+"@
+    $history | ForEach-Object { Write-Host $_ }
+    Write-Host 'RabbitMQ queue diagnostics:'
+    docker exec rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged
+    Write-Host 'Recent trawler diagnostic logs:'
+    docker logs m9sweeper-trawler --tail 80 2>&1 | ForEach-Object { Write-Host $_ }
+    throw "RC4 acceptance failed: latest scan status is $($parts[1]). Investigate the recorded reason and worker logs; do not reset or rewrite the run."
+}
 Write-Host "PASS: scan run $($parts[0]) completed"
 
 $counts = Query-Db @"
