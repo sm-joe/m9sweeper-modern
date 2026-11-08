@@ -52,13 +52,19 @@ export class KubeHunterDialogComponent implements OnInit {
         // The browser's base URL may be localhost, which resolves to the
         // kube-hunter pod itself. Only use the dedicated Pod-reachable endpoint.
         const endpoint = (response.data as {reportIngestionUrl?: string | null}).reportIngestionUrl;
-        if (endpoint && /^https?:\/\//.test(endpoint) && !/^https?:\/\/(?:localhost|127(?:\.\d{1,3}){3}|\[::1\])(?::|\/|$)/i.test(endpoint)) {
-          this.backendUrl = endpoint.replace(/\/$/, '');
+        try {
+          const url = new URL(endpoint || '');
+          if (url.protocol !== 'https:' || url.username || url.password ||
+              url.search || url.hash || url.pathname !== '/' ||
+              /^(localhost|127(?:\\.\\d{1,3}){3}|\\[::1\\])$/i.test(url.hostname)) {
+            throw new Error('A trusted HTTPS report-ingestion origin is required');
+          }
+          this.backendUrl = url.origin;
           this.reportEndpointReady = true;
           this.reportEndpointError = '';
-        } else {
+        } catch {
           this.reportEndpointReady = false;
-          this.reportEndpointError = 'Set SCANNER_REPORT_INGESTION_URL to a callback origin reachable from Kubernetes Pods. localhost and loopback addresses are not valid.';
+          this.reportEndpointError = 'Set SCANNER_REPORT_INGESTION_URL to a trusted HTTPS origin reachable from Kubernetes Pods. Loopback, credentials, query strings and paths are not allowed.';
         }
         this.loaderService.stop();
       },
