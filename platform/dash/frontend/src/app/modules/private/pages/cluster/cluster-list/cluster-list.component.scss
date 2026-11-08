@@ -1,0 +1,81 @@
+
+mat-card-title {
+  font-size: 18px !important;
+}
+
+.row {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+mat-card.overview-graph-card {
+  margin: 0 5px 0 5px;  // set to match legacy margins
+  mat-card-content {
+    margin: 6px 16px 16px 6px !important;
+    padding: unset;
+  }
+}
+
+.cluster-element {
+  display: flex;
+  margin-top: 15px;
+  mat-card {
+    padding: 1em 0.5em;
+    margin: 10px 5px 0 5px;  // set to match legacy margins
+
+    .row {
+      div {
+        padding-left: 0;
+        padding-right: 0;
+        //margin: 0 0.75em 0 0;
+      }
+    }
+    .cluster-icon {
+      min-width: 60px;
+      padding-right: 10px;
+    }
+    mat-card-title {
+      padding-top: 0;
+    }
+    mat-card-subtitle {
+      font-style: italic;
+      font-size: 11px;
+    }
+    mat-card-content {
+      padding-left: 0;
+    }
+  }
+}
+
+.cluster-info-header {
+  overflow-x: hidden;
+  mat-card-subtitle {
+    text-wrap: nowrap;
+  }
+}
+
+.cluster-name-short {
+  height: 44px;
+  width: 50px;
+  background-color: cadetblue;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  text-transform: uppercase;
+  color: white;
+  //margin-left: 6px;
+  font-size: 16px;
+}
+
+.edit-cluster-group-icon{
+  padding-bottom: 10px;
+}
+
+.rescan{
+  background-color: lightyellow;
+}
+
+.mat-mdc-card-title {
+  padding-top: 10px;
+}

@@ -1,0 +1,82 @@
+<mat-sidenav-container class="primary-side-nav-container w-100">
+  <mat-sidenav
+    #sidenav
+    id="primary-side-nav"
+    class="display-print-none"
+    [attr.role]="isHandsetOrXS ? 'dialog' : 'navigation'"
+    [mode]="isHandsetOrXS ? 'over' : 'side'"
+    [opened]="(isHandsetOrXS === false) || sidenavExpanded"
+  >
+
+    <mat-nav-list id="main-list">
+      <div *ngFor="let contentTrigger of contentTriggerButtons">
+        <mat-list-item (click)="contentTriggerClicked(contentTrigger.name)" [allowedRoles]="contentTrigger.allowedRoles">
+          <mat-icon title="Add Cluster Group">{{ contentTrigger.icon }}</mat-icon>
+          {{ contentTrigger.title }}
+        </mat-list-item>
+      </div>
+
+      <mat-divider *ngIf="contentTriggerButtons.length"></mat-divider>
+
+      <div *ngFor="let menuItem of menuItems">
+        <a mat-list-item
+           class="side-nav-menu-item"
+           [allowedRoles]="(menuItem.allowedRoles && menuItem.allowedRoles.length) ? menuItem.allowedRoles : allUserRoles"
+           [routerLink]="menuItem.path"
+           routerLinkActive="active"
+           [routerLinkActiveOptions]="menuItem.routerLinkActiveOptions ? menuItem.routerLinkActiveOptions : { exact: false }"
+           (click)="toggleSidenav()"
+         >
+          <mat-icon *ngIf="menuItem.icon" [title]="menuItem.name">{{menuItem.icon}}</mat-icon>
+          <span *ngIf="menuItem.abbreviation"
+            [ngStyle]="{'background': menuItem.abbreviation.backgroundColor}"
+            class="cluster-group-name-short menu-item-abbreviation"
+          >
+            {{menuItem.abbreviation.letters}}
+          </span>
+          <img
+            *ngIf="menuItem.image"
+            style="width:2.25em; height:2em"
+            src="{{menuItem.image.src}}"
+            alt="{{menuItem.image.alt}}"
+            class="{{menuItem.image.classes}}"/>
+          <span class="menu-item-name">{{menuItem.name}}</span>
+        </a>
+      </div>
+    </mat-nav-list>
+
+    <mat-nav-list style="flex:1"></mat-nav-list>
+
+    <mat-nav-list id="settings-link" *ngIf="showOrgSettingsButton || showReturnHomeButton">
+      <mat-divider></mat-divider>
+      <a mat-list-item *ngIf="showReturnHomeButton"
+         [routerLink]="['/private', 'dashboard']"
+      >
+        <mat-icon title="Return Home">home</mat-icon>
+        <span class="menu-item-name">Home</span>
+      </a>
+      <a mat-list-item
+         *ngIf="showOrgSettingsButton && isAdmin"
+         [allowedRoles]="['ADMIN', 'SUPER_ADMIN']"
+         [routerLink]="['/private', 'users']"
+         style="align-self: flex-end"
+         (click)="toggleSidenav()"
+      >
+        <mat-icon title="Organization Settings">settings</mat-icon>
+        <span class="menu-item-name">Organization Settings</span>
+      </a>
+      <a mat-list-item
+         *ngIf="showOrgSettingsButton && !isAdmin"
+         [allowedRoles]="['ADMIN', 'SUPER_ADMIN', 'READ_ONLY']"
+         [routerLink]="['/private', 'policies']"
+      >
+        <mat-icon title="Organization Settings">settings</mat-icon>
+        <span class="menu-item-name">Organization Settings</span>
+      </a>
+    </mat-nav-list>
+
+  </mat-sidenav>
+  <mat-sidenav-content style="height: 100%" class="mx-print-0">
+    <router-outlet></router-outlet>
+  </mat-sidenav-content>
+</mat-sidenav-container>

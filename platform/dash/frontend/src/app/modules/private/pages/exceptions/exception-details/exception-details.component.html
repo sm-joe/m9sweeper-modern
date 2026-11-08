@@ -1,0 +1,104 @@
+<div class="h-xs-100 overflow-xs-auto">
+  <div class="m-xs-6">
+    <app-sub-navigation [title]="exception?.title + ' Details'"
+                        buttonTitle="Edit" buttonIcon="create"
+                        [buttonAllowedRoles]="[Authority.ADMIN, Authority.SUPER_ADMIN]"
+                        [button2]="subnavigationButton2Config"
+                        (buttonClicked)="editException()"
+                        (button2Clicked)="deleteException()"
+    ></app-sub-navigation>
+
+    <mat-card class="my-xs-2">
+      <mat-card-content class="row display-flex">
+        <div class="col-xs-12 col-sm-6">
+          <p><b>Status:</b> {{exception?.status}}</p>
+          <p><b>Reason: </b> <br/>{{exception?.reason}}</p>
+          <p><b>Issue:</b> {{exception?.issueIdentifier || 'All'}}</p>
+          <p><b>Date:</b> {{exception?.startDate | date: 'MMM dd, y'}} - {{exception?.endDate | date: 'MMM dd, y'}}</p>
+          <p><b>Scanner:</b> {{exception?.scanner?.name || 'N/A'}}</p>
+        </div>
+        <div class="col-xs-12 col-sm-6">
+          <div *ngIf="!exception?.relevantForAllClusters; else noClusters">
+            <h3><b>Clusters</b></h3>
+            <mat-chip-listbox>
+              <mat-chip-option *ngFor="let cluster of exception?.clusters" (click)="viewCluster(cluster?.id)">
+                {{cluster.name}}
+              </mat-chip-option>
+            </mat-chip-listbox>
+          </div>
+          <ng-template #noClusters>
+            <p><b>Clusters:</b> All</p>
+          </ng-template>
+
+          <div *ngIf="!exception?.relevantForAllPolicies; else noPolicies">
+            <h3><b>Policies</b></h3>
+            <mat-chip-listbox>
+              <mat-chip-option *ngFor="let policy of exception.policies" (click)="viewPolicy(policy?.id)">
+                {{policy.name}}
+              </mat-chip-option>
+            </mat-chip-listbox>
+          </div>
+          <ng-template #noPolicies>
+            <p><b>Policies:</b> All</p>
+          </ng-template>
+
+          <div *ngIf="!exception?.relevantForAllKubernetesNamespaces; else noNamespaces">
+            <h3><b>Namespaces</b></h3>
+            <mat-chip-listbox>
+              <mat-chip-option *ngFor="let namespace of exception.namespaces">
+                {{namespace.name}}
+              </mat-chip-option>
+            </mat-chip-listbox>
+          </div>
+          <ng-template #noNamespaces>
+            <p><b>Namespaces:</b> All</p>
+          </ng-template>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="my-xs-2" id="commentFormCard">
+      <mat-card-content class="row display-flex">
+        <form [formGroup]="commentForm" class="col-xs-12 col-sm-6">
+          <mat-form-field class="comment-input">
+            <mat-label>Leave a comment</mat-label>
+            <textarea matInput placeholder="Leave a comment" formControlName="comment" required></textarea>
+          </mat-form-field>
+        </form>
+        <mat-card-actions class="col-xs-12">
+          <button mat-raised-button color="primary" type="submit"
+                  class="me-xs-2"
+                  [disabled]="!commentForm.valid || isSubmitting"
+                  (click)="onSubmit()">Post
+          </button>
+          <button mat-raised-button color="warn" type="button" (click)="reset()">Reset</button>
+        </mat-card-actions>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card *ngIf="comments" class="my-xs-2" id="commentsCard">
+      <mat-card-content>
+        <div *ngFor="let comment of comments" class="row my-xs-3">
+          <div class="col-xs-12">
+            <div class="row">
+              <div class="col-xs-12 exception-comment-header">
+                <span class="exception-comment-username me-xs-2">{{comment.user}}</span>
+                <span class="exception-comment-timestamp me-xs-2">{{comment.createdAt}}</span>
+                <mat-icon *ngIf="comment.canDeleteThisComment"
+                          (click)="deleteComment(comment)"
+                          class="exception-comment-icon"
+                          matTooltip="Delete Comment"
+                >highlight_off</mat-icon>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-xs-12">
+                {{comment.content}}
+              </div>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

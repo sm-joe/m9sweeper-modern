@@ -1,0 +1,19 @@
+// @import '@angular/material/theming';
+@use '@angular/material' as mat;
+/*
+@mixin toolbar-dark-theme($theme) {
+  app-private {
+    .mat-toolbar {
+      background-color: #201f1e;
+    }
+  }
+}
+*/
+
+@mixin toolbar-light-theme($theme) {
+  app-private {
+    .mat-toolbar {
+      background-color: mat.get-color-from-palette(mat.$gray-palette, A100);
+    }
+  }
+}

@@ -1,0 +1,40 @@
+.min-height-btn {
+  height: 40px;
+}
+
+::ng-deep
+.default-theme
+.mdc-text-field--filled:not(.mdc-text-field--disabled)
+{
+  background-color: transparent !important;
+}
+
+#imagesTable {
+  .mat-column-name {
+    min-width: 400px;
+  }
+
+  .mat-column-date {
+    min-width: 140px;
+    max-width: 200px;
+  }
+
+  .mat-column-runningCluster {
+    min-width: 120px;
+    max-width: 120px;
+  }
+
+  .mat-column-scanResult {
+    min-width: 110px;
+    max-width: 135px;
+  }
+
+  .mat-column-Crt, .mat-column-Maj, .mat-column-Med, .mat-column-Min, .mat-column-Neg {
+    min-width: 50px;
+    max-width: 100px;
+    justify-content: center;
+    a {
+      justify-content: center;
+    }
+  }
+}
