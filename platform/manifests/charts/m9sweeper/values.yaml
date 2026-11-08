@@ -122,6 +122,7 @@ dash:
 # Trawler Config #
 ##################
 trawler:
+  existingSecret: "" # Optional pre-created trawler env Secret
   image:
     registry: ghcr.io
     repository: m9sweeper/trawler
@@ -136,5 +137,3 @@ trawler:
       cpu: 200m
       memory: 256Mi
 
-trawler:
-  existingSecret: "" # Optional pre-created trawler env Secret
