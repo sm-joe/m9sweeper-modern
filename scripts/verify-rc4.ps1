@@ -20,7 +20,10 @@ function Invoke-Checked([string]$Name, [scriptblock]$Body) {
 function Query-Db([string]$Sql) {
     $result = $Sql | docker exec -i postgres sh -c 'psql -v ON_ERROR_STOP=1 -A -t -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
     if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL query failed' }
-    return @($result | Where-Object { $_ -and $_.Trim() })
+    # PowerShell unrolls singleton pipeline results into scalar strings.
+    # Return the array as one object, even if PostgreSQL emits just one row.
+    [string[]]$rows = @($result | Where-Object { $_ -and $_.Trim() } | ForEach-Object { [string]$_ })
+    return ,$rows
 }
 
 $tables = Query-Db "SELECT to_regclass('public.image_scan_runs') IS NOT NULL AND to_regclass('public.cluster_user_access') IS NOT NULL;"
@@ -34,7 +37,7 @@ WHERE cluster_id = $ClusterId AND image_id = $ImageId
 ORDER BY created_at DESC LIMIT 1;
 "@
 if ($recent.Count -eq 0) { throw 'No RC4 scan run found for this image/cluster' }
-$parts = $recent[0].Split('|')
+$parts = ([string]$recent[0]).Split('|')
 if ($parts[1] -ne 'completed') { throw "Latest scan has not completed: $($parts[1])" }
 Write-Host "PASS: scan run $($parts[0]) completed"
 
@@ -57,7 +60,7 @@ SELECT scan_queued::text || '|' || scan_results || '|' ||
 FROM images WHERE id = $ImageId AND cluster_id = $ClusterId;
 "@
 if ($image.Count -ne 1) { throw 'Image row missing or cluster mismatch' }
-$fields = $image[0].Split('|')
+$fields = ([string]$image[0]).Split('|')
 if ($fields[0] -ne 'false' -and $fields[0] -ne 'f') { throw 'Image still queued after completion' }
 if (([int]$fields[2] -gt 0 -or [int]$fields[3] -gt 0) -and $fields[1] -eq 'Compliant') {
     throw 'SECURITY FAILURE: HIGH/CRITICAL vulnerabilities marked compliant'
@@ -76,7 +79,9 @@ if ($RequireFalcoEvent -and [int]$falco[0] -lt 1) {
     throw 'No Falco event persisted for target cluster'
 }
 if ($RequireStrictScannerBindings) {
-    $strict = (docker exec m9sweeper-dash printenv SCANNER_REQUIRE_CLUSTER_BINDINGS).Trim()
+    $strict = [string](docker exec m9sweeper-dash printenv SCANNER_REQUIRE_CLUSTER_BINDINGS)
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect strict scanner cluster binding setting' }
+    $strict = $strict.Trim()
     if ($strict -ne 'true') { throw 'Strict scanner-cluster bindings are not enabled' }
     Write-Host 'PASS: strict scanner-cluster binding configured'
 }
