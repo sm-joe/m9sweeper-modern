@@ -66,12 +66,42 @@ spec:
                 {{- end }}
               env:
               - name: KUBEHUNTER_HTTP_DISPATCH_URL
+{{- if .Values.reportRelay.enabled }}
+                value: "http://127.0.0.1:8765/"
+{{- else }}
                 valueFrom:
                   secretKeyRef:
-                    name: {{ required "dispatchAuth.existingSecret must reference a Kubernetes Secret containing the report callback URL" .Values.dispatchAuth.existingSecret | quote }}
+                    name: {{ required "dispatchAuth.existingSecret is required in legacy mode" .Values.dispatchAuth.existingSecret | quote }}
                     key: {{ .Values.dispatchAuth.secretKey | quote }}
+{{- end }}
               resources:
 {{ toYaml .Values.resources | indent 16 }}
+{{- if .Values.reportRelay.enabled }}
+            - name: report-relay
+              image: {{ .Values.reportRelay.image | quote }}
+              imagePullPolicy: IfNotPresent
+              command: ["python", "-B", "/opt/report-relay/relay.py"]
+              env:
+                - name: REPORT_RELAY_TARGET_URL
+                  value: {{ .Values.reportRelay.targetUrl | quote }}
+                - name: REPORT_RELAY_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.reportRelay.existingSecret | quote }}
+                      key: {{ .Values.reportRelay.secretKey | quote }}
+              volumeMounts:
+                - name: relay-code
+                  mountPath: /opt/report-relay
+                  readOnly: true
+              resources:
+{{ toYaml .Values.reportRelay.resources | indent 16 }}
+{{- end }}
+{{- if .Values.reportRelay.enabled }}
+          volumes:
+            - name: relay-code
+              configMap:
+                name: {{ include "kube-hunter.fullname" . }}-relay
+{{- end }}
     {{- with .Values.nodeSelector }}
           nodeSelector:
 {{ toYaml . | indent 12 }}
