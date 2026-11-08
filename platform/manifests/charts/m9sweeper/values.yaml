@@ -39,6 +39,7 @@ global:
 # Dash Config #
 ###############
 dash:
+  existingSecret: "" # Optional pre-created Dash env Secret
   image:
     registry: ghcr.io
     repository: m9sweeper/dash
@@ -134,3 +135,6 @@ trawler:
     requests:
       cpu: 200m
       memory: 256Mi
+
+trawler:
+  existingSecret: "" # Optional pre-created trawler env Secret
