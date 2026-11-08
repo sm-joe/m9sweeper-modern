@@ -281,10 +281,21 @@ jobs:
     timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
-      - uses: helm/kind-action@v1.12.0
-        with:
-          cluster_name: m9-inventory
-          node_image: kindest/node:v1.31.4
+      # Install Kind from its pinned Go module instead of the legacy kind-action
+      # release-checksum download, which can return malformed checksum content.
+      - name: Install pinned Kind from Go module
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install sigs.k8s.io/kind@v0.26.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          "$(go env GOPATH)/bin/kind" version
+      - name: Create ephemeral Kind inventory cluster
+        shell: bash
+        run: |
+          set -euo pipefail
+          kind create cluster --name m9-inventory --image kindest/node:v1.31.4 --wait 120s
+          kubectl cluster-info --context kind-m9-inventory
       - name: Create live namespace and workload for original inventory service
         run: |
           kubectl create namespace m9-inventory
