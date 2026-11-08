@@ -15,7 +15,7 @@ describe('P0 cluster-group tenant isolation', () => {
       whereNull: jest.fn().mockReturnThis(),
       select: jest.fn().mockResolvedValue(ownedIds.map(id => ({id}))),
       first: jest.fn().mockImplementation(async () =>
-        ownedIds.includes(ownedQuery.where.mock.calls.at(-1)?.[0]?.id) ? {id: 1} : undefined),
+        ownedIds.includes(ownedQuery.where.mock.calls[ownedQuery.where.mock.calls.length - 1]?.[0]?.id) ? {id: 1} : undefined),
     };
     const grants: any = {
       join: jest.fn().mockReturnThis(),
