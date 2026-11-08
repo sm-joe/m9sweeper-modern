@@ -528,6 +528,15 @@ export class ImageDao {
         });
     }
 
+    async releaseScanRunForRetry(id: string, clusterId: number, imageId: number): Promise<void> {
+        const knex = await this.databaseService.getConnection();
+        // Only re-open a claimed run. Completed and terminal failed runs must
+        // not be revived by delayed failure handlers.
+        await knex('image_scan_runs')
+            .where({id, cluster_id: clusterId, image_id: imageId, status: 'processing'})
+            .update({status: 'published', updated_at: Date.now()});
+    }
+
     async completeScanRun(id: string, compliant: boolean): Promise<void> {
         const knex = await this.databaseService.getConnection();
         await knex('image_scan_runs').where({id, status: 'processing'})
