@@ -25,6 +25,15 @@ jobs:
         run: |
           python3 tools/import-platform/verify.py
           python3 tools/import-platform/test_product.py
+      - name: Inventory every HTTP route and enforce P0 guard regression gates
+        run: python3 tools/security/audit_http_routes.py --output p0-http-route-inventory.csv
+      - name: Upload route inventory for endpoint-by-endpoint security review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-http-route-inventory
+          path: p0-http-route-inventory.csv
+          if-no-files-found: ignore
   linux-operator-scripts:
     runs-on: ubuntu-latest
     steps:
