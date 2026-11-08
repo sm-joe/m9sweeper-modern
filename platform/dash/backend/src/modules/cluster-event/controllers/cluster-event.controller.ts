@@ -1,3 +1,4 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
 import {
     Body,
     Controller,
@@ -34,7 +35,7 @@ export class ClusterEventController {
 
     @Get('')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: CLUSTER_EVENT_RESPONSE_SCHEMA
@@ -48,7 +49,7 @@ export class ClusterEventController {
 
     @Post()
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: CREATE_CLUSTER_EVENT_RESPONSE_SCHEMA
