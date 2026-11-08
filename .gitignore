@@ -1,0 +1,5 @@
+# RC4 local database backups and credentials (never commit)
+private-backups/
+*.dump
+.env
+.env.local
