@@ -40,6 +40,33 @@ export class ClusterAccessGuard implements CanActivate {
         const params = req.params || {};
         const query = req.query || {};
         const knex = await this.database.getConnection();
+        // The PDF endpoint accepts multiple cluster IDs. Every selected cluster
+        // must be independently accessible; omitted scope cannot become a
+        // global export for an ordinary ADMIN/READ_ONLY user.
+        if (path === '/api/reports/security-audit-report' && req.method === 'GET') {
+            const raw = query.clusterIds;
+            const values = (Array.isArray(raw) ? raw : raw === undefined ? [] : [raw])
+                .flatMap(value => String(value).split(','));
+            if (!values.length || values.length > 100 ||
+                values.some(value => !/^[1-9][0-9]*$/.test(value) ||
+                    !Number.isSafeInteger(Number(value)))) {
+                throw new ForbiddenException('Explicit authorized cluster list required');
+            }
+            for (const idText of new Set(values)) {
+                const id = Number(idText);
+                const owner = await knex('clusters as c')
+                    .join('cluster_group as cg', 'cg.id', 'c.group_id')
+                    .where({'c.id': id, 'cg.user_id': this.user.id})
+                    .whereNull('c.deleted_at').whereNull('cg.deleted_at').first('c.id');
+                if (owner) continue;
+                const grant = await knex('cluster_user_access')
+                    .where({cluster_id: id, user_id: this.user.id}).first('can_write');
+                if (!grant) {
+                    throw new ForbiddenException('PDF export includes unauthorized cluster');
+                }
+            }
+            return true;
+        }
         const rawCluster = params.clusterId ?? params.clusterid ??
             query.clusterId ?? query['cluster-id'];
         let clusterId = Number(rawCluster);
