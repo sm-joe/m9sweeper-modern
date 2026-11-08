@@ -52,6 +52,33 @@ spec:
 {{- if .Values.priorityClassName }}
           priorityClassName: "{{ .Values.priorityClassName }}"
 {{- end }}
+{{- if .Values.reportRelay.enabled }}
+          initContainers:
+            - name: report-relay
+              restartPolicy: Always
+              startupProbe:
+                tcpSocket:
+                  port: 8765
+                periodSeconds: 1
+                failureThreshold: 30
+              image: {{ .Values.reportRelay.image | quote }}
+              imagePullPolicy: IfNotPresent
+              command: ["python", "-B", "/opt/report-relay/relay.py"]
+              env:
+                - name: REPORT_RELAY_TARGET_URL
+                  value: {{ .Values.reportRelay.targetUrl | quote }}
+                - name: REPORT_RELAY_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.reportRelay.existingSecret | quote }}
+                      key: {{ .Values.reportRelay.secretKey | quote }}
+              volumeMounts:
+                - name: relay-code
+                  mountPath: /opt/report-relay
+                  readOnly: true
+              resources:
+{{ toYaml .Values.reportRelay.resources | indent 16 }}
+{{- end }}
           containers:
             - name: {{ .Chart.Name }}
               image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -76,26 +103,7 @@ spec:
 {{- end }}
               resources:
 {{ toYaml .Values.resources | indent 16 }}
-{{- if .Values.reportRelay.enabled }}
-            - name: report-relay
-              image: {{ .Values.reportRelay.image | quote }}
-              imagePullPolicy: IfNotPresent
-              command: ["python", "-B", "/opt/report-relay/relay.py"]
-              env:
-                - name: REPORT_RELAY_TARGET_URL
-                  value: {{ .Values.reportRelay.targetUrl | quote }}
-                - name: REPORT_RELAY_API_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: {{ .Values.reportRelay.existingSecret | quote }}
-                      key: {{ .Values.reportRelay.secretKey | quote }}
-              volumeMounts:
-                - name: relay-code
-                  mountPath: /opt/report-relay
-                  readOnly: true
-              resources:
-{{ toYaml .Values.reportRelay.resources | indent 16 }}
-{{- end }}
+
 {{- if .Values.reportRelay.enabled }}
           volumes:
             - name: relay-code
