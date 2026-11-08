@@ -114,6 +114,12 @@ The `release/m9sweeper-new-rc4-security-reliability` branch contains RC3's opera
 5. Verify a real Falco event from the Kubernetes sensor appears in both `project_falco_logs` and the corresponding Angular cluster view; test unauthorized cluster requests.
 6. Verify the Helm deployment lifecycle and backup restore before production promotion.
 
+For the existing Windows Docker Desktop/Kind development environment, the non-destructive deployment entry point is [scripts/deploy-rc4.ps1](scripts/deploy-rc4.ps1). It tests the backend, backs up Postgres, verifies migrations and then recreates Dash/trawler. Run from the repository root after pulling the RC4 branch:
+
+```powershell
+.\scripts\deploy-rc4.ps1
+```
+
 Detailed procedures: [RC4 staged acceptance](docs/rc4-final-acceptance.md) and [read-only PowerShell probe](scripts/verify-rc4.ps1).
 
 From the repository root, after migration and one successful live scan:
