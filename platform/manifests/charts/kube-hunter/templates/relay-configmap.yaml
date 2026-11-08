@@ -1,6 +1,6 @@
 {{- if .Values.reportRelay.enabled }}
-{{- required "reportRelay.targetUrl is required when reportRelay.enabled=true" .Values.reportRelay.targetUrl -}}
-{{- required "reportRelay.existingSecret is required when reportRelay.enabled=true" .Values.reportRelay.existingSecret -}}
+{{- $_ := required "reportRelay.targetUrl is required when reportRelay.enabled=true" .Values.reportRelay.targetUrl -}}
+{{- $_ := required "reportRelay.existingSecret is required when reportRelay.enabled=true" .Values.reportRelay.existingSecret -}}
 {{- if not (hasPrefix "https://" .Values.reportRelay.targetUrl) -}}
 {{- fail "reportRelay.targetUrl must be HTTPS, with a trusted certificate" -}}
 {{- end }}
