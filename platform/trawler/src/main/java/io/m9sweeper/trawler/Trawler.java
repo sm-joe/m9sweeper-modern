@@ -220,7 +220,17 @@ public class Trawler extends AbstractCommand implements Runnable {
                     // Get the contents of the message
                     String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
                     Message payload = mapper.readValue(message, Message.class);
-                        
+                    if (payload == null || payload.getCluster() == null ||
+                            payload.getCluster().getId() == null || payload.getImage() == null ||
+                            payload.getImage().getId() == null || payload.getRegistry() == null) {
+                        throw new IOException("Invalid queued image scan payload");
+                    }
+                    Object jobRunId = payload.getAdditionalProperties().get("scanRunId");
+                    System.out.println("Received image scan job for cluster " +
+                            payload.getCluster().getId() + ", image " +
+                            payload.getImage().getId() + ", run " +
+                            (jobRunId instanceof String ? jobRunId : "legacy"));
+
                     try {
                         DockerRegistriesResponseDto registries = api.dockerRegistriesControllerGetDockerRegistries(
                                 null, null, "id", "asc",
@@ -249,12 +259,6 @@ public class Trawler extends AbstractCommand implements Runnable {
                         throw new IOException("Registry lookup failed", e);
                     } 
 
-                    if (payload == null || payload.getCluster() == null ||
-                            payload.getCluster().getId() == null || payload.getImage() == null ||
-                            payload.getImage().getId() == null || payload.getRegistry() == null) {
-                        throw new IOException("Invalid queued image scan payload");
-                    }
-
                     PoliciesByClusterResponse policies = api.policyControllerGetPoliciesByClusterId(
                             new BigDecimal(payload.getCluster().getId()));
                     if (!policies.isSuccess() || policies.getData() == null || policies.getData().isEmpty()) {
@@ -279,6 +283,7 @@ public class Trawler extends AbstractCommand implements Runnable {
                         // ScanRunner raises this only after Dash accepts the report.
                         System.out.println("Scan persisted with noncompliant findings");
                     }
+                    System.out.println("Image scan result accepted by Dash; acknowledging RabbitMQ delivery");
                     channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
                 } catch (Exception e) {
                     // Republish durably, verify broker confirmation, then ACK the original.
