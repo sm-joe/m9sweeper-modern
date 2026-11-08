@@ -1,7 +1,7 @@
 name: Full m9sweeper platform source validation
 on:
   push:
-    branches: [revamp/original-platform, product/m9sweeper-new-foundation, 'fix/rc3-trivy-queue-fail-closed', 'release/m9sweeper-new-rc4-security-reliability']
+    branches: [main, revamp/original-platform, product/m9sweeper-new-foundation, 'fix/rc3-trivy-queue-fail-closed', 'release/m9sweeper-new-rc4-security-reliability', 'release/linux-k8s-hardening-rc5']
     paths:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
