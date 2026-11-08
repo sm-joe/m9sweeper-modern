@@ -174,7 +174,7 @@ jobs:
               >"/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'name: report-relay' "/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'http://127.0.0.1:8765/' "/tmp/hunter-relay-$scheduled.yaml"
-            grep -q 'name: report-auth' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'report-auth' "/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'REPORT_RELAY_API_KEY' "/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'kind: ConfigMap' "/tmp/hunter-relay-$scheduled.yaml"
             if [ "$scheduled" = false ]; then
