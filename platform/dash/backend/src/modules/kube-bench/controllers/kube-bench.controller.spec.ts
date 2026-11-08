@@ -2,7 +2,7 @@ import { HttpException } from '@nestjs/common';
 import { KubeBenchController } from './kube-bench.controller';
 
 describe('kube-bench report ingestion credential and evidence gates', () => {
-  const userDao = {loadUserByApiKey: jest.fn()};
+  const userDao = {loadUserByApiKey: jest.fn(), scannerHasClusterGrant: jest.fn()};
   const authService = {checkAuthority: jest.fn()};
   const benchService = {saveKubeBenchReport: jest.fn()};
   const logger = {log: jest.fn()};
@@ -64,7 +64,7 @@ describe('kube-bench report ingestion credential and evidence gates', () => {
     const previous = process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS;
     process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS = 'true';
     userDao.loadUserByApiKey.mockResolvedValue([{id: 18, authorities: [], isActive: true}]);
-    userDao.scannerHasClusterGrant = jest.fn().mockResolvedValue(false);
+    userDao.scannerHasClusterGrant.mockResolvedValue(false);
     authService.checkAuthority.mockReturnValue(true);
     try {
       await expect(controller.saveKubeBenchReport(valid, 2, undefined, 'header-key'))
