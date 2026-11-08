@@ -34,8 +34,8 @@
         <div >
           <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter ./platform/manifests/charts/kube-hunter \
   -n m9sweeper-system --create-namespace \
-  --set reportRelay.enabled=true \\
-  --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \\
+  --set reportRelay.enabled=true \
+  --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \
   --set-string reportRelay.targetUrl="{{backendUrl}}/api/kubehunter/hunter/{{clusterId}}" \
   --set cronjob.enabled=false</textarea>
         </div>
@@ -73,8 +73,8 @@
         <div >
           <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter ./platform/manifests/charts/kube-hunter \
   -n m9sweeper-system --create-namespace \
-  --set reportRelay.enabled=true \\
-  --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \\
+  --set reportRelay.enabled=true \
+  --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \
   --set-string reportRelay.targetUrl="{{backendUrl}}/api/kubehunter/hunter/{{clusterId}}" \
   --set-string cronjob.schedule="{{cronjobScheduleOpts[cronjobTime]}}" \
   --set cronjob.enabled=true</textarea>
