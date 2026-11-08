@@ -52,7 +52,7 @@ if ($LASTEXITCODE -ne 0 -or $initExit.Trim() -ne '0') {
     & docker compose @files logs --tail=80 dash-init
     throw 'RC4 initialization failed; do not start the updated API'
 }
-$schema = @'
+$schemaSql = @'
 SELECT (
  to_regclass('public.image_scan_runs') IS NOT NULL
  AND to_regclass('public.cluster_user_access') IS NOT NULL
@@ -61,7 +61,8 @@ SELECT (
   WHERE table_name = 'image_scan_results' AND column_name = 'scan_run_id'
  )
 )::text;
-'@ | docker exec -i postgres sh -c 'psql -v ON_ERROR_STOP=1 -A -t -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+'@
+$schema = $schemaSql | docker exec -i postgres sh -c 'psql -v ON_ERROR_STOP=1 -A -t -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 if ($LASTEXITCODE -ne 0 -or ($schema | Select-Object -Last 1).Trim() -ne 'true') {
     throw 'RC4 schema verification failed. Existing application has not been replaced.'
 }
