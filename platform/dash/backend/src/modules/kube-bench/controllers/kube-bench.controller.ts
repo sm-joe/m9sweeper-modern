@@ -1,3 +1,5 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
+import {parseScannerClusterId, selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
 import {
     Body,
     Controller,
@@ -47,10 +49,13 @@ export class KubeBenchController {
     })
     async saveKubeBenchReport(@Body() report: any, @Param('clusterId') clusterId: number, @Query('key') legacyKey: string, @Headers('x-api-key') headerKey?: string): Promise<KubeBenchDto> {
         // Header credentials supersede the legacy URL query credential. Never log either.
-        const key = typeof headerKey === 'string' && headerKey.trim() ? headerKey : legacyKey;
-        if (!Number.isSafeInteger(+clusterId) || +clusterId <= 0) {
+        const key = selectScannerIngestKey(headerKey, legacyKey);
+        const parsedClusterId = parseScannerClusterId(clusterId);
+        if (!Number.isSafeInteger(parsedClusterId)) {
             throw new HttpException('Invalid cluster ID', HttpStatus.BAD_REQUEST);
         }
+
+        clusterId = parsedClusterId;
 
         // find user authority by user's apikey
         if (typeof key !== 'string' || !key.trim()) {
@@ -66,7 +71,9 @@ export class KubeBenchController {
             let authorityArr: AuthorityId [] = [AuthorityId.KUBEBENCH];
             // is the user a KB user
             let isKBUser = this.authService.checkAuthority(currentUserAuth, authorityArr);
-            if (isKBUser) {
+            if (isKBUser && currentUserAuthObj[0].isActive !== false &&
+                (process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS !== 'true' ||
+                 await this.userDao.scannerHasClusterGrant(currentUserAuthObj[0].id, clusterId))) {
                 this.logger.log({label: 'User has been authorized; saving KB scan report', data: { clusterId }}, 'KubeBenchController.saveKubeBenchReport');
                 //return key as any; // no reports;  remove when done
                 if (!report || !Array.isArray(report.Controls) || !report.Controls.length ||
@@ -94,12 +101,15 @@ export class KubeBenchController {
     }
 
     @Get('/apiKey')
-    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
+    @AllowedAuthorityLevels( Authority.SUPER_ADMIN )
     @UseGuards(AuthGuard, AuthorityGuard)
     @ApiResponse({
-        status: 201
+        status: 200
     })
     async getApiKey(): Promise<ApiKeyDto[]> {
+        if (process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT !== 'true') {
+            throw new HttpException('Legacy scanner key export is disabled', HttpStatus.GONE);
+        }
         const apiKeyKB = await this.apiKeyDao.getApiKeyByUserEmail('Kubebench');
         if (!apiKeyKB) throw new HttpException(`KB APi key ${apiKeyKB} not found`, HttpStatus.NOT_FOUND);
         return apiKeyKB;
@@ -107,7 +117,7 @@ export class KubeBenchController {
 
     @Get('/:id')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201,
     })
@@ -120,7 +130,7 @@ export class KubeBenchController {
 
     @Delete('/:id')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201,
     })
@@ -132,7 +142,7 @@ export class KubeBenchController {
 
     @Get('cluster/:clusterId')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201,
     })
@@ -144,7 +154,7 @@ export class KubeBenchController {
 
     @Get('cluster/last/report/:clusterId')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201,
     })
@@ -158,7 +168,7 @@ export class KubeBenchController {
 
     @Get('/config/get-options')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
     })
@@ -169,7 +179,7 @@ export class KubeBenchController {
 
     @Get('/config/get-options/:option')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
     })
