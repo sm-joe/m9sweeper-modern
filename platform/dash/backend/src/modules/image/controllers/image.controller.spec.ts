@@ -179,4 +179,28 @@ describe('Trivy report ingestion security', () => {
       .resolves.toEqual({failed: true});
     expect(imageService.recordQuarantinedScanRun).toHaveBeenCalledWith(runId, 4, 1);
   });
+
+  it('reopens a claimed run for retry when the atomic persistence fails', async () => {
+    const runId = 'a68e5b16-4a53-40b8-8edc-8fe75c779118';
+    imageService.getImageByImageId.mockResolvedValue({id: 1});
+    imageService.getImageById.mockResolvedValue({id: 1, dockerImageId: 'runtime'});
+    imageService.getScanRun = jest.fn().mockResolvedValue({
+      id: runId, cluster_id: 4, image_id: 1, status: 'published'
+    });
+    imageService.claimScanRun = jest.fn().mockResolvedValue(true);
+    imageService.commitScanRun = jest.fn().mockRejectedValue(new Error('database transaction failed'));
+    imageService.releaseScanRunForRetry = jest.fn().mockResolvedValue(undefined);
+    (controller as any).imageComplianceFacadeService = {
+      isImageClusterCompliant: jest.fn().mockResolvedValue({
+        compliant: true, complianceMap: {getResultForCve: jest.fn()}
+      })
+    };
+    await expect(controller.saveImageScanResults(4, 1, {data: [{
+      policyId: 7, issues: [], criticalIssues: 0,
+      majorIssues: 34, mediumIssues: 0, lowIssues: 0,
+      negligibleIssues: 0, encounterError: false
+    }]} as any, runId)).rejects.toThrow('database transaction failed');
+    expect(imageService.releaseScanRunForRetry).toHaveBeenCalledWith(runId, 4, 1);
+  });
+
 });
