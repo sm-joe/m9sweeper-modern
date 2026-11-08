@@ -31,6 +31,7 @@ export class ClusterAccessGuard implements CanActivate {
         const path = String(req.originalUrl || req.url || '').split('?')[0];
         const legacyTrawlerEndpoint =
             path.includes('/trawler/') ||
+            (req.method === 'GET' && /^\/api\/clusters\/[1-9][0-9]*\/?$/.test(path)) ||
             (req.method === 'POST' && /^\/api\/clusters\/[1-9][0-9]*\/images\/?$/.test(path)) ||
             (req.method === 'GET' && /\/image-by-docker-url\/?$/.test(path));
         if (this.user.authorities.some(role => role?.type === 'TRAWLER') &&
@@ -68,7 +69,9 @@ export class ClusterAccessGuard implements CanActivate {
             return true;
         }
         const rawCluster = params.clusterId ?? params.clusterid ??
-            query.clusterId ?? query['cluster-id'];
+            query.clusterId ?? query['cluster-id'] ??
+            (req.method === 'DELETE' && /^\/api\/clusters\/[1-9][0-9]*\/?$/.test(path)
+                ? params.id : undefined);
         let clusterId = Number(rawCluster);
         if (!Number.isSafeInteger(clusterId) || clusterId <= 0) {
             if (params.imageId) {
