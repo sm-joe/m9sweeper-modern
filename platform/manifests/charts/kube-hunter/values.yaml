@@ -51,3 +51,22 @@ securityContext:
   runAsGroup: 1000
   runAsNonRoot: true
   runAsUser: 1000
+
+# Opt-in header-authenticated localhost report relay.
+# The historical kube-hunter dispatcher does not support X-API-Key directly.
+# Leave disabled in existing clusters until this mode is validated in staging.
+reportRelay:
+  enabled: false
+  image: python:3.12-alpine
+  # Full HTTPS ingestion endpoint, e.g. https://dash.internal/api/kubehunter/hunter/1
+  targetUrl: ""
+  # Existing Secret with a key named apiKey (or override secretKey).
+  existingSecret: ""
+  secretKey: apiKey
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
