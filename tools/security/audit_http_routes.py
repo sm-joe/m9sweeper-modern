@@ -30,7 +30,7 @@ ROOT = Path("platform/dash/backend/src/modules")
 def audit(path):
     source = path.read_text()
     matches = list(ROUTES.finditer(source))
-    class_guard = bool(re.search(r"@UseGuards\([^)]*\)\s*export\s+class", source))
+    class_guard = "@UseGuards(" in source.split("export class", 1)[0]
     result = []
     for i, match in enumerate(matches):
         after = source[match.end():matches[i + 1].start() if i + 1 < len(matches) else None]
@@ -81,6 +81,11 @@ def main():
             missing.append(f"{file}::{name}")
     if missing:
         raise SystemExit("FAIL: P0 route-level cluster guard regression: " + ", ".join(missing))
+    publisher = [r for r in rows
+                 if r["file"] == "info/controllers/info.controller.ts"
+                 and r["handler"] == "publishRabbitMQMessage"]
+    if len(publisher) != 1 or publisher[0]["guard_decorator"] != "True":
+        raise SystemExit("FAIL: RabbitMQ test publisher must require authentication")
     print("PASS: required P0 scoped routes retain explicit guard decorators")
     print("NOTE: all endpoints still require manual resource-level and nested-ID review")
 
