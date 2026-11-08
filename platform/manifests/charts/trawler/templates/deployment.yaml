@@ -57,7 +57,7 @@ spec:
               value: "{{ .Values.dashUrl | default "http://m9sweeper-dash:3000" }}"
           envFrom:
             - secretRef:
-                name: {{ include "trawler.fullname" . }}-secrets
+                name: {{ .Values.existingSecret | default (printf "%s-secrets" (include "trawler.fullname" .)) }}
 {{- if or .Values.extraConfigVars .Values.extraSecretVars }}
 {{- if .Values.extraConfigVars }}
             - configMapRef:
@@ -65,7 +65,7 @@ spec:
 {{- end }}
 {{ if .Values.extraSecretVars }}
             - secretRef:
-                name: {{ include "trawler.fullname" . }}-secrets-extra
+                name: {{ .Values.existingSecret | default (printf "%s-secrets" (include "trawler.fullname" .)) }}-extra
 {{- end }}
 {{- end }}
           resources:
