@@ -1,3 +1,5 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
+import {parseScannerClusterId, selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
 import {
     Body,
     Controller,
@@ -52,7 +54,7 @@ export class FalcoController {
 
     @Get()
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getFalcoLogs(
         @Query('cluster-id') clusterId: number,
         @Query('limit') limit?: number,
@@ -76,7 +78,7 @@ export class FalcoController {
 
     @Get('/count')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200
     })
@@ -89,12 +91,15 @@ export class FalcoController {
     }
 
     @Get('/apiKey')
-    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @AllowedAuthorityLevels( Authority.SUPER_ADMIN )
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
-        status: 201
+        status: 200
     })
     async getApiKey(): Promise<ApiKeyDto[]> {
+        if (process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT !== 'true') {
+            throw new HttpException('Legacy scanner key export is disabled', HttpStatus.GONE);
+        }
         const apiKeyFalco = await this.apiKeyDao.getApiKeyByUserEmail('Falco');
         if (!apiKeyFalco) throw new HttpException(`Falco APi key ${apiKeyFalco} not found`, HttpStatus.NOT_FOUND);
         return apiKeyFalco;
@@ -103,7 +108,7 @@ export class FalcoController {
     @Get('/download')
     @AllowedAuthorityLevels(Authority.ADMIN, Authority.SUPER_ADMIN, Authority.READ_ONLY)
     @Header('Content-Type', 'text/csv')
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async downloadFalcoExport(
         @Query('cluster-id') clusterId: number,
         @Query('limit') limit?: number,
@@ -128,7 +133,7 @@ export class FalcoController {
 
     @Get('/:clusterid/findsetting')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201
     })
@@ -147,8 +152,23 @@ export class FalcoController {
         @Query('key') key: string,
         @Headers('x-api-key') headerKey?: string
     ): Promise<FalcoDto> {
+        const parsedClusterId = parseScannerClusterId(clusterId);
+        if (!Number.isFinite(parsedClusterId)) {
+            throw new HttpException('Invalid cluster identifier', HttpStatus.BAD_REQUEST);
+        }
+        clusterId = parsedClusterId;
+
+        if (!falcoLog || typeof falcoLog !== 'object' ||
+            typeof falcoLog.rule !== 'string' || !falcoLog.rule.trim() ||
+            typeof falcoLog.priority !== 'string' || !falcoLog.priority.trim() ||
+            typeof falcoLog.output !== 'string' ||
+            !falcoLog.outputFields || typeof falcoLog.outputFields !== 'object' ||
+            Array.isArray(falcoLog.outputFields)) {
+            throw new HttpException('Malformed Falco webhook event', HttpStatus.BAD_REQUEST);
+        }
+
         // look up user by api key
-        const currentUserAuthObj = await this.userDao.loadUserByApiKey(headerKey || key || '');
+        const currentUserAuthObj = await this.userDao.loadUserByApiKey(selectScannerIngestKey(headerKey, key));
         if (!Array.isArray(currentUserAuthObj) || currentUserAuthObj.length === 0) {
             throw new UnauthorizedException('Access Denied!');
         }
@@ -158,6 +178,11 @@ export class FalcoController {
         const isFalcoUser = this.authService.checkAuthority(currentUserAuth, [AuthorityId.FALCO]);
         if (!isFalcoUser) {
             throw new UnauthorizedException('Access Denied!');
+        }
+        if (currentUserAuthObj[0].isActive === false ||
+            (process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS === 'true' &&
+             !await this.userDao.scannerHasClusterGrant(currentUserAuthObj[0].id, clusterId))) {
+            throw new UnauthorizedException('Scanner identity is not authorized for this cluster');
         }
 
         const action = await this.falcoService.checkRules(clusterId, falcoLog);
@@ -179,7 +204,7 @@ export class FalcoController {
 
     @Post(':clusterid/settings')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async createFalcoSetting(
         @Param('clusterid') clusterId: number,
         @Body() falcoSetting: FalcoSettingDto
@@ -190,7 +215,7 @@ export class FalcoController {
 
     @Post('/rules')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async createFalcoRule(
       @Param('clusterId') clusterId: number,
       @Body() rule: FalcoRuleCreateDto
@@ -200,14 +225,14 @@ export class FalcoController {
     }
 
     @Get('/rules')    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async listActiveFalcoRulesForCluster(@Query('clusterId') clusterId?: number): Promise<FalcoRuleDto[]> {
         return this.falcoService.listActiveFalcoRules({ clusterId });
     }
 
     @Put('/rules/:ruleId')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async updateFalcoRule(
       @Param('clusterId') clusterId: number,
       @Param('ruleId') ruleId: number,
@@ -221,7 +246,7 @@ export class FalcoController {
 
     @Delete('/rules/:ruleId')
     @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async deleteFalcoRule(
       @Param('clusterId') clusterId: number,
       @Param('ruleId') ruleId: number
@@ -231,7 +256,7 @@ export class FalcoController {
 
     @Get('/:eventId')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201
     })

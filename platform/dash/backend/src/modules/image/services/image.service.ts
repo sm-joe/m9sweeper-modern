@@ -1,5 +1,6 @@
+import {randomUUID} from 'crypto';
 /* eslint-disable no-prototype-builtins */
-import {forwardRef, HttpException, HttpStatus, Inject, Injectable} from '@nestjs/common'
+import {forwardRef, HttpException, HttpStatus, Inject, Injectable, OnModuleInit, OnModuleDestroy} from '@nestjs/common'
 import {instanceToPlain, plainToInstance} from 'class-transformer';
 import {ImageDto} from '../dto/image-dto';
 import {ImageDao} from '../dao/image.dao';
@@ -18,7 +19,28 @@ import {isDefined} from 'class-validator';
 import {MineLoggerService} from '../../shared/services/mine-logger.service';
 
 @Injectable()
-export class ImageService {
+export class ImageService implements OnModuleInit, OnModuleDestroy {
+    private scanReconciliationTimer?: NodeJS.Timeout;
+    private reconciliationInProgress = false;
+
+    onModuleInit(): void {
+        // Avoid the @nestjs/schedule Interval decorator: some supported Node
+        // versions do not expose the util.isString() function it invokes.
+        if (!this.scanReconciliationTimer) {
+            this.scanReconciliationTimer = setInterval(() => {
+                void this.reconcileExpiredScanRuns();
+            }, 5 * 60 * 1000);
+            this.scanReconciliationTimer.unref?.();
+        }
+    }
+
+    onModuleDestroy(): void {
+        if (this.scanReconciliationTimer) {
+            clearInterval(this.scanReconciliationTimer);
+            this.scanReconciliationTimer = undefined;
+        }
+    }
+
     constructor(private readonly imageDao: ImageDao,
                 @Inject(forwardRef(() => ClusterService))
                 private readonly clusterService: ClusterService,
@@ -220,20 +242,36 @@ export class ImageService {
             }
 
             scanInput.image.path = null;
+            const scanRunId = randomUUID();
+            scanInput.scanRunId = scanRunId;
             const queueName = this.configurationService.get('messageQueue.imageScannerQueueName');
+            try {
+                await this.imageDao.createScanRun(scanRunId, clusterId, image.id);
+            } catch (error) {
+                if (error instanceof Error && error.message === 'An image scan is already in progress') {
+                    throw new HttpException({message: error.message}, HttpStatus.CONFLICT);
+                }
+                throw error;
+            }
             // Mark the image queued before publishing. Publishing first races
             // the worker: a fast result can clear the flag, then a late write
             // by this request sets it back to true forever.
             await this.imageDao.setImageScanQueueStatus(image.id, true);
+            let sentToBroker = false;
             try {
                 const accepted = await this.messagingService.send(queueName, scanInput);
                 if (!accepted) {
                     throw new HttpException({message: 'Image scanner queue rejected the scan request'}, HttpStatus.SERVICE_UNAVAILABLE);
                 }
+                sentToBroker = true;
+                await this.imageDao.markScanRunPublished(scanRunId);
             } catch (error) {
-                // No confirmed delivery. A failed rollback must propagate rather
-                // than hiding the inconsistent queue state.
-                await this.imageDao.setImageScanQueueStatus(image.id, false);
+                // If delivery succeeded but publication status failed, the worker
+                // may already be processing. Never undo the queued flag in that case.
+                if (!sentToBroker) {
+                    await this.imageDao.markScanRunFailed(scanRunId, 'Broker publication failed');
+                    await this.imageDao.setImageScanQueueStatus(image.id, false);
+                }
                 throw error;
             }
         }
@@ -241,10 +279,61 @@ export class ImageService {
         return true;
     }
 
+    async reconcileExpiredScanRuns(): Promise<void> {
+        if (this.reconciliationInProgress) return;
+        this.reconciliationInProgress = true;
+        try {
+            const count = await this.imageDao.expireStaleScanRuns();
+            if (count > 0) {
+                this.logger.warn({label: 'Expired incomplete image scan runs', data: {count}});
+            }
+        } catch (error) {
+            this.logger.warn({label: 'Failed scan-run reconciliation', data: {
+                error: error instanceof Error ? error.name : 'unknown'
+            }});
+        } finally {
+            this.reconciliationInProgress = false;
+        }
+    }
+
+    async getScanRun(id: string) {
+        return this.imageDao.getScanRun(id);
+    }
+
+    async claimScanRun(id: string, clusterId: number, imageId: number): Promise<boolean> {
+        return this.imageDao.claimScanRun(id, clusterId, imageId);
+    }
+
+    async commitScanRun(
+        runId: string, clusterId: number, imageId: number,
+        reports: ImageTrawlerResultDto[], status: string,
+        counts: {critical: number; major: number; medium: number; low: number; negligible: number},
+        createdAt: number
+    ): Promise<boolean> {
+        return this.imageDao.commitScanRun(runId, clusterId, imageId, reports, status, counts, createdAt);
+    }
+
+    async releaseScanRunForRetry(id: string, clusterId: number, imageId: number): Promise<void> {
+        await this.imageDao.releaseScanRunForRetry(id, clusterId, imageId);
+    }
+
+    async completeScanRun(id: string, compliant: boolean): Promise<void> {
+        await this.imageDao.completeScanRun(id, compliant);
+    }
+
+    async recordQuarantinedScanRun(id: string, clusterId: number, imageId: number): Promise<boolean> {
+        return this.imageDao.failScanRunAndRelease(id, clusterId, imageId);
+    }
+
+    async failScanRun(id: string, reason: string): Promise<void> {
+        await this.imageDao.markScanRunFailed(id, reason);
+    }
+
     async saveImageScanDataByImageId(clusterId: number,
                                      imageId: number,
                                      imageTrawlerResultDto: ImageTrawlerResultDto,
-                                     createdAt: number): Promise<number[]> {
+                                     createdAt: number,
+                                     scanRunId?: string): Promise<number[]> {
 
         const getImageByImageId = await this.getImageByImageId(clusterId, imageId);
 
@@ -253,6 +342,9 @@ export class ImageService {
             plainImageScanResults.image_id = imageId;
             plainImageScanResults.issues = JSON.stringify(plainImageScanResults.issues);
             plainImageScanResults.created_at = createdAt;
+            if (scanRunId) {
+                plainImageScanResults.scan_run_id = scanRunId;
+            }
             const saveImageScan = await this.imageDao.saveImageScanByImageId(plainImageScanResults);
             const clusterEventObject = this.clusterEventService.createClusterEventObject(0, 'Image Scan', 'Create', 'Info', `${getImageByImageId.name} has been scanned.`, plainImageScanResults);
             await this.clusterEventService.createClusterEvent(clusterEventObject, clusterId);

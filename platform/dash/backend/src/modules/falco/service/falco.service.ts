@@ -145,8 +145,18 @@ export class FalcoService {
             .digest('hex');
         const createdLog = await this.falcoDao.createFalcoLog(falcoLog);
         if (!skipAnomalyEmail) {
-            // look up falco settings in order to decide if we need to send email(s) to administrators
-            await this.sendFalcoEmailAlert(clusterId, createdLog);
+            // The security event has already been persisted. Email notification is
+            // best-effort; a mail failure must not turn the accepted webhook into
+            // an HTTP error that causes Falcosidekick to retry a saved event.
+            try {
+                await this.sendFalcoEmailAlert(clusterId, createdLog);
+            } catch (error) {
+                this.loggerService.log('Falco notification failed after event persistence', {
+                    eventId: createdLog.id,
+                    clusterId,
+                    reason: error instanceof Error ? error.name : 'unknown'
+                });
+            }
         } else {
             this.loggerService.log('Falco Event silenced', { id: createdLog.id });
         }

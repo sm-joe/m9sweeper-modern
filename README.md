@@ -92,3 +92,42 @@ RC3 builds on the tested RC2 baseline and adds important correctness and operati
 For development, check out `fix/rc3-trivy-queue-fail-closed` and rebuild the existing Compose stack using its Kind overlay. Do not delete existing volumes. Verify the latest branch CI SHA and run the E2E procedures before marking RC3 accepted.
 
 **Outstanding production blockers:** live Trivy queue→DB→UI and Falco event→DB→UI evidence; token removal from URL-based legacy paths; multi-cluster RBAC; idempotent queue processing and DLQ recovery; full Helm lifecycle; supported Angular/NestJS upgrades; accessibility/E2E UI redesign and artifact security checks.
+
+## RC4 security and reliability candidate
+
+The `release/m9sweeper-new-rc4-security-reliability` branch contains RC3's operator-verified Kind Trivy/kube-hunter flows plus RC4's authentication, scan-run and Falco reliability changes. **This is an integrated release candidate, not a verified production release.**
+
+### Added
+
+- Explicit per-cluster user read/write grants, super-admin grant management, scanner identity binding controls and tests for cross-cluster denial.
+- Scan UUID ledger; atomic per-policy results, image severity totals and queue status; completed-run idempotency, concurrent scan rejection, bounded RabbitMQ retries and quarantined failed-job reconciliation.
+- Native lifecycle-managed stale-run timer, so the scanner does not depend on the Node-incompatible scheduling decorator.
+- Header-first scanner webhooks, optional strict legacy-query rejection, raw API-key export disabled by default, and Falco post-persistence notification failure isolation.
+- Corrected RC4 PostgreSQL mapping for the current schema, preventing inserts into columns removed by historical migrations.
+
+### Deployment and validation
+
+1. Back up PostgreSQL and deploy migrations **before** updating the Dash and trawler containers.
+2. Keep `SCANNER_REQUIRE_CLUSTER_BINDINGS=false` until the dedicated scanner identities have the intended per-cluster write grants. Do not disable the legacy kube-hunter query token until a header-authenticated reporter replaces it.
+3. Run backend and Java tests, then rebuild the existing Compose/Kind stack without deleting volumes.
+4. Test one real Trivy rescan and confirm its UUID reaches `completed`, no duplicate policy results exist, the original image has `scan_queued=false`, and HIGH/CRITICAL findings remain Non-compliant.
+5. Verify a real Falco event from the Kubernetes sensor appears in both `project_falco_logs` and the corresponding Angular cluster view; test unauthorized cluster requests.
+6. Verify the Helm deployment lifecycle and backup restore before production promotion.
+
+For the existing Windows Docker Desktop/Kind development environment, the non-destructive deployment entry point is [scripts/deploy-rc4.ps1](scripts/deploy-rc4.ps1). It tests the backend, backs up Postgres, verifies migrations and then recreates Dash/trawler. Run from the repository root after pulling the RC4 branch:
+
+```powershell
+.\scripts\deploy-rc4.ps1
+```
+
+Detailed procedures: [RC4 staged acceptance](docs/rc4-final-acceptance.md) and [read-only PowerShell probe](scripts/verify-rc4.ps1).
+
+From the repository root, after migration and one successful live scan:
+
+```powershell
+.\scripts\verify-rc4.ps1 -ClusterId <actual-cluster-id> -ImageId <actual-image-id> -RequireFalcoEvent
+```
+
+The script verifies backend database/queue evidence, **not** the browser view or whether the event originated in the Falco kernel sensor. Do not treat it as a substitute for live E2E evidence.
+
+**Still required for production:** complete endpoint-by-endpoint authorization audit, strict scanner service identity migration, real Falco/Angular evidence, dead-letter operational replay and alerting, Helm install/upgrade/rollback, disaster recovery, framework modernization, release artifact provenance and a green full CI on the exact release commit.

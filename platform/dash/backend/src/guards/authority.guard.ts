@@ -12,6 +12,12 @@ export class AuthorityGuard implements CanActivate {
     context: ExecutionContext,
   ): Promise<boolean> {
     const allowedAuthorities: string[] = <string[]> this.reflector.get<string[]>('allowedAuthorities', context.getHandler());
-    return allowedAuthorities && this._loggedInUser.authorities.findIndex(currentUserAuthorities => allowedAuthorities.includes(currentUserAuthorities.type)) > -1;
+    // Missing identity, authority metadata or malformed authority objects must deny.
+    if (!Array.isArray(allowedAuthorities) || allowedAuthorities.length === 0 ||
+        !this._loggedInUser || !Array.isArray(this._loggedInUser.authorities)) {
+      return false;
+    }
+    return this._loggedInUser.authorities.some(authority =>
+      !!authority && typeof authority.type === 'string' && allowedAuthorities.includes(authority.type));
   }
 }

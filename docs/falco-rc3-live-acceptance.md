@@ -1,3 +1,36 @@
+## RC4 update: WSL2 kernel 6.18 modern eBPF recovery
+
+The legacy chart 3.5.0 and Falco 0.35.1 kernel-module loader cannot compile or download a Falco module for the Docker Desktop WSL2 kernel 6.18.54.1-microsoft-standard-WSL2. The observed HTTP 404 and DKMS failures are not Dash or Falcosidekick failures. Prefer a recent chart with the embedded modern eBPF driver; verify actual WSL2 kernel feature and permission support at runtime. Avoid arbitrary kernel-module downloads.
+
+From the existing development environment, keep the existing `m9sweeper-falco-webhook` Kubernetes Secret and back up prior Helm values securely. Do not pass secrets on the command line or reuse values across major chart upgrades.
+
+```powershell
+New-Item -ItemType Directory -Force -Path private-backups | Out-Null
+helm get values falco -n falco -o yaml | Set-Content private-backups/falco-before-modern-ebpf.yaml
+kubectl -n falco get secret m9sweeper-falco-webhook -o name
+helm repo add falcosecurity https://falcosecurity.github.io/charts
+helm repo update
+helm search repo falcosecurity/falco --versions | Select-Object -First 8
+$chartVersion = '9.2.2'
+helm show values falcosecurity/falco --version $chartVersion | Select-String 'kind:|existingSecret|loader:'
+helm upgrade --install falco falcosecurity/falco --version $chartVersion `
+  -n falco --create-namespace --atomic --wait --timeout 10m `
+  --set driver.kind=modern_ebpf `
+  --set driver.loader.enabled=false `
+  --set falcosidekick.enabled=true `
+  --set-string falcosidekick.config.existingSecret=m9sweeper-falco-webhook `
+  --set falco.json_output=true `
+  --set falco.http_output.enabled=true `
+  --set-string falco.http_output.url=http://falco-falcosidekick:2801/
+kubectl get pods -n falco -o wide
+```
+
+If chart 9.2.2 is unavailable, select a verified available modern chart and validate the version-specific values schema before upgrading. An atomic failed upgrade rolls back Helm resources but does not alter the existing Kubernetes Secret. Do not use `--reuse-values` across the older chart major version.
+
+A Running Falco pod is necessary but not sufficient: inspect Falco logs for successful modern-eBPF syscall capture, then Sidekick output, database persistence and the Angular Falco page. If eBPF reports feature/permission errors under Docker Desktop WSL2, validate on a supported native Linux Kubernetes node rather than continuing with the obsolete kmod loader.
+
+---
+
 # RC3 Falco → Falcosidekick → Dash end-to-end acceptance
 
 This is a **nonproduction Kind integration** procedure, not a claim that the Falco kernel driver or chart works on all hosts. The pinned Falco Helm chart **3.5.0** depends on Falcosidekick **0.6.3**. Its deployment supports `falcosidekick.config.existingSecret`, with environment keys `WEBHOOK_ADDRESS` and `WEBHOOK_CUSTOMHEADERS`.
