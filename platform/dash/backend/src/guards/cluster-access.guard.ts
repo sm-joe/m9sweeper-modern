@@ -57,6 +57,14 @@ export class ClusterAccessGuard implements CanActivate {
                 const report = await knex('kube_hunter')
                     .select('cluster_id').where({id: Number(params.id)}).first();
                 clusterId = Number(report?.cluster_id);
+            } else if (params.id && path.includes('/kube-bench/')) {
+                const reportId = Number(params.id);
+                if (!Number.isSafeInteger(reportId) || reportId <= 0) {
+                    throw new ForbiddenException('Invalid kube-bench report identifier');
+                }
+                const report = await knex('kube_bench')
+                    .select('cluster_id').where({id: reportId}).first();
+                clusterId = Number(report?.cluster_id);
             }
         }
         if (!Number.isSafeInteger(clusterId) || clusterId <= 0) {
