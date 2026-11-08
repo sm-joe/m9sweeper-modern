@@ -1,3 +1,7 @@
+# Optional pre-created Kubernetes Secret; must supply all env vars expected
+# by Dash and the init Job. Helm will not create/update this Secret.
+existingSecret: ""
+
 image:
   registry: ghcr.io
   repository: m9sweeper/dash
