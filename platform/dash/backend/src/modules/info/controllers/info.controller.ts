@@ -1,8 +1,13 @@
+import {AuthGuard} from '../../../guards/auth.guard';
+import {AuthorityGuard} from '../../../guards/authority.guard';
+import {AllowedAuthorityLevels} from '../../../decorators/allowed-authority-levels.decorator';
+import {Authority} from '../../user/enum/Authority';
 import {
     Body,
     Controller,
     Get, Post,
-    UseInterceptors
+    UseInterceptors,
+    UseGuards
 } from '@nestjs/common';
 import { ResponseTransformerInterceptor } from '../../../interceptors/response-transformer.interceptor';
 import {ApiResponse, ApiTags} from '@nestjs/swagger';
@@ -30,6 +35,8 @@ export class InfoController {
     }
 
     @Post('test')
+    @AllowedAuthorityLevels(Authority.SUPER_ADMIN)
+    @UseGuards(AuthGuard, AuthorityGuard)
     @ApiResponse({
         status: 201,
         schema: INFO_TEST_RESPONSE_SCHEMA
