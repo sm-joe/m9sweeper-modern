@@ -1,3 +1,4 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
 import {
     Controller,
     Get,
@@ -28,7 +29,7 @@ export class NamespaceController {
 
     @Get()
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: ALL_NAMESPACES_RESPONSE_SCHEMA
@@ -42,7 +43,7 @@ export class NamespaceController {
 
     @Get('current')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: ALL_NAMESPACES_RESPONSE_SCHEMA
@@ -53,7 +54,7 @@ export class NamespaceController {
 
     @Get('/history')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: ALL_NAMESPACES_RESPONSE_SCHEMA
@@ -69,7 +70,7 @@ export class NamespaceController {
 
     @Get(':clusterId/count')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: COUNT_ALL_NAMESPACES_RESPONSE_SCHEMA
@@ -80,7 +81,7 @@ export class NamespaceController {
 
     @Get(':clusterId/history/count')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: COUNT_ALL_NAMESPACES_RESPONSE_SCHEMA
