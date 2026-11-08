@@ -34,7 +34,7 @@ def audit(path):
     result = []
     for i, match in enumerate(matches):
         after = source[match.end():matches[i + 1].start() if i + 1 < len(matches) else None]
-        method = re.search(r"\b(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^;{]*\)\s*(?::|\{)", after)
+        method = re.search(r"(?m)^\s*(?:public\s+|private\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*\(", after)
         if not method:
             # Extract a fallback handler label without asserting policy coverage.
             name = "<unresolved>"
