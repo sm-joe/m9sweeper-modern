@@ -21,16 +21,29 @@ describe('kube-bench report ingestion credential and evidence gates', () => {
       .rejects.toMatchObject({status: 401});
     expect(userDao.loadUserByApiKey).not.toHaveBeenCalled();
   });
+  it('rejects legacy query credentials by default before database lookup', async () => {
+    const previous = process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS;
+    delete process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS;
+    try {
+      await expect(controller.saveKubeBenchReport(valid, 1, 'query-only'))
+        .rejects.toMatchObject({status: 401});
+      expect(userDao.loadUserByApiKey).not.toHaveBeenCalled();
+      expect(benchService.saveKubeBenchReport).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS;
+      else process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS = previous;
+    }
+  });
   it('returns 401 when lookup returns no rows', async () => {
     userDao.loadUserByApiKey.mockResolvedValue([]);
-    await expect(controller.saveKubeBenchReport(valid, 1, 'wrong'))
+    await expect(controller.saveKubeBenchReport(valid, 1, undefined, 'wrong'))
       .rejects.toMatchObject({status: 401});
     expect(benchService.saveKubeBenchReport).not.toHaveBeenCalled();
   });
   it('does not store a report without scanner authority', async () => {
     userDao.loadUserByApiKey.mockResolvedValue([{authorities: []}]);
     authService.checkAuthority.mockReturnValue(false);
-    await expect(controller.saveKubeBenchReport(valid, 1, 'valid-but-unprivileged'))
+    await expect(controller.saveKubeBenchReport(valid, 1, undefined, 'valid-but-unprivileged'))
       .rejects.toMatchObject({status: 401});
     expect(benchService.saveKubeBenchReport).not.toHaveBeenCalled();
   });
@@ -42,15 +55,45 @@ describe('kube-bench report ingestion credential and evidence gates', () => {
     expect(userDao.loadUserByApiKey).toHaveBeenCalledWith('header-credential');
     expect(benchService.saveKubeBenchReport).toHaveBeenCalledTimes(1);
   });
+  it('does not downgrade malformed header credentials to legacy query credentials', async () => {
+    await expect(controller.saveKubeBenchReport(valid, 1, 'query-only', ''))
+      .rejects.toMatchObject({status: 401});
+    expect(userDao.loadUserByApiKey).not.toHaveBeenCalled();
+  });
+  it('requires an explicit per-cluster grant in enforced mode', async () => {
+    const previous = process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS;
+    process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS = 'true';
+    userDao.loadUserByApiKey.mockResolvedValue([{id: 18, authorities: [], isActive: true}]);
+    userDao.scannerHasClusterGrant = jest.fn().mockResolvedValue(false);
+    authService.checkAuthority.mockReturnValue(true);
+    try {
+      await expect(controller.saveKubeBenchReport(valid, 2, undefined, 'header-key'))
+        .rejects.toMatchObject({status: 401});
+      expect(userDao.scannerHasClusterGrant).toHaveBeenCalledWith(18, 2);
+      expect(benchService.saveKubeBenchReport).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS;
+      else process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS = previous;
+    }
+  });
+  it('rejects raw-key export unless compatibility is explicitly enabled', async () => {
+    const previous = process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT;
+    delete process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT;
+    try { await expect(controller.getApiKey()).rejects.toMatchObject({status: 410}); }
+    finally {
+      if (previous === undefined) delete process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT;
+      else process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT = previous;
+    }
+  });
   it('rejects malformed scans instead of inserting fabricated findings', async () => {
     userDao.loadUserByApiKey.mockResolvedValue([{authorities: []}]);
     authService.checkAuthority.mockReturnValue(true);
-    await expect(controller.saveKubeBenchReport({Totals: {total_pass: 3}}, 1, 'valid'))
+    await expect(controller.saveKubeBenchReport({Totals: {total_pass: 3}}, 1, undefined, 'valid'))
       .rejects.toMatchObject({status: 400});
     expect(benchService.saveKubeBenchReport).not.toHaveBeenCalled();
   });
   it('rejects invalid cluster IDs before credential lookup', async () => {
-    await expect(controller.saveKubeBenchReport(valid, -1, 'key'))
+    await expect(controller.saveKubeBenchReport(valid, -1, undefined, 'key'))
       .rejects.toMatchObject({status: 400});
     expect(userDao.loadUserByApiKey).not.toHaveBeenCalled();
   });
