@@ -549,26 +549,56 @@ export class ImageDao {
                 .update({is_latest: false});
 
             for (const result of reports) {
-                const payload: any = instanceToPlain(result);
-                const issues = Array.isArray(payload.issues) ? payload.issues : [];
-                delete payload.issues;
-                delete payload.docker_image_id;
-                payload.image_id = imageId;
-                payload.scan_run_id = runId;
-                payload.created_at = createdAt;
-                payload.is_latest = true;
-                const inserted = await trx('image_scan_results').insert(payload).returning('id');
-                const resultId = inserted[0]?.id;
+                // Construct explicit database columns. Incoming API objects may
+                // be plain JS objects, so class-transformer decorators cannot
+                // safely be relied upon to convert camelCase field names.
+                const policyReport: any = {
+                    scan_run_id: runId,
+                    image_id: imageId,
+                    policy_id: result.policyId,
+                    policy_status: result.policyStatus === true,
+                    scanner_name: result.scannerName || 'Trivy',
+                    summary: result.summary || '',
+                    issues: JSON.stringify(result.issues || []),
+                    encounter_error: result.encounterError === true,
+                    started_at: result.startedAt || null,
+                    finished_at: result.finishedAt || null,
+                    critical_issues: result.criticalIssues || 0,
+                    major_issues: result.majorIssues || 0,
+                    medium_issues: result.mediumIssues || 0,
+                    low_issues: result.lowIssues || 0,
+                    negligible_issues: result.negligibleIssues || 0,
+                    created_at: createdAt,
+                    is_latest: true
+                };
+                const inserted = await trx('image_scan_results')
+                    .insert(policyReport).returning('id');
+                const resultId = typeof inserted[0] === 'number' ?
+                    inserted[0] : inserted[0]?.id;
                 if (!resultId) throw new Error('Unable to persist scan policy report');
+
+                const issues = Array.isArray(result.issues) ? result.issues : [];
                 if (issues.length) {
                     await trx('image_scan_results_issues').insert(issues.map(issue => {
                         const issueData = typeof issue.data === 'string' ?
                             JSON.parse(issue.data) : (issue.data || {});
                         return {
-                            ...issue, image_results_id: resultId,
-                            package_name: issueData.PkgName,
-                            installed_version: issueData.InstalledVersion,
-                            fixed_version: issueData.FixedVersion
+                            image_results_id: resultId,
+                            scanner_id: issue.scannerId,
+                            name: issue.name,
+                            type: issue.type,
+                            severity: issue.severity,
+                            description: issue.description || null,
+                            is_compliant: issue.isCompliant === true,
+                            is_fixable: issue.isFixable === true,
+                            was_fixed: issue.wasFixed === true,
+                            data: typeof issue.data === 'string' ?
+                                issue.data : JSON.stringify(issueData),
+                            vulnerability_desc_url: issue.vulnerabilityDescUrl || null,
+                            compliance_reason: issue.complianceReason || null,
+                            package_name: issueData.PkgName || null,
+                            installed_version: issueData.InstalledVersion || null,
+                            fixed_version: issueData.FixedVersion || null
                         };
                     }));
                 }
