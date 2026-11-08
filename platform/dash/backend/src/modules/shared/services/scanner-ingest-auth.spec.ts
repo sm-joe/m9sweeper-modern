@@ -23,7 +23,7 @@ describe('RC4 scanner ingestion credentials', () => {
 
   it('does not downgrade a malformed supplied header to a query key', () => {
     expect(selectScannerIngestKey('', 'legacy-value', true)).toBe('');
-    expect(selectScannerIngestKey('bad\\nvalue', 'legacy-value', true)).toBe('');
+    expect(selectScannerIngestKey('bad\nvalue', 'legacy-value', true)).toBe('');
     expect(selectScannerIngestKey(' ', 'legacy-value', true)).toBe('');
   });
 
