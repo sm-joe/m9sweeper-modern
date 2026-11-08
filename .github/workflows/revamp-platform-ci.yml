@@ -1,7 +1,7 @@
 name: Full m9sweeper platform source validation
 on:
   push:
-    branches: [revamp/original-platform, product/m9sweeper-new-foundation, 'fix/rc3-trivy-queue-fail-closed', 'release/m9sweeper-new-rc4-security-reliability']
+    branches: [main, revamp/original-platform, product/m9sweeper-new-foundation, 'fix/rc3-trivy-queue-fail-closed', 'release/m9sweeper-new-rc4-security-reliability', 'release/linux-k8s-hardening-rc5']
     paths:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
@@ -24,6 +24,20 @@ jobs:
         run: |
           python3 tools/import-platform/verify.py
           python3 tools/import-platform/test_product.py
+  linux-operator-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Linux operator scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/verify-linux-rc5.sh
+          bash -n scripts/check-broker-health-linux.sh
+          test -s docs/linux-k8s-release-readiness.md
+          grep -q 'Linux' README.md
+          grep -q 'Kubernetes' README.md
+          echo 'PASS: Linux operator scripts syntax'
   original-backend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -81,6 +95,32 @@ jobs:
             --set-string global.apiKey="$API_KEY" \
             --set-string dash.init.superAdminEmail="ci@example.invalid" \
             --set-string dash.init.superAdminPassword="$JWT_SECRET"
+      - name: Validate externally managed Dash and trawler Secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          JWT_SECRET="$(openssl rand -hex 32)"
+          API_KEY="$(openssl rand -hex 32)"
+          helm template release-probe platform/manifests/charts/m9sweeper \
+            --namespace m9sweeper-system \
+            --set-string global.jwtSecret="$JWT_SECRET" \
+            --set-string global.apiKey="$API_KEY" \
+            --set-string dash.init.superAdminEmail=test@example.invalid \
+            --set-string dash.init.superAdminPassword="$JWT_SECRET" \
+            --set-string dash.existingSecret=external-dash-env \
+            --set-string trawler.existingSecret=external-trawler-env \
+            > /tmp/m9-external-secret-render.yaml
+          grep -q 'name: external-dash-env' /tmp/m9-external-secret-render.yaml
+          grep -q 'name: external-trawler-env' /tmp/m9-external-secret-render.yaml
+          if grep -q '^  name: release-probe-dash-secrets$' /tmp/m9-external-secret-render.yaml; then
+            echo 'Unexpected generated Dash Secret' >&2
+            exit 1
+          fi
+          if grep -q '^  name: release-probe-trawler-secrets$' /tmp/m9-external-secret-render.yaml; then
+            echo 'Unexpected generated trawler Secret' >&2
+            exit 1
+          fi
+          echo 'PASS: external environment Secrets referenced without regeneration'
       - name: Validate kube-bench Secret-backed report auth (no query-string key)
         run: |
           set -euo pipefail

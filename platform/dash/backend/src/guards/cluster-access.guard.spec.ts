@@ -60,3 +60,82 @@ describe('RC4 cluster-scoped access', () => {
             .rejects.toBeInstanceOf(ForbiddenException);
     });
 });
+
+
+describe('RC5 resource-scoped cluster mismatch denial', () => {
+    const actor: any = {id: 44, authorities: [{type: 'ADMIN'}]};
+    function guardFor(imageCluster: number) {
+        const images: any = {
+            select: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            whereNull: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue({cluster_id: imageCluster})
+        };
+        const owner: any = {
+            join: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            whereNull: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue({id: 1})
+        };
+        const knex = jest.fn((table: string) =>
+            table === 'images' ? images : owner);
+        return new ClusterAccessGuard(actor, {
+            getConnection: jest.fn().mockResolvedValue(knex)
+        } as any);
+    }
+    function context(clusterId: number, imageId: number): any {
+        return {switchToHttp: () => ({getRequest: () => ({
+            params: {clusterId: String(clusterId), imageId: String(imageId)},
+            query: {}, method: 'GET',
+            originalUrl: '/api/clusters/' + clusterId + '/images/' + imageId
+        })})};
+    }
+    it('blocks image from a different cluster even if request cluster is owned', async () => {
+        await expect(guardFor(2).canActivate(context(1, 33)))
+            .rejects.toBeInstanceOf(ForbiddenException);
+    });
+    it('allows image with matching route cluster', async () => {
+        await expect(guardFor(1).canActivate(context(1, 33)))
+            .resolves.toBe(true);
+    });
+    it('rejects malformed image scope without querying database rows', async () => {
+        await expect(guardFor(1).canActivate(context(1, 0)))
+            .rejects.toBeInstanceOf(ForbiddenException);
+    });
+});
+
+describe('RC5 Falco event resource-scope enforcement', () => {
+    const actor: any = {id: 14, authorities: [{type: 'ADMIN'}]};
+    const context = (clusterId: number, eventId: number): any => ({
+        switchToHttp: () => ({getRequest: () => ({
+            params: {clusterId: String(clusterId), eventId: String(eventId)},
+            query: {}, method: 'GET',
+            originalUrl: '/api/falco/' + clusterId + '/events/' + eventId
+        })})
+    });
+    function guardFor(eventClusterId: number) {
+        const event: any = {
+            select: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue({cluster_id: eventClusterId})
+        };
+        const owner: any = {
+            join: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            whereNull: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue({id: 1})
+        };
+        return new ClusterAccessGuard(actor, {
+            getConnection: jest.fn().mockResolvedValue(jest.fn((table: string) =>
+                table === 'project_falco_logs' ? event : owner))
+        } as any);
+    }
+    it('denies a Falco event from another cluster even if the route cluster is owned', async () => {
+        await expect(guardFor(2).canActivate(context(1, 33)))
+            .rejects.toBeInstanceOf(ForbiddenException);
+    });
+    it('allows event belonging to the authorized route cluster', async () => {
+        await expect(guardFor(1).canActivate(context(1, 33)))
+            .resolves.toBe(true);
+    });
+});

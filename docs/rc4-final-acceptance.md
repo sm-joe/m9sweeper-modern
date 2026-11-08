@@ -1,6 +1,8 @@
 # RC4 integrated security and reliability acceptance
 
-**Status:** Engineering changes committed; do **not** publish RC4 or merge PR #8 until the latest SHA passes CI and all live Kind checks below pass.
+**Post-merge status (2026-11-08):** RC4 was integrated through PR #8 and promoted to `main` through PR #9 (`9b77f9d`). Source CI passed on `b97df4f`. Operator-confirmed real Trivy scan UUID `2a00ae7c-3d55-4667-9d0e-9a7607b176f8` reached `completed`, produced a persisted noncompliant policy report and showed in Angular. Falco modern eBPF generated a real sensitive-file read alert; cluster 1 PostgreSQL reported three events, and the operator confirmed the Angular view. The operator additionally reported that scoped RBAC, controlled DLQ failure/recovery and staging production-acceptance tests passed, **but detailed redacted negative-HTTP, DLQ and Helm rollback artifacts have not been attached**.
+
+**Release boundary:** RC4 was merged as a validated integration candidate, **not** a certified, signed or generally supported production distribution. New Linux/Kubernetes requirements and unresolved public-production gates are in [Linux/Kubernetes release readiness](linux-k8s-release-readiness.md). The procedures below remain useful for reproducing acceptance in an isolated cluster. Do not use the old draft-PR gating statement as the current project status.
 
 This runbook assumes a **development** Docker Compose + Kind deployment, and that RC3 Trivy and kube-hunter already worked. Preserve existing Postgres volumes, scanner Secrets, RabbitMQ queues and reports. Take a verified Postgres backup before applying migrations.
 

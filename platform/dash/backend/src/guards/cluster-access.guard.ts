@@ -63,6 +63,33 @@ export class ClusterAccessGuard implements CanActivate {
             throw new ForbiddenException('Explicit cluster scope required');
         }
 
+        // A granted cluster ID in the route must never authorize a resource
+        // belonging to another cluster. Verify secondary resource identifiers
+        // before accepting either group ownership or a per-cluster grant.
+        if (params.imageId !== undefined) {
+            const imageId = Number(params.imageId);
+            if (!Number.isSafeInteger(imageId) || imageId <= 0) {
+                throw new ForbiddenException('Invalid image scope');
+            }
+            const image = await knex('images')
+                .select('cluster_id').where({id: imageId})
+                .whereNull('deleted_at').first();
+            if (!image || Number(image.cluster_id) !== clusterId) {
+                throw new ForbiddenException('Image does not belong to the authorized cluster');
+            }
+        }
+        if (params.eventId !== undefined) {
+            const eventId = Number(params.eventId);
+            if (!Number.isSafeInteger(eventId) || eventId <= 0) {
+                throw new ForbiddenException('Invalid event scope');
+            }
+            const event = await knex('project_falco_logs')
+                .select('cluster_id').where({id: eventId}).first();
+            if (!event || Number(event.cluster_id) !== clusterId) {
+                throw new ForbiddenException('Event does not belong to the authorized cluster');
+            }
+        }
+
         const owner = await knex('clusters as c')
             .join('cluster_group as cg', 'cg.id', 'c.group_id')
             .where({'c.id': clusterId, 'cg.user_id': this.user.id})

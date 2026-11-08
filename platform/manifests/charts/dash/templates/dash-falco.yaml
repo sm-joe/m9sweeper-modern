@@ -44,7 +44,7 @@ spec:
               value: "{{ .Values.global.baseUrl }}"
           envFrom:
             - secretRef:
-                name: {{ include "dash.fullname" . }}-secrets
+                name: {{ .Values.existingSecret | default (printf "%s-secrets" (include "dash.fullname" .)) }}
 {{- if or .Values.extraConfigVars .Values.extraSecretVars }}
 {{- if .Values.extraConfigVars }}
             - configMapRef:
@@ -52,7 +52,7 @@ spec:
 {{- end }}
 {{ if .Values.extraSecretVars }}
             - secretRef:
-                name: {{ include "dash.fullname" . }}-secrets-extra
+                name: {{ .Values.existingSecret | default (printf "%s-secrets" (include "dash.fullname" .)) }}-extra
 {{- end }}
 {{- end }}
           ports:
