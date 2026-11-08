@@ -150,6 +150,32 @@ jobs:
           done
           grep -q 'kind: CronJob' /tmp/kube-hunter-true.yaml
           grep -q 'kind: Job' /tmp/kube-hunter-false.yaml
+      - name: Verify kube-hunter header relay chart rendering and fail-closed configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          chart=platform/manifests/charts/kube-hunter
+          for scheduled in true false; do
+            helm template kube-hunter "$chart" --namespace m9sweeper-system --kube-version 1.31.0 \
+              --set cronjob.enabled="$scheduled" \
+              --set reportRelay.enabled=true \
+              --set-string reportRelay.targetUrl=https://dash.example.invalid/api/kubehunter/hunter/1 \
+              --set-string reportRelay.existingSecret=report-auth \
+              >"/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'name: report-relay' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'http://127.0.0.1:8765/' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'name: report-auth' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'REPORT_RELAY_API_KEY' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'kind: ConfigMap' "/tmp/hunter-relay-$scheduled.yaml"
+            if grep -q 'key=' "/tmp/hunter-relay-$scheduled.yaml"; then exit 1; fi
+          done
+          if helm template kube-hunter "$chart" --set reportRelay.enabled=true \
+            --set-string reportRelay.targetUrl=http://unsafe.example.invalid/report \
+            --set-string reportRelay.existingSecret=report-auth >/dev/null 2>&1; then
+            echo 'ERROR: relay accepted insecure HTTP target' >&2
+            exit 1
+          fi
+          echo 'PASS: kube-hunter relay secret-backed HTTPS render and insecure target rejection'
       - name: Render Kubernetes resources for a modern API target
         run: |
           JWT_SECRET="$(openssl rand -hex 32)"
