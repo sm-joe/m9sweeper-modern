@@ -106,6 +106,21 @@ helm lint platform/manifests/charts/m9sweeper --set-string global.jwtSecret="$(o
 helm template m9sweeper platform/manifests/charts/m9sweeper --namespace m9sweeper-system --values /path/to/private/values.yaml > /tmp/m9sweeper-rendered.yaml
 ```
 
+The umbrella chart supports opt-in **existing Kubernetes Secrets** for Dash and trawler. Prepare your Secrets from protected environment files in the target namespace; example filenames are placeholders, never committed to Git:
+
+```bash
+kubectl create namespace m9sweeper-system --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n m9sweeper-system create secret generic external-dash-env --from-env-file=/secure/path/dash.env
+kubectl -n m9sweeper-system create secret generic external-trawler-env --from-env-file=/secure/path/trawler.env
+helm template m9sweeper platform/manifests/charts/m9sweeper \
+  --namespace m9sweeper-system \
+  --set-string dash.existingSecret=external-dash-env \
+  --set-string trawler.existingSecret=external-trawler-env \
+  --values /path/to/private/values.yaml > /tmp/m9sweeper-rendered.yaml
+```
+
+`external-dash-env` must provide all Dash environment variables that the chart's generated Secret would otherwise supply (JWT, PostgreSQL, RabbitMQ and relevant mail configuration); `external-trawler-env` must provide RabbitMQ credentials, queue configuration and `M9SWEEPER_API_KEY`. **The bootstrap job still renders certain initial account/API credentials from values**; audit and replace that path before calling this a fully Secret-managed production chart. External Secret rotation does not automatically trigger checksum-based pod rollouts; use a controlled `kubectl rollout restart` after updating a Secret and validate new Pods.
+
 **Do not apply** rendered production manifests or use `--set` with real credentials until the chart's Secret handling, actual images, migration ordering, TLS and lifecycle are audited. Rendering to a file can expose credentials: protect and remove temporary manifest files. Use tested cluster-specific values and a staging install/upgrade/rollback before production rollout.
 
 ## Diagnostics on Linux
