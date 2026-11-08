@@ -113,7 +113,15 @@ export class ClusterController {
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.TRAWLER)
     @UseGuards(AuthGuard, AuthorityGuard)
     async getClusterByClusterName(@Param('clusterName') clusterName: string): Promise<ClusterDto> {
-        const clusters: ClusterDto[] = await this.clusterService.searchClustersByName(clusterName);
+        let clusters: ClusterDto[] = await this.clusterService.searchClustersByName(clusterName);
+        const roles = this._loggedInUser?.authorities || [];
+        const isSuperAdmin = roles.some(role => role.type === Authority.SUPER_ADMIN);
+        const transitionalTrawler = roles.some(role => role.type === Authority.TRAWLER) &&
+            process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS !== 'true';
+        if (!isSuperAdmin && !transitionalTrawler) {
+            const allowedIds = new Set((await this.getAllClusters()).map(c => Number(c.id)));
+            clusters = (clusters || []).filter(c => allowedIds.has(Number(c.id)));
+        }
         if (clusters && clusters.length){
             return clusters.map(c => {
                 delete c.kubeConfig;
@@ -132,7 +140,8 @@ export class ClusterController {
     @UseGuards(AuthGuard, AuthorityGuard)
     async getClusterListByGroupId(@Param('groupId') groupId: number): Promise<ClusterDto[]> {
         const clusters = await this.clusterService.getClustersByGroupId(groupId);
-        return clusters && clusters.map(c => {
+        const allowedIds = new Set((await this.getAllClusters()).map(c => Number(c.id)));
+        return clusters && clusters.filter(c => allowedIds.has(Number(c.id))).map(c => {
             delete c.kubeConfig;
             return c;
         });
@@ -147,7 +156,8 @@ export class ClusterController {
     @UseGuards(AuthGuard, AuthorityGuard)
     async searchClusters(@Param('groupId') groupId: number, @Query('q') searchTerm: string): Promise<ClusterDto[]> {
         const clusters =  await this.clusterService.searchClusters(groupId, searchTerm);
-        return clusters && clusters.map(c => {
+        const allowedIds = new Set((await this.getAllClusters()).map(c => Number(c.id)));
+        return clusters && clusters.filter(c => allowedIds.has(Number(c.id))).map(c => {
             delete c.kubeConfig;
             // delete c.ipAddress;
             delete c.port;
