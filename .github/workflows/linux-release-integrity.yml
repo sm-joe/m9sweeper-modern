@@ -1,0 +1,65 @@
+name: Linux release-candidate artifact integrity
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release candidate version (e.g. v0.1.0-rc5)"
+        required: true
+        default: "v0.1.0-rc5"
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+jobs:
+  release-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate version and build traceable Linux source distribution
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$ ]] || {
+            echo "Expected vMAJOR.MINOR.PATCH-rcN version" >&2
+            exit 1
+          }
+          test -f platform/LICENSE
+          test -f ATTRIBUTION.md
+          test -f docs/linux-k8s-release-readiness.md
+          mkdir -p dist
+          git rev-parse HEAD >dist/SOURCE-COMMIT.txt
+          printf 'product=m9sweeper\nversion=%s\nplatform=linux-kubernetes\nstatus=integration-candidate-not-production\n' "$VERSION" >dist/RELEASE-METADATA.txt
+          tar -czf "dist/m9sweeper-${VERSION}-source.tar.gz" \
+            --exclude=node_modules --exclude=.git --exclude=.env \
+            platform docs scripts README.md ATTRIBUTION.md
+          ( cd dist && sha256sum "m9sweeper-${VERSION}-source.tar.gz" >SHA256SUMS && sha256sum -c SHA256SUMS )
+      - name: Generate source dependency SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: dist/m9sweeper-sbom.spdx.json
+          upload-artifact: false
+      - name: Verify release inputs and hash SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/m9sweeper-sbom.spdx.json
+          python3 -m json.tool dist/m9sweeper-sbom.spdx.json >/dev/null
+          ( cd dist && sha256sum m9sweeper-sbom.spdx.json >>SHA256SUMS && sha256sum -c SHA256SUMS )
+      - name: Attest source bundle provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*.tar.gz
+      - name: Upload candidate release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: m9sweeper-linux-source-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
