@@ -186,3 +186,48 @@ describe('P0 kube-bench report ID isolation', () => {
         expect(report.select).not.toHaveBeenCalled();
     });
 });
+
+
+describe('P0 multi-cluster PDF export authorization', () => {
+    const actor: any = {id: 44, authorities: [{type: 'READ_ONLY'}]};
+    const context = (clusterIds: any): any => ({
+        switchToHttp: () => ({getRequest: () => ({
+            params: {}, query: clusterIds === undefined ? {} : {clusterIds},
+            method: 'GET', originalUrl: '/api/reports/security-audit-report'
+        })})
+    });
+    function make(granted: number[]) {
+        const owners: any = {
+            join: jest.fn().mockReturnThis(), where: jest.fn().mockReturnThis(),
+            whereNull: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue(undefined)
+        };
+        let activeCluster = 0;
+        const grants: any = {
+            where: jest.fn().mockImplementation(function (where: any) {
+                activeCluster = where.cluster_id;
+                return this;
+            }),
+            first: jest.fn().mockImplementation(async () =>
+                granted.includes(activeCluster) ? {can_write: false} : undefined)
+        };
+        const knex = jest.fn((table: string) =>
+            table === 'cluster_user_access' ? grants : owners);
+        return new ClusterAccessGuard(actor, {
+            getConnection: jest.fn().mockResolvedValue(knex)
+        } as any);
+    }
+    it('allows an export only when all cluster IDs are granted', async () => {
+        await expect(make([1, 2]).canActivate(context(['1', '2']))).resolves.toBe(true);
+    });
+    it('rejects mixed owned and foreign cluster IDs', async () => {
+        await expect(make([1]).canActivate(context(['1', '2'])))
+            .rejects.toBeInstanceOf(ForbiddenException);
+    });
+    it('rejects missing cluster scope, malformed IDs and blank lists', async () => {
+        for (const ids of [undefined, [], [''], ['1', '0'], ['1x'], ['-1']]) {
+            await expect(make([1]).canActivate(context(ids)))
+                .rejects.toBeInstanceOf(ForbiddenException);
+        }
+    });
+});
