@@ -168,7 +168,7 @@ export class KubeBenchController {
 
     @Get('/config/get-options')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    @UseGuards(AuthGuard, AuthorityGuard)
     @ApiResponse({
         status: 200,
     })
@@ -179,7 +179,7 @@ export class KubeBenchController {
 
     @Get('/config/get-options/:option')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
-    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    @UseGuards(AuthGuard, AuthorityGuard)
     @ApiResponse({
         status: 200,
     })
