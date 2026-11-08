@@ -313,6 +313,10 @@ export class ImageService implements OnModuleInit, OnModuleDestroy {
         return this.imageDao.commitScanRun(runId, clusterId, imageId, reports, status, counts, createdAt);
     }
 
+    async releaseScanRunForRetry(id: string, clusterId: number, imageId: number): Promise<void> {
+        await this.imageDao.releaseScanRunForRetry(id, clusterId, imageId);
+    }
+
     async completeScanRun(id: string, compliant: boolean): Promise<void> {
         await this.imageDao.completeScanRun(id, compliant);
     }
