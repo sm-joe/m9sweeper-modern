@@ -355,6 +355,7 @@ export class ImageController {
             }
         }
 
+        try {
         await Promise.all(trawlerScanResults.data.map(async (rsByPolicy: ImageTrawlerResultDto) => {
             const facadeDto = new ImageScanResultPerPolicyFacadeDto();
             facadeDto.issues = rsByPolicy.issues;
@@ -416,6 +417,21 @@ export class ImageController {
         await this.imageService.setImageScanQueueStatus(targetImage.id, false);
 
         return plainToInstance(ImageScanResultDto, {complaint: status === 'Compliant'});
+        } catch (error) {
+            if (scanRunId) {
+                // The atomic commit rolled back if it failed. Release the claim
+                // so a redelivered job can try again. Never hide the original
+                // error if the database is unavailable for claim release.
+                try {
+                    await this.imageService.releaseScanRunForRetry(
+                        scanRunId, +clusterId, +imageId
+                    );
+                } catch {
+                    // Periodic stale-run reconciliation will recover this case.
+                }
+            }
+            throw error;
+        }
     }
 
     @Get('images/:imageId/trawler/scan/results')
