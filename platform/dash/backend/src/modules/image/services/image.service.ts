@@ -245,7 +245,14 @@ export class ImageService implements OnModuleInit, OnModuleDestroy {
             const scanRunId = randomUUID();
             scanInput.scanRunId = scanRunId;
             const queueName = this.configurationService.get('messageQueue.imageScannerQueueName');
-            await this.imageDao.createScanRun(scanRunId, clusterId, image.id);
+            try {
+                await this.imageDao.createScanRun(scanRunId, clusterId, image.id);
+            } catch (error) {
+                if (error instanceof Error && error.message === 'An image scan is already in progress') {
+                    throw new HttpException({message: error.message}, HttpStatus.CONFLICT);
+                }
+                throw error;
+            }
             // Mark the image queued before publishing. Publishing first races
             // the worker: a fast result can clear the flag, then a late write
             // by this request sets it back to true forever.
