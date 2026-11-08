@@ -92,6 +92,23 @@ describe('ImageService scan queue safety', () => {
         expect(dao.setImageScanQueueStatus).toHaveBeenCalledTimes(2);
     });
 
+    it('does not clear an active scan when broker delivery succeeded but publication state update failed', async () => {
+        dao.markScanRunPublished.mockRejectedValue(new Error('ledger unavailable'));
+        await expect(service.createImageScanByImageId([{id: imageId}], clusterId))
+            .rejects.toThrow('ledger unavailable');
+        expect(messaging.send).toHaveBeenCalledTimes(1);
+        expect(dao.setImageScanQueueStatus).toHaveBeenCalledTimes(1);
+        expect(dao.setImageScanQueueStatus).toHaveBeenCalledWith(imageId, true);
+        expect(dao.markScanRunFailed).not.toHaveBeenCalled();
+    });
+
+    it('rejects a second active scan without publishing a new job', async () => {
+        dao.createScanRun.mockRejectedValue(new Error('An image scan is already in progress'));
+        await expect(service.createImageScanByImageId([{id: imageId}], clusterId))
+            .rejects.toMatchObject({status: 409});
+        expect(messaging.send).not.toHaveBeenCalled();
+    });
+
     it('does not report success if queue-status persistence fails', async () => {
         dao.setImageScanQueueStatus.mockRejectedValue(new Error('database offline'));
         await expect(service.createImageScanByImageId([{id: imageId}], clusterId)).rejects.toThrow('database offline');
