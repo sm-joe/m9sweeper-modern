@@ -557,9 +557,7 @@ export class ImageDao {
                     image_id: imageId,
                     policy_id: result.policyId,
                     policy_status: result.policyStatus === true,
-                    scanner_name: result.scannerName || 'Trivy',
                     summary: result.summary || '',
-                    issues: JSON.stringify(result.issues || []),
                     encounter_error: result.encounterError === true,
                     started_at: result.startedAt || null,
                     finished_at: result.finishedAt || null,
@@ -585,6 +583,7 @@ export class ImageDao {
                         return {
                             image_results_id: resultId,
                             scanner_id: issue.scannerId,
+                            scanner_name: issue.scannerName || 'Trivy',
                             name: issue.name,
                             type: issue.type,
                             severity: issue.severity,
