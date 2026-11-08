@@ -99,12 +99,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          JWT_SECRET="$(openssl rand -hex 32)"
+          API_KEY="$(openssl rand -hex 32)"
           helm template release-probe platform/manifests/charts/m9sweeper \
             --namespace m9sweeper-system \
-            --set-string global.jwtSecret=test-jwt-only \
-            --set-string global.apiKey=test-key-only \
+            --set-string global.jwtSecret="$JWT_SECRET" \
+            --set-string global.apiKey="$API_KEY" \
             --set-string dash.init.superAdminEmail=test@example.invalid \
-            --set-string dash.init.superAdminPassword=test-password-only \
+            --set-string dash.init.superAdminPassword="$JWT_SECRET" \
             --set-string dash.existingSecret=external-dash-env \
             --set-string trawler.existingSecret=external-trawler-env \
             > /tmp/m9-external-secret-render.yaml
