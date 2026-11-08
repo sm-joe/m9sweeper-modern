@@ -128,3 +128,46 @@ All of the following must be true, based on current SHA evidence:
 - No tokens are exposed via browser, logs, URLs or Helm values in the strict production configuration.
 
 **Never mark RC4 production-ready based solely on green source CI or a successful Trivy CLI scan.** Production packaging additionally requires a verified Helm install/upgrade/rollback and approved supported-framework upgrade plan.
+
+## Historical batch timeout recovery (November 7–8, 2026)
+
+An operator reported ten image runs for cluster 1 (images 1–9, including two runs for image 2), created around 2026-11-07 19:03 UTC and all marked `failed: Scan timed out` together on 2026-11-08 at 06:51 UTC. This is evidence of stale-run reconciliation, **not** proof that Trivy failed on each image. The original one-hour threshold applied to queued/published jobs even when RabbitMQ prefetch was one; late jobs in a large batch could expire without ever getting a worker slot. RC4 now uses a 24-hour orphan threshold for queued/published jobs and one hour for report-ingestion claims.
+
+**Do not change old failed rows to completed or purge the failed queue.**
+
+After pulling the current RC4 branch, run the targeted Node/Jest and Java regressions:
+
+```powershell
+cd "D:\Suks Repos\m9sweeper-modern"
+git fetch origin
+git switch release/m9sweeper-new-rc4-security-reliability
+git pull --ff-only origin release/m9sweeper-new-rc4-security-reliability
+cd platform\dash\backend
+npx jest image.dao.rc4.spec.ts image.service.spec.ts image.controller.spec.ts --runInBand --no-cache
+npm run build:api
+cd ..\..\trawler
+mvn -B -ntp test
+cd ..\docker-compose
+docker compose -f docker-compose.yml -f docker-compose.kind.yml up -d --build dash trawler
+docker compose -f docker-compose.yml -f docker-compose.kind.yml ps
+docker logs m9sweeper-trawler --tail 80
+docker exec rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged
+```
+
+Do one new Trivy rescan in Dash for **one** image (for example cluster 1, image 3 if it is still active and belongs to that cluster). Watch the worker log for the new `Received image scan job ... run UUID` line and successful Dash persistence acknowledgment. Check the new run and errors before scanning the remainder:
+
+```powershell
+$sql = @'
+SELECT id, image_id, status, failure_reason,
+       to_timestamp(created_at/1000.0) AS started,
+       to_timestamp(updated_at/1000.0) AS updated
+FROM image_scan_runs
+WHERE cluster_id = 1 AND image_id = 3
+ORDER BY created_at DESC LIMIT 3;
+'@
+$sql | docker exec -i postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+Then run `\.\scripts\verify-rc4.ps1 -ClusterId 1 -ImageId 3` from the repository root. A new `completed` row, image queue cleared and report linked to that UUID are required for acceptance. If the new run fails, collect the **new** run UUID, `failure_reason`, worker logs and RabbitMQ queue counts. This distinguishes missing consumption from report-ingestion failure. Historical failures alone cannot identify the cause.
+
+Keep the final RC4 acceptance gate open until current-commit CI and local runtime checks pass.
