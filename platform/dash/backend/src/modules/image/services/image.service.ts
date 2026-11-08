@@ -256,6 +256,7 @@ export class ImageService implements OnModuleInit, OnModuleDestroy {
                 if (!accepted) {
                     throw new HttpException({message: 'Image scanner queue rejected the scan request'}, HttpStatus.SERVICE_UNAVAILABLE);
                 }
+                sentToBroker = true;
                 await this.imageDao.markScanRunPublished(scanRunId);
             } catch (error) {
                 // If delivery succeeded but publication status failed, the worker
