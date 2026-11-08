@@ -1,3 +1,4 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
 import {ApiBearerAuth, ApiTags} from '@nestjs/swagger';
 import {Controller, Get, Query, Res, UseGuards} from '@nestjs/common';
 import {ReportsService} from '../services/reports.service';
@@ -21,7 +22,7 @@ export class ReportsDownloadController {
 
   @Get('/security-audit-report')
   @AllowedAuthorityLevels(Authority.ADMIN, Authority.SUPER_ADMIN, Authority.READ_ONLY)
-  @UseGuards(AuthGuard, AuthorityGuard)
+  @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
   async generatePrintableAuditReport(
     @Res({ passthrough: true }) res: Response,
     @Query('namespaces') namespaces?: string[],
