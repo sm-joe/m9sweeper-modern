@@ -118,6 +118,15 @@ docker exec rabbitmq rabbitmqctl list_queues name messages_ready messages_unackn
 docker exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id,image_id,status,failure_reason FROM image_scan_runs ORDER BY created_at DESC LIMIT 10;"'
 ```
 
+For read-only acceptance checks and machine-readable alert exit codes, from the repository root on a Linux integration host:
+
+```bash
+CLUSTER_ID=1 IMAGE_ID=3 REQUIRE_FALCO_EVENT=true bash scripts/verify-linux-rc5.sh
+MAX_READY=100 MAX_UNACK=5 bash scripts/check-broker-health-linux.sh
+```
+
+The broker probe returns exit code 2 when a failed-queue message exists, workers have disappeared, or thresholds are exceeded; connect it to a Linux systemd timer or your existing monitoring system. The probe never consumes or purges messages. It requires access to the named Docker Compose RabbitMQ container; for Kubernetes-backed RabbitMQ adapt the command to your deployment's authenticated management/metrics endpoint.
+
 A successful scan can be `Non-compliant` if actual vulnerabilities violate a policy. A `failed` scan is a **processing failure**, never an automatic compliance pass. Failed broker deliveries are retained in `trawler_queue.failed` after bounded retries; investigate root cause and use a new, authorized rescan. The existing implementation does **not** provide automatic safe DLQ replay.
 
 See [RC4 integration acceptance](docs/rc4-final-acceptance.md), [security/release gates](docs/m9sweeper-new-release-gates.md), and [Linux/Kubernetes hardening backlog](docs/linux-k8s-release-readiness.md).
