@@ -3,7 +3,7 @@
     <ng-template matStepLabel>Create Job</ng-template>
 
     <p *ngIf="!reportEndpointReady" role="alert" class="mat-error">{{reportEndpointError}}</p>
-    <p *ngIf="reportEndpointReady" role="note">Create a Kubernetes Secret named <code>m9sweeper-kube-hunter-dispatch</code> in namespace <code>m9sweeper-system</code>, with key <code>dispatchUrl</code> containing the complete callback URL and a freshly rotated, scoped ingestion token. The callback origin must be <code>{{backendUrl}}</code> and reachable from the kube-hunter Pod. Never paste the token into Helm values or a URL shown in the browser. The Secret and the rendered Pod environment must be protected; longer-term header-based authentication is required.</p>
+    <p *ngIf="reportEndpointReady" role="note">The secure kube-hunter report relay forwards findings over verified HTTPS with <code>X-API-Key</code>. Create an existing Kubernetes Secret named <code>m9sweeper-kube-hunter-relay-auth</code> in namespace <code>m9sweeper-system</code> containing key <code>apiKey</code>. The header token must be rotated and granted access to this cluster. Never store the API key in a URL, Helm value, command, or browser history. The relay expects a trusted CA for <code>{{backendUrl}}</code>.</p>
     <div class="modal-content-left-align-no-margin" *ngIf="reportEndpointReady">
       <h3>Choose whether to run kube-hunter periodically or manually</h3>
       <mat-radio-group aria-labelledby="cronjob-options-group-label"  [(ngModel)]="cronjobOpt">
@@ -34,7 +34,9 @@
         <div >
           <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter ./platform/manifests/charts/kube-hunter \
   -n m9sweeper-system --create-namespace \
-  --set-string dispatchAuth.existingSecret=m9sweeper-kube-hunter-dispatch \
+  --set reportRelay.enabled=true \\
+  --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \\
+  --set-string reportRelay.targetUrl="{{backendUrl}}/api/kubehunter/hunter/{{clusterId}}" \
   --set cronjob.enabled=false</textarea>
         </div>
       </div>
@@ -71,7 +73,9 @@
         <div >
           <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter ./platform/manifests/charts/kube-hunter \
   -n m9sweeper-system --create-namespace \
-  --set-string dispatchAuth.existingSecret=m9sweeper-kube-hunter-dispatch \
+  --set reportRelay.enabled=true \\
+  --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \\
+  --set-string reportRelay.targetUrl="{{backendUrl}}/api/kubehunter/hunter/{{clusterId}}" \
   --set-string cronjob.schedule="{{cronjobScheduleOpts[cronjobTime]}}" \
   --set cronjob.enabled=true</textarea>
         </div>
