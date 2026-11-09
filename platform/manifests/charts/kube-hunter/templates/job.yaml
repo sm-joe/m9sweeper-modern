@@ -19,7 +19,7 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccount: {{ include "kube-hunter.name" . }}-sa
+      serviceAccount: {{ include "kube-hunter.serviceAccountName" . }}
 {{- if .Values.securityContext.enabled }}
       securityContext:
         fsGroup: {{ .Values.securityContext.fsGroup }}
