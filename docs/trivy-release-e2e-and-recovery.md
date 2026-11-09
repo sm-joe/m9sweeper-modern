@@ -8,3 +8,15 @@
 6. In a disposable staging namespace verify Helm installation, upgrade and rollback with retained cluster data and Docker network reachability. Do not perform destructive testing on existing Kind/Compose data.
 
 The scripts are real acceptance gates; they do not manufacture successful scans. Live operator and browser evidence is still required before claiming production readiness.
+
+## Real queued Trivy staging launcher
+
+On a **separate Linux staging host only**, with Docker Compose Dash/PostgreSQL/RabbitMQ already healthy and the staging `.env` initialized, run:
+
+```bash
+M9_STAGING_E2E_TEST=YES python3 tools/integration/real-trivy-e2e-staging.py
+```
+
+The script creates a new staging cluster, policy, enabled Trivy scanner and Alpine image fixture, grants the Java Trawler identity only the fixture cluster, starts the actual worker, queues a scan through the authenticated NestJS API, waits for a durable `completed` result and calls the read-only PostgreSQL evidence checker. It does not insert fabricated reports. These staging fixtures remain in the staging database for auditing. It must not be run against an existing production-like Dash database. Real Trivy image scanning may require a registry connection and a vulnerability DB download.
+
+The final live acceptance also requires visually inspecting the same image in Angular, verifying full findings, RBAC, and an independent Helm upgrade/rollback and PostgreSQL restore drill. `py_compile` in CI verifies script syntax only, not a live scan.
