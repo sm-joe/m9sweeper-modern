@@ -31,6 +31,23 @@ test('unauthenticated visitors cannot view protected dashboard', async ({ page }
   await expect(page.locator('#submit')).toBeVisible();
 });
 
+
+test('unauthenticated visitors cannot access cluster, policy, scanner or report routes', async ({ page }) => {
+  const protectedRoutes = [
+    '/private/clusters/1/summary',
+    '/private/clusters/1/images',
+    '/private/clusters/1/falco',
+    '/private/clusters/1/reports',
+    '/private/policies',
+    '/private/users'
+  ];
+  for (const route of protectedRoutes) {
+    await page.goto(route);
+    await expect(page).toHaveURL(/\/public\/login/, { timeout: 15_000 });
+    await expect(page.locator('#submit')).toBeVisible();
+  }
+});
+
 test('real seeded admin signs in through Angular and sees the security dashboard', async ({ page }) => {
   const credentials = stagingCredentials();
   await page.goto('/public/login');
