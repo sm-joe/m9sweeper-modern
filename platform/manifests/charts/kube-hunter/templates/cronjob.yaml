@@ -67,34 +67,26 @@ spec:
               env:
                 - name: REPORT_RELAY_TARGET_URL
                   value: {{ .Values.reportRelay.targetUrl | quote }}
-  {{- if .Values.reportRelay.caSecret }}
+{{- if .Values.reportRelay.caSecret }}
                 - name: SSL_CERT_FILE
                   value: /etc/report-relay-tls/ca.crt
 {{- end }}
-              - name: REPORT_RELAY_API_KEY
+                - name: REPORT_RELAY_API_KEY
                   valueFrom:
                     secretKeyRef:
                       name: {{ .Values.reportRelay.existingSecret | quote }}
                       key: {{ .Values.reportRelay.secretKey | quote }}
               volumeMounts:
+                - name: relay-code
+                  mountPath: /opt/report-relay
+                  readOnly: true
 {{- if .Values.reportRelay.caSecret }}
                 - name: relay-ca
                   mountPath: /etc/report-relay-tls
                   readOnly: true
 {{- end }}
-    {{- if .Values.reportRelay.caSecret }}
-            - name: relay-ca
-              secret:
-                secretName: {{ .Values.reportRelay.caSecret | quote }}
-                items:
-                  - key: {{ .Values.reportRelay.caSecretKey | quote }}
-                    path: ca.crt
-{{- end }}
-            - name: relay-code
-                  mountPath: /opt/report-relay
-                  readOnly: true
               resources:
-{{ toYaml .Values.reportRelay.resources | indent 16 }}
+{{ toYaml .Values.reportRelay.resources | indent 14 }}
 {{- end }}
           containers:
             - name: {{ .Chart.Name }}
@@ -126,6 +118,14 @@ spec:
             - name: relay-code
               configMap:
                 name: {{ include "kube-hunter.fullname" . }}-relay
+{{- if .Values.reportRelay.caSecret }}
+            - name: relay-ca
+              secret:
+                secretName: {{ .Values.reportRelay.caSecret | quote }}
+                items:
+                  - key: {{ .Values.reportRelay.caSecretKey | quote }}
+                    path: ca.crt
+{{- end }}
 {{- end }}
     {{- with .Values.nodeSelector }}
           nodeSelector:
