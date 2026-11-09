@@ -64,8 +64,10 @@ RUN hugo --config config-local.toml
 ######################
 ## Stage 3: DELIVER ##
 ######################
-FROM node:20-alpine
+FROM node:22-alpine
 
+# NestJS runtime moves to supported Node 22 LTS. The legacy Angular 17 build
+# remains on its supported Node 20 toolchain until the Angular major upgrade.
 # Make the app directory
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app

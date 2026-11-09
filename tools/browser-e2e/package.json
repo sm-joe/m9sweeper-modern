@@ -1,0 +1,15 @@
+{
+  "name": "m9sweeper-browser-acceptance",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Standalone modern Playwright acceptance tests for the real Angular/NestJS platform",
+  "scripts": {
+    "test": "playwright test --project=chromium",
+    "test:headed": "playwright test --project=chromium --headed",
+    "test:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0"
+  },
+  "engines": {"node": ">=22"}
+}
