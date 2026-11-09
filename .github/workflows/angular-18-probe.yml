@@ -21,6 +21,9 @@ jobs:
           node-version: '20'
           cache: npm
           cache-dependency-path: platform/dash/frontend/package-lock.json
+      - name: Install backend DTO dependencies required by Angular compilation
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+        working-directory: platform/dash/backend
       - name: Attempt first official Angular CLI and Material major migrations in disposable workspace
         id: migration
         continue-on-error: true
