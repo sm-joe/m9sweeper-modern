@@ -65,7 +65,7 @@ spec:
               readOnly: true
 {{- end }}
           resources:
-{{ toYaml .Values.reportRelay.resources | indent 10 }}
+{{ toYaml .Values.reportRelay.resources | indent 12 }}
 {{- end }}
       containers:
         - name: {{ .Chart.Name }}
