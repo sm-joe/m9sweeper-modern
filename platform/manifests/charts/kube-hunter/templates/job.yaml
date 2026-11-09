@@ -46,13 +46,30 @@ spec:
           env:
             - name: REPORT_RELAY_TARGET_URL
               value: {{ .Values.reportRelay.targetUrl | quote }}
-            - name: REPORT_RELAY_API_KEY
+  {{- if .Values.reportRelay.caSecret }}
+          - name: SSL_CERT_FILE
+            value: /etc/report-relay-tls/ca.crt
+{{- end }}
+          - name: REPORT_RELAY_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.reportRelay.existingSecret | quote }}
                   key: {{ .Values.reportRelay.secretKey | quote }}
           volumeMounts:
-            - name: relay-code
+{{- if .Values.reportRelay.caSecret }}
+            - name: relay-ca
+              mountPath: /etc/report-relay-tls
+              readOnly: true
+{{- end }}
+    {{- if .Values.reportRelay.caSecret }}
+        - name: relay-ca
+          secret:
+            secretName: {{ .Values.reportRelay.caSecret | quote }}
+            items:
+              - key: {{ .Values.reportRelay.caSecretKey | quote }}
+                path: ca.crt
+{{- end }}
+        - name: relay-code
               mountPath: /opt/report-relay
               readOnly: true
           resources:
