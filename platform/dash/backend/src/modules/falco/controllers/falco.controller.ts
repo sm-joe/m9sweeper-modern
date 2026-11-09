@@ -214,7 +214,7 @@ export class FalcoController {
     }
 
     @Post('/rules')
-    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
+    @AllowedAuthorityLevels(Authority.SUPER_ADMIN)
     @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async createFalcoRule(
       @Param('clusterId') clusterId: number,
@@ -231,7 +231,7 @@ export class FalcoController {
     }
 
     @Put('/rules/:ruleId')
-    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
+    @AllowedAuthorityLevels(Authority.SUPER_ADMIN)
     @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async updateFalcoRule(
       @Param('clusterId') clusterId: number,
@@ -245,7 +245,7 @@ export class FalcoController {
     }
 
     @Delete('/rules/:ruleId')
-    @AllowedAuthorityLevels( Authority.SUPER_ADMIN, Authority.ADMIN )
+    @AllowedAuthorityLevels(Authority.SUPER_ADMIN)
     @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async deleteFalcoRule(
       @Param('clusterId') clusterId: number,
