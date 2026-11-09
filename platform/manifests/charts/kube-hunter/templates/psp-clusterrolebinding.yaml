@@ -9,6 +9,6 @@ roleRef:
   name: {{ .Chart.Name }}
 subjects:
   - kind: ServiceAccount
-    name: {{ include "kube-hunter.name" . }}-sa
+    name: {{ include "kube-hunter.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 {{- end }}
