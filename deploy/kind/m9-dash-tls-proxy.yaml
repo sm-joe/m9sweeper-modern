@@ -1,0 +1,80 @@
+# Kind-only staging TLS proxy for the existing Docker-connected Dash container.
+# Requires a TLS Secret named m9-dash-tls with tls.crt and tls.key.
+# Never expose this Service publicly or assume the upstream HTTP hop is encrypted.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: m9-dash-tls-proxy-config
+  namespace: m9sweeper-system
+data:
+  Caddyfile: |
+    https://m9-dash-tls.m9sweeper-system.svc.cluster.local:8443 {
+      tls /etc/caddy/tls/tls.crt /etc/caddy/tls/tls.key
+      reverse_proxy {$DASH_HTTP_UPSTREAM}
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: m9-dash-tls-proxy
+  namespace: m9sweeper-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: m9-dash-tls-proxy
+  template:
+    metadata:
+      labels:
+        app: m9-dash-tls-proxy
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: proxy
+          image: caddy:2.10.2-alpine
+          command: ["caddy", "run", "--config", "/etc/caddy/config/Caddyfile", "--adapter", "caddyfile"]
+          env:
+            - name: DASH_HTTP_UPSTREAM
+              value: "172.24.0.3:3000"
+          ports:
+            - containerPort: 8443
+              name: https
+          volumeMounts:
+            - name: config
+              mountPath: /etc/caddy/config
+              readOnly: true
+            - name: tls
+              mountPath: /etc/caddy/tls
+              readOnly: true
+          readinessProbe:
+            tcpSocket:
+              port: https
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 25m
+              memory: 48Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+      volumes:
+        - name: config
+          configMap:
+            name: m9-dash-tls-proxy-config
+        - name: tls
+          secret:
+            secretName: m9-dash-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: m9-dash-tls
+  namespace: m9sweeper-system
+spec:
+  type: ClusterIP
+  selector:
+    app: m9-dash-tls-proxy
+  ports:
+    - name: https
+      port: 443
+      targetPort: https
