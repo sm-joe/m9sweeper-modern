@@ -52,6 +52,10 @@ dash:
 
   # values that will be used to initialize the Dash database during installation
   init:
+    # Pre-created Secret: CLUSTER_API_KEY, SUPER_ADMIN_EMAIL,
+    # SUPER_ADMIN_PASSWORD, TRAWLER_API_KEY, KUBE_HUNTER_API_KEY,
+    # KUBE_BENCH_API_KEY and FALCO_API_KEY.
+    existingSecret: ""
     clusterGroupName: default-cluster-group
     clusterName: default-cluster
     superAdminEmail: ""

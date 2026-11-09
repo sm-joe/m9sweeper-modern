@@ -28,3 +28,7 @@ Before running, install an existing release in an isolated namespace labelled `m
 `M9_STAGING_HELM_TEST=YES NAMESPACE=m9-rc-staging RELEASE=m9-staging VALUES_FILE=/secure/path/values.yaml bash scripts/verify-helm-rollback-staging-linux.sh`
 
 The script refuses the `m9sweeper-system` namespace; it upgrades the existing release, rolls back to its prior revision, compares PVC names and volume bindings and prints workload status. It does not prove database contents, schema rollback or scanner connectivity automatically; verify those after the drill using the Trivy/restore checks. Never use it on the user's working Kind deployment.
+
+## External bootstrap Secret support
+
+The umbrella Helm chart now accepts dash.init.existingSecret, in addition to dash.existingSecret and trawler.existingSecret. With all three set, Helm no longer requires the bootstrap account/password or JWT/trawler API key to be placed in release values and the init Job reads secrets through envFrom. Create a restricted Kubernetes Secret containing CLUSTER_API_KEY, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD, TRAWLER_API_KEY, KUBE_HUNTER_API_KEY, KUBE_BENCH_API_KEY and FALCO_API_KEY. The Dash and trawler external Secrets must include their normal complete runtime environment variables. Verify Secret creation, controlled key rotation, init sequencing and full Helm staging lifecycle before production. Existing inline values remain supported for legacy test environments only.

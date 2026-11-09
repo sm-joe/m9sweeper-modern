@@ -98,6 +98,9 @@ grafana:
 replicaCount: 1
 
 init:
+  # Optional pre-created Secret containing bootstrap credentials. When set,
+  # sensitive init values are not rendered in the Job's env or Helm values.
+  existingSecret: ""
   clusterGroupName: ""
   clusterName: ""
   clusterApiKey: ""
