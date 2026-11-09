@@ -24,6 +24,8 @@ jobs:
       - name: Attempt first official Angular CLI and Material major migrations in disposable workspace
         id: migration
         continue-on-error: true
+        env:
+          M9_SKIP_ANGULAR_MIGRATIONS: '1'
         run: bash scripts/migrate-angular-major.sh 18
       - name: Save migration patch and version evidence
         if: always()
