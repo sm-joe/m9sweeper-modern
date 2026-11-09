@@ -78,7 +78,7 @@ npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
   "@angular/language-service@$target" "@angular-devkit/build-angular@$target" \
   "@angular-builders/custom-webpack@$target" "typescript@$ts_version"
 for pkg in @angular/cli @angular/core @angular/material; do
-  ./node_modules/.bin/ng update "$pkg" --migrate-only --from="$current" --to="$target"
+  ./node_modules/.bin/ng update "$pkg" --migrate-only --from="$current" --to="$target" --allow-dirty
 done
 npm run build:prod
 printf '\nPASS: Angular %s production build. Review migrations and commit generated lockfile.\n' "$target"
