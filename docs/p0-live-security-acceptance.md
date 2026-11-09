@@ -89,3 +89,65 @@ The follow-up branch `security/p0-falco-rules-key-lifecycle` closes two source-l
 **Live acceptance still required:** revoke the secure-probe key and prove a new report is rejected with no DB row; disable/deactivate the scanner user and repeat; create user A with access to cluster A but not B and attempt every B ID report/event and global Falco policy modification; verify ordinary ADMIN cannot create, update or delete a global Falco rule while SUPER_ADMIN can. For read-only role, check that a scoped list shows only rules applicable to that cluster. Ensure the existing functioning scanner installation remains unaffected.
 
 **No claim of verification:** these changes do not complete the live SQL/Angular report-persistence confirmation, cross-cluster tests, restore/rollback or browser acceptance gate.
+
+
+## Safe missing/invalid scanner key test using an isolated Kind Pod
+
+This test sends two deliberately unauthenticated **empty** kube-hunter submissions, using only a trusted public CA. No valid scanner key is passed to Kubernetes, the shell, or logs. It validates only negative authentication, not credential revocation or cross-cluster grant enforcement.
+
+From Windows PowerShell after setting `$clusterId` to the actual numeric m9sweeper cluster ID:
+
+```powershell
+cd D:\AWS\repos\m9sweeper-modern
+$clusterId = 0 # Replace with actual positive numeric cluster ID
+if ($clusterId -le 0) { throw "Set the actual cluster ID" }
+$targetUrl = "https://m9-dash-tls.m9sweeper-system.svc.cluster.local/api/kubehunter/hunter/$clusterId"
+
+kubectl -n m9sweeper-system create configmap m9-p0-auth-probe-script `
+  --from-file=verify.sh=tools/security/test_kubehunter_live_denials.sh `
+  --dry-run=client -o yaml | kubectl apply -f -
+
+@"
+apiVersion: v1
+kind: Pod
+metadata:
+  name: m9-p0-auth-negative-probe
+  namespace: m9sweeper-system
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  containers:
+    - name: probe
+      image: curlimages/curl:8.11.1
+      command: ["sh", "/scripts/verify.sh"]
+      env:
+        - name: REPORT_URL
+          value: "$targetUrl"
+        - name: CA_FILE
+          value: "/tls/ca.crt"
+      volumeMounts:
+        - name: test-script
+          mountPath: /scripts
+          readOnly: true
+        - name: trusted-ca
+          mountPath: /tls
+          readOnly: true
+  volumes:
+    - name: test-script
+      configMap:
+        name: m9-p0-auth-probe-script
+    - name: trusted-ca
+      secret:
+        secretName: m9-dash-relay-ca
+"@ | kubectl apply -f -
+
+kubectl -n m9sweeper-system wait --for=jsonpath='{.status.phase}'=Succeeded `
+  pod/m9-p0-auth-negative-probe --timeout=120s
+kubectl -n m9sweeper-system logs pod/m9-p0-auth-negative-probe
+kubectl -n m9sweeper-system delete pod m9-p0-auth-negative-probe
+kubectl -n m9sweeper-system delete configmap m9-p0-auth-probe-script
+```
+
+Expected: both missing credentials and invalid `X-API-Key` return 401/403. **Verify database report count did not increase** after these denied requests, and the dashboard has no fabricated new clean report. If the Pod fails, inspect its logs before cleanup.
+
+**Revoked token, disabled account, cross-cluster grants and URL-only legacy-token denial:** test against a staging backend with `SCANNER_REQUIRE_CLUSTER_BINDINGS=true` and `SCANNER_ALLOW_LEGACY_QUERY_KEYS=false`, using isolated test credentials. Never send a live key in a URL or log and do not enable these flags on the existing deployment until all scanners have been migrated and granted.
