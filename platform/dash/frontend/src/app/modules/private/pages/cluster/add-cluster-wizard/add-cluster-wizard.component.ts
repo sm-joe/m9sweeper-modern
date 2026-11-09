@@ -21,6 +21,7 @@ import {ClusterListMenuService} from '../../../menus/services/cluster-list-menu.
 import {BreakpointObserver, Breakpoints} from '@angular/cdk/layout';
 
 @Component({
+  standalone: false,
   selector: 'app-add-cluster-wizard',
   templateUrl: './add-cluster-wizard.component.html',
   styleUrls: ['./add-cluster-wizard.component.scss']

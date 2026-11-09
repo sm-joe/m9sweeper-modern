@@ -20,6 +20,7 @@ import {environment} from '../../../../../../environments/environment.prod';
 import {NgxUiLoaderConfig, NgxUiLoaderService, POSITION, SPINNER} from 'ngx-ui-loader';
 
 @Component({
+  standalone: false,
   selector: 'app-cluster-summary',
   templateUrl: './cluster-summary.component.html',
   styleUrls: ['../../../../../../styles.scss', './cluster-summary.component.scss']

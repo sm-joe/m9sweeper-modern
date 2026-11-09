@@ -10,6 +10,7 @@ import {UserService} from '../../../../../core/services/user.service';
 import {KubeBenchDeleteReportDialogComponent} from './kube-bench-delete-report-dialog/kube-bench-delete-report-dialog.component';
 
 @Component({
+  standalone: false,
   selector: 'app-kube-bench',
   templateUrl: './kube-bench.component.html',
   styleUrls: ['./kube-bench.component.scss']

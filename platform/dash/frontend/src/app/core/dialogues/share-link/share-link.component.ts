@@ -15,6 +15,7 @@ interface ShareLinkData {
 }
 
 @Component({
+  standalone: false,
   selector: 'app-share-link',
   templateUrl: './share-link.component.html',
   styleUrls: ['./share-link.component.scss']

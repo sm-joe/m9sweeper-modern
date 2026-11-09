@@ -10,6 +10,7 @@ import { Router } from '@angular/router';
 import { take } from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-create-image',
   templateUrl: './create-image.component.html',
   styleUrls: ['./create-image.component.scss'],

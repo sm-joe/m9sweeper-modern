@@ -12,6 +12,7 @@ import {NgxUiLoaderService} from 'ngx-ui-loader';
 import {take} from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-login',
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss']

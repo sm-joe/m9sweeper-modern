@@ -14,6 +14,7 @@ import {JwtAuthService} from '../../../../../core/services/jwt-auth.service';
 import {take} from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-api-key-list',
   templateUrl: './api-key-list.component.html',
   styleUrls: ['./api-key-list.component.scss']

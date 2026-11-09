@@ -5,6 +5,7 @@ import { AuthService } from '../../../../core/services/api/auth.service';
 import { NgxUiLoaderService } from 'ngx-ui-loader';
 
 @Component({
+  standalone: false,
   selector: 'app-external-auth-cb',
   templateUrl: './external-auth-cb.component.html',
   styleUrls: ['./external-auth-cb.component.scss']

@@ -14,6 +14,7 @@ import {GatekeeperService} from '../../../../../core/services/gatekeeper.service
 import {IGatekeeperConstraint, IGatekeeperConstraintTemplate} from '../../../../../core/entities/gatekeeper';
 
 @Component({
+  standalone: false,
   selector: 'app-gate-keeper-details',
   templateUrl: './gate-keeper-details.component.html',
   styleUrls: ['./gate-keeper-details.component.scss']

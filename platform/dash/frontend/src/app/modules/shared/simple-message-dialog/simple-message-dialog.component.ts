@@ -7,6 +7,7 @@ interface SimpleMessageDialogData {
 }
 
 @Component({
+  standalone: false,
   selector: 'app-simple-message-dialog',
   templateUrl: './simple-message-dialog.component.html',
   styleUrls: ['./simple-message-dialog.component.scss']

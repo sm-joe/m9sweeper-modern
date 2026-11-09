@@ -5,6 +5,7 @@ import {CommonService} from '../../../../../core/services/common.service';
 import {NgxUiLoaderService} from 'ngx-ui-loader';
 
 @Component({
+  standalone: false,
   selector: 'app-falco-dialog',
   templateUrl: './falco-dialog.component.html',
   styleUrls: ['./falco-dialog.component.scss']

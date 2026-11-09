@@ -16,6 +16,7 @@ import {MatOption} from '@angular/material/core';
 import {IKubesecReport} from '../../../../../core/entities/IKubesecReport';
 
 @Component({
+  standalone: false,
   selector: 'app-kubesec',
   templateUrl: './kubesec.component.html',
   styleUrls: ['./kubesec.component.scss']

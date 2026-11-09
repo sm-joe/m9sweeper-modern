@@ -10,6 +10,7 @@ import {KubeHunterDialogComponent} from './kube-hunter-dialog/kube-hunter-dialog
 import {NgxUiLoaderService} from 'ngx-ui-loader';
 
 @Component({
+  standalone: false,
   selector: 'app-kube-hunter',
   templateUrl: './kube-hunter.component.html',
   styleUrls: ['./kube-hunter.component.scss']

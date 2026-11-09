@@ -12,6 +12,7 @@ import {IConstraintSpecMatchKinds, IGatekeeperConstraint} from '../../../../../c
 
 
 @Component({
+  standalone: false,
   selector: 'app-add-template-constraint',
   templateUrl: './add-template-constraint.component.html',
   styleUrls: ['./add-template-constraint.component.scss', '../../../../../../styles.scss']

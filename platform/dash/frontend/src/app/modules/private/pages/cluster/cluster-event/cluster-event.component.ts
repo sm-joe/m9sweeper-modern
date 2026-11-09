@@ -4,6 +4,7 @@ import { FormatDate } from '../../../../shared/format-date/format-date';
 import { IClusterEvent } from '../../../../../core/entities/IClusterEvent';
 
 @Component({
+  standalone: false,
   selector: 'app-cluster-event',
   templateUrl: './cluster-event.component.html',
   styleUrls: ['./cluster-event.component.scss']

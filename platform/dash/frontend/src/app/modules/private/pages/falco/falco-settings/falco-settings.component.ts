@@ -10,6 +10,7 @@ import {MatRadioChange} from '@angular/material/radio';
 import {FormArray, FormBuilder, FormGroup} from '@angular/forms';
 
 @Component({
+  standalone: false,
   selector: 'app-falco-settings',
   templateUrl: './falco-settings.component.html',
   styleUrls: ['./falco-settings.component.scss']

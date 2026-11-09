@@ -10,6 +10,7 @@ import { take } from 'rxjs/operators';
 import {Location} from '@angular/common';
 
 @Component({
+  standalone: false,
   selector: 'app-create-user',
   templateUrl: './create-user.component.html',
   styleUrls: ['./create-user.component.scss']

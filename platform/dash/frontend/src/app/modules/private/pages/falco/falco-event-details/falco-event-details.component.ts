@@ -12,6 +12,7 @@ import {ChartSizeService} from '../../../../../core/services/chart-size.service'
 import {UtilService} from '../../../../../core/services/util.service';
 
 @Component({
+  standalone: false,
   selector: 'app-falco-event-details',
   templateUrl: './falco-event-details.component.html',
   styleUrls: ['./falco-event-details.component.scss']

@@ -16,6 +16,7 @@ import {JwtAuthService} from '../../../../../core/services/jwt-auth.service';
 
 
 @Component({
+  standalone: false,
   selector: 'app-cluster-info',
   templateUrl: './cluster-info.component.html',
   styleUrls: ['./cluster-info.component.scss']

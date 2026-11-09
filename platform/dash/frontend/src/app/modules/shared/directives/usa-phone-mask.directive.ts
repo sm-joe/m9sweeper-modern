@@ -6,6 +6,7 @@ import { Subject } from 'rxjs';
 
 // adapted from https://stackblitz.com/edit/angular-phone-mask-directive
 @Directive({
+  standalone: false,
   selector: '[USAPhoneMask]'
 })
 export class USAPhoneMaskDirective implements OnInit, OnDestroy {

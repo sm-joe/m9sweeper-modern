@@ -9,6 +9,7 @@ import {take} from 'rxjs/operators';
 
 
 @Component({
+  standalone: false,
   selector: 'app-cluster-group-create',
   templateUrl: './cluster-group-create.component.html',
   styleUrls: ['./cluster-group-create.component.scss']

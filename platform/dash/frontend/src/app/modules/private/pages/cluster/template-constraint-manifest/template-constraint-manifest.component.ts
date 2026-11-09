@@ -4,6 +4,7 @@ import {IGatekeeperConstraint} from '../../../../../core/entities/gatekeeper';
 import {AlertService} from '../../../../../core/services/alert.service';
 
 @Component({
+  standalone: false,
   selector: 'app-template-constraint-manifest',
   templateUrl: './template-constraint-manifest.component.html',
   styleUrls: ['./template-constraint-manifest.component.scss']

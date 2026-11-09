@@ -11,6 +11,7 @@ import {ClusterInfoMenuService} from './services/cluster-info-menu.service';
 
 
 @Component({
+  standalone: false,
   selector: 'app-menu-component',
   templateUrl: './menu.component.html',
   styleUrls: ['./menu.component.scss']

@@ -6,6 +6,7 @@ import {animate, state, style, transition, trigger} from '@angular/animations';
 import {IKubeBenchLog} from '../../../../../../core/entities/IKubeBenchReport';
 
 @Component({
+  standalone: false,
   selector: 'app-kube-bench-report-details',
   templateUrl: './kube-bench-report-details.component.html',
   styleUrls: ['./kube-bench-report-details.component.scss'],

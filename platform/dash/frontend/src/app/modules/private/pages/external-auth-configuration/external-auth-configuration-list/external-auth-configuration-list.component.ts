@@ -10,6 +10,7 @@ import {take} from 'rxjs/operators';
 import {environment} from '../../../../../../environments/environment';
 
 @Component({
+  standalone: false,
   selector: 'app-external-auth-configuration-list',
   templateUrl: './external-auth-configuration-list.component.html',
   styleUrls: ['./external-auth-configuration-list.component.scss']

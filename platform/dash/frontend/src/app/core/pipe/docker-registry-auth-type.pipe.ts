@@ -1,7 +1,8 @@
 import { Pipe, PipeTransform } from '@angular/core';
 import { DockerRegistryAuthTypes } from '../enum/DockerRegistryAuthTypes';
 
-@Pipe({name: 'dockerRegistryAuthType'})
+@Pipe({
+  standalone: false,name: 'dockerRegistryAuthType'})
 export class DockerRegistryAuthTypePipe implements PipeTransform {
   constructor() {}
 

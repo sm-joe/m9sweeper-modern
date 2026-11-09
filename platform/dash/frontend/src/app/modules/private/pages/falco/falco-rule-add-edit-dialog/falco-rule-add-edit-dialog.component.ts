@@ -13,6 +13,7 @@ import {ICluster} from '../../../../../core/entities/ICluster';
 import {forkJoin, of} from 'rxjs';
 
 @Component({
+  standalone: false,
   selector: 'app-falco-rule-add-edit-dialog',
   templateUrl: './falco-rule-add-edit-dialog.component.html',
   styleUrls: ['./falco-rule-add-edit-dialog.component.scss']

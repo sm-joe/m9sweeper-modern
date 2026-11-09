@@ -13,6 +13,7 @@ import {Breadcrumb} from '../../../../shared/components/breadcrumbs/breadcrumb.i
 
 
 @Component({
+  standalone: false,
   selector: 'app-kubernetes-pods',
   templateUrl: './kubernetes-pods.component.html',
   styleUrls: [

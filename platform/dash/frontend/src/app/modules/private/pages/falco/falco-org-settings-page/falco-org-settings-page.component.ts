@@ -12,6 +12,7 @@ import {JwtAuthService} from '../../../../../core/services/jwt-auth.service';
 import {AlertDialogComponent} from '../../../../shared/alert-dialog/alert-dialog.component';
 
 @Component({
+  standalone: false,
   selector: 'app-falco-org-settings-page',
   templateUrl: './falco-org-settings-page.component.html',
   styleUrls: ['./falco-org-settings-page.component.scss']

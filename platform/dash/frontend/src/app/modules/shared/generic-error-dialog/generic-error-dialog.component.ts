@@ -2,6 +2,7 @@ import {Component, Inject, OnInit} from '@angular/core';
 import {MAT_DIALOG_DATA, MatDialogRef} from '@angular/material/dialog';
 
 @Component({
+  standalone: false,
   selector: 'app-generic-error-dialog',
   templateUrl: './generic-error-dialog.component.html',
   styleUrls: ['./generic-error-dialog.component.scss']

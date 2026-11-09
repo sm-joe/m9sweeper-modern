@@ -3,6 +3,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { IImageScanResultIssue } from '../../../../../core/entities/IImageScanResultIssue';
 
 @Component({
+  standalone: false,
   selector: 'app-image-issue-more-data-dialog',
   templateUrl: './image-issue-more-data-dialog.component.html',
   styleUrls: ['./image-issue-more-data-dialog.component.scss']

@@ -19,6 +19,7 @@ import { faBars } from '@fortawesome/free-solid-svg-icons';
 import {BreakpointObserver, Breakpoints} from '@angular/cdk/layout';
 
 @Component({
+  standalone: false,
   selector: 'app-private',
   templateUrl: './private.component.html',
   styleUrls: ['./private.component.scss']

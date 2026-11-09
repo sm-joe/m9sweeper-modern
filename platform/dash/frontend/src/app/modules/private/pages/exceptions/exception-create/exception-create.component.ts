@@ -23,6 +23,7 @@ import {CustomValidatorService} from '../../../../../core/services/custom-valida
 import {GatekeeperService} from '../../../../../core/services/gatekeeper.service';
 
 @Component({
+  standalone: false,
   selector: 'exception-create',
   templateUrl: './exception-create.component.html',
   styleUrls: ['./exception-create.component.scss']

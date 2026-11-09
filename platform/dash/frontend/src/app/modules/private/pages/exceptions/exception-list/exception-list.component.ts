@@ -12,6 +12,7 @@ import {AlertDialogComponent} from '../../../../shared/alert-dialog/alert-dialog
 import {take} from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-policy-list',
   templateUrl: './exception-list.component.html',
   styleUrls: ['./exception-list.component.scss']

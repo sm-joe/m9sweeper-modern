@@ -15,6 +15,7 @@ import {VulnerabilitySeverityAbbreviations} from '../../../../../core/enum/Vulne
 
 
 @Component({
+  standalone: false,
   selector: 'app-running-vulnerabilities',
   templateUrl: './running-vulnerabilities.component.html',
   styleUrls: ['./running-vulnerabilities.component.scss']

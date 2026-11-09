@@ -20,6 +20,7 @@ import {Breadcrumb} from '../../../../shared/components/breadcrumbs/breadcrumb.i
 
 
 @Component({
+  standalone: false,
   selector: 'app-kubernetes-pod-details',
   templateUrl: './kubernetes-pod-details.component.html',
   styleUrls: ['./kubernetes-pod-details.component.scss']

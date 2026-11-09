@@ -7,6 +7,7 @@ import { Pipe, PipeTransform } from '@angular/core';
  * elements: Will only display this many elements (takes from start of array)
  * */
 @Pipe({
+  standalone: false,
   name: 'arrayText'
 })
 export class ArrayTextPipe implements PipeTransform {

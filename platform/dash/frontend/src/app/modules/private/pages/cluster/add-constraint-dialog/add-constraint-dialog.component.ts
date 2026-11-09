@@ -20,6 +20,7 @@ interface IGSelectedTemplate {
 }
 
 @Component({
+  standalone: false,
   selector: 'app-add-constraint-dialog',
   templateUrl: './add-constraint-dialog.component.html',
   styleUrls: ['./add-constraint-dialog.component.scss']

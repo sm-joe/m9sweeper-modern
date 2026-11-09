@@ -11,6 +11,7 @@ import {Location} from '@angular/common';
 import {take} from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-api-key-form',
   templateUrl: './api-key-form.component.html',
   styleUrls: ['./api-key-form.component.scss']

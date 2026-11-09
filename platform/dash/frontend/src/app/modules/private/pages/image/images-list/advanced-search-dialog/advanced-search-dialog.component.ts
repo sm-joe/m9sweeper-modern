@@ -5,6 +5,7 @@ import {AlertService} from 'src/app/core/services/alert.service';
 import {MatCheckboxChange} from '@angular/material/checkbox';
 
 @Component({
+  standalone: false,
   selector: 'app-advanced-search-dialog',
   templateUrl: './advanced-search-dialog.component.html',
   styleUrls: ['./advanced-search-dialog.component.scss']

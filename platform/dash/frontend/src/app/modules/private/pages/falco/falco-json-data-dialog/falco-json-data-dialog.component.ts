@@ -7,6 +7,7 @@ import {IFalcoLog} from '../../../../../core/entities/IFalcoLog';
 
 
 @Component({
+  standalone: false,
   selector: 'app-falco-json-data-dialog',
   templateUrl: './falco-json-data-dialog.component.html',
   styleUrls: ['./falco-json-data-dialog.component.scss']

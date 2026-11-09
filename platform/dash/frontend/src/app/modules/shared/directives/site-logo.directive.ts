@@ -3,6 +3,7 @@ import {AppSettingsService} from '../../../core/services/app-settings.service';
 import {Subscription} from 'rxjs';
 
 @Directive({
+  standalone: false,
   selector: '[appSiteLogo]'
 })
 export class SiteLogoDirective implements OnInit, OnDestroy {

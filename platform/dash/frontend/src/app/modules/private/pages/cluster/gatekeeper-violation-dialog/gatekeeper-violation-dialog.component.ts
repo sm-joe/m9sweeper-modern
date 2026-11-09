@@ -3,6 +3,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { IGatekeeperConstraintViolation } from '../../../../../core/entities/IGateKeeperConstraint';
 
 @Component({
+  standalone: false,
   selector: 'app-gatekeeper-violation-dialog',
   templateUrl: './gatekeeper-violation-dialog.component.html',
   styleUrls: ['./gatekeeper-violation-dialog.component.scss']

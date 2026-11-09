@@ -8,6 +8,7 @@ import { MatDialogRef } from '@angular/material/dialog';
 import {IServerResponse} from '../../../../../core/entities/IServerResponse';
 
 @Component({
+  standalone: false,
   selector: 'app-update-user-profile',
   templateUrl: './update-user-profile.component.html',
   styleUrls: ['./update-user-profile.component.scss']

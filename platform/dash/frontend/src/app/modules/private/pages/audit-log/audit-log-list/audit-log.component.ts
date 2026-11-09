@@ -10,6 +10,7 @@ import {CsvService} from '../../../../../core/services/csv.service';
 import {AlertService} from 'src/app/core/services/alert.service';
 
 @Component({
+  standalone: false,
   selector: 'app-audit-log',
   templateUrl: './audit-log.component.html',
   styleUrls: ['./audit-log.component.scss']

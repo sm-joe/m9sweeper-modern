@@ -13,6 +13,7 @@ import {AuthenticationType} from '../../../../../core/enum/AuthenticationType';
 import {AuthorityId} from '../../../../../core/enum/Authority';
 
 @Component({
+  standalone: false,
   selector: 'app-external-auth-configuration-create',
   templateUrl: './external-auth-configuration-create.component.html',
   styleUrls: ['./external-auth-configuration-create.component.scss']

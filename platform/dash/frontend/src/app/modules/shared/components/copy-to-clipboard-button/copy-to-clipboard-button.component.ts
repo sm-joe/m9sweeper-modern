@@ -6,6 +6,7 @@ import {BreakpointObserver, Breakpoints} from '@angular/cdk/layout';
 import {map, takeUntil} from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-copy-to-clipboard-button',
   templateUrl: './copy-to-clipboard-button.component.html',
 })

@@ -7,6 +7,7 @@ import { UserService } from '../../../../core/services/user.service';
 import { CustomValidators } from '../../../private/form-validator/custom-validators';
 
 @Component({
+  standalone: false,
   selector: 'app-change-password',
   templateUrl: './save-password.component.html',
   styleUrls: ['./save-password.component.scss']

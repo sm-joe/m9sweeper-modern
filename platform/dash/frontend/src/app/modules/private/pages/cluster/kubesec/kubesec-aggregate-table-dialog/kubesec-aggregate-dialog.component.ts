@@ -4,6 +4,7 @@ import {KubesecDialogComponent} from '../kubesec-dialog/kubesec-dialog.component
 import {MatTableDataSource} from '@angular/material/table';
 
 @Component({
+  standalone: false,
   selector: 'app-kubesec-aggregate-dialog',
   templateUrl: './kubesec-aggregate-dialog.component.html',
   styleUrls: ['./kubesec-aggregate-dialog.component.scss']

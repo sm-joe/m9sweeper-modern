@@ -3,6 +3,7 @@ import {NavigationEnd, Router} from '@angular/router';
 import {filter, pairwise} from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-datepicker-component',
   templateUrl: './datepicker.component.html',
   styleUrls: [
