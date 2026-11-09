@@ -118,6 +118,19 @@ jobs:
           }
           console.log('PASS: frontend browser test command points to Playwright');
           JS
+      - name: Diagnose resolved Material Sass dependencies
+        run: |
+          node - <<'JS'
+          const fs = require('node:fs');
+          for (const file of [
+            'node_modules/@material/dom/_dom.scss',
+            'node_modules/@material/textfield/_text-field.scss'
+          ]) {
+            console.log((fs.existsSync(file) ? 'FOUND ' : 'MISSING ') + file);
+          }
+          const pkg = require('./node_modules/@material/dom/package.json');
+          console.log('Resolved @material/dom version:', pkg.version);
+          JS
       - name: Build original Angular application with modernized routes and layout
         run: npm run build:prod
   helm-charts:
