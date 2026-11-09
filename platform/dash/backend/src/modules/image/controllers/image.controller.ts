@@ -168,6 +168,18 @@ export class ImageController {
         );
     }
 
+    @Get(':clusterId/images/:imageId/scan-run/latest')
+    @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
+    async getLatestImageScanRun(@Param('clusterId') clusterId: number,
+                                @Param('imageId') imageId: number) {
+        if (![clusterId, imageId].every(value => /^[1-9][0-9]*$/.test(String(value)) &&
+              Number.isSafeInteger(Number(value)))) {
+            throw new BadRequestException('Valid cluster/image IDs required');
+        }
+        return this.imageService.getLatestScanRun(+clusterId, +imageId);
+    }
+
     @Get(':clusterId/images/:imageId')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
     @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)

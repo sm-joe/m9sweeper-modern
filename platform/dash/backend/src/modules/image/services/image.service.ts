@@ -296,6 +296,13 @@ export class ImageService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
+    async getLatestScanRun(clusterId: number, imageId: number) {
+        if (!await this.getImageByImageId(clusterId, imageId)) {
+            throw new HttpException('Image not found for cluster', HttpStatus.NOT_FOUND);
+        }
+        return (await this.imageDao.getLatestScanRun(clusterId, imageId)) || null;
+    }
+
     async getScanRun(id: string) {
         return this.imageDao.getScanRun(id);
     }

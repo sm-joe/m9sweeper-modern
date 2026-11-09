@@ -13,6 +13,23 @@ describe('Trivy report ingestion security', () => {
     controller = new ImageController(imageService, {} as any, {} as any, {} as any);
   });
 
+  it('shows latest durable scan failure for authorized cluster and image', async () => {
+    imageService.getLatestScanRun = jest.fn().mockResolvedValue({
+      id: 'run-id', status: 'failed', failure_reason: 'Scan exhausted retries'
+    });
+    await expect(controller.getLatestImageScanRun(9, 22)).resolves.toMatchObject({
+      status: 'failed', failure_reason: 'Scan exhausted retries'
+    });
+    expect(imageService.getLatestScanRun).toHaveBeenCalledWith(9, 22);
+  });
+
+  it('rejects invalid scan scope before looking up status', async () => {
+    imageService.getLatestScanRun = jest.fn();
+    await expect(controller.getLatestImageScanRun('bad' as any, 22))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(imageService.getLatestScanRun).not.toHaveBeenCalled();
+  });
+
   it('rejects a missing report before reading or writing image data', async () => {
     await expect(controller.saveImageScanResults(9, 22, undefined as any))
       .rejects.toBeInstanceOf(BadRequestException);

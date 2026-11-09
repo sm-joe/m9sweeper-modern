@@ -53,3 +53,7 @@ The Java ScanRunner now makes scanner failures sticky across every enabled scann
 ## Disposable CI webhook positive integration evidence
 
 The full runtime smoke test now exercises an isolated test cluster in the ephemeral CI PostgreSQL database, posts a header-authenticated kube-hunter report and Falco event to the actual NestJS endpoints, and verifies exactly one new report row per scanner associated with that cluster. The same run already checks that unauthenticated/invalid requests cannot add reports. Test credentials are loaded from CI's generated private .env and never printed. Passing this check still does **not** prove live Kind Falco kernel event forwarding, the Java RabbitMQ worker's vulnerability scan, or Angular visual acceptance.
+
+## Trivy scan lifecycle and recovery tranche
+
+Added a cluster-scoped latest scan-run API, an Angular status/failure presentation and failed-run null safety. Added staging-only real RabbitMQ/Java Trivy orchestration, a read-only ledger/policy/CVE consistency checker, and a non-destructive PostgreSQL backup/scratch-restore drill. Automated unit/build/CI success is required before merge; the real staging workflow and browser inspection are separately required before declaring v1.0 production-ready. These tools never modify the existing Kind or Compose deployment unless explicitly launched on it; use a disposable staging host only.

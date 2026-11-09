@@ -459,6 +459,14 @@ export class ImageDao {
             .update({status: 'failed', failure_reason: reason.slice(0, 500), updated_at: Date.now()});
     }
 
+    async getLatestScanRun(clusterId: number, imageId: number) {
+        const knex = await this.databaseService.getConnection();
+        return knex('image_scan_runs')
+            .select('id', 'status', 'compliant', 'failure_reason', 'created_at', 'updated_at')
+            .where({cluster_id: clusterId, image_id: imageId})
+            .orderBy('created_at', 'desc').first();
+    }
+
     async getScanRun(id: string): Promise<{
         id: string; cluster_id: number; image_id: number;
         status: string; compliant: boolean | null

@@ -66,3 +66,12 @@ export interface IImageScanCount {
   count: number;
   date: string;
 }
+
+export interface IImageScanRun {
+  id: string;
+  status: 'queued' | 'published' | 'processing' | 'completed' | 'failed';
+  compliant: boolean | null;
+  failure_reason: string | null;
+  created_at: number;
+  updated_at: number;
+}

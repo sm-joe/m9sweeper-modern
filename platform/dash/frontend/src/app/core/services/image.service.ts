@@ -1,7 +1,7 @@
 import { HttpClient , HttpParams} from '@angular/common/http';
 import { Injectable, OnDestroy } from '@angular/core';
 import {Observable, Subject, timer} from 'rxjs';
-import {ImagesAndCount, IImage, IScanResult, IImageScanData} from '../entities/IImage';
+import {ImagesAndCount, IImage, IScanResult, IImageScanData, IImageScanRun} from '../entities/IImage';
 import { IServerResponse } from '../entities/IServerResponse';
 import {MatSort} from '@angular/material/sort';
 import { map, switchMap, takeUntil } from 'rxjs/operators';
@@ -180,6 +180,11 @@ export class ImageService implements OnDestroy{
 
   getNamespaceByImageHash(imageHash: string): Observable<IServerResponse<{namespace: string }[]>> {
     return this.httpClient.get(`api/clusters/namespace/by/${imageHash}`);
+  }
+
+  getLatestImageScanRun(clusterId: number, imageId: number): Observable<IServerResponse<IImageScanRun | null>> {
+    return this.httpClient.get<IServerResponse<IImageScanRun | null>>(
+      `/api/clusters/${clusterId}/images/${imageId}/scan-run/latest`);
   }
 
   getImageScanQueueStatus(imageId: number): Observable<boolean> {
