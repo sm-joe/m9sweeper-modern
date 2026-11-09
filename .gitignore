@@ -3,3 +3,6 @@ private-backups/
 *.dump
 .env
 .env.local
+
+# Short-lived Kind-only local TLS private keys and CA
+deploy/kind/private-tls/
