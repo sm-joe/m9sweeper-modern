@@ -54,3 +54,15 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "imagePullSecret" }}
 {{- printf "{\"auths\": {\"%s\": {\"auth\": \"%s\"}}}" (required "A valid .Values.image.registry entry required" .Values.image.registry) (printf "%s:%s" (required "A valid .Values.image.credentials.username entry required" .Values.image.credentials.username) (required "A valid .Values.image.credentials.password entry required" .Values.image.credentials.password) | b64enc) | b64enc }}
 {{- end }}
+
+{{/*
+Preserve historical SA for the existing kube-hunter release, but isolate
+parallel staging releases to prevent Helm resource ownership conflicts.
+*/}}
+{{- define "kube-hunter.serviceAccountName" -}}
+{{- if eq .Release.Name "kube-hunter" -}}
+{{ include "kube-hunter.name" . }}-sa
+{{- else -}}
+{{ include "kube-hunter.fullname" . }}-sa
+{{- end -}}
+{{- end -}}
