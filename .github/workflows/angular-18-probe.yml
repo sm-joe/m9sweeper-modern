@@ -29,7 +29,9 @@ jobs:
         working-directory: platform/dash/backend
       - name: Identify frontend baseline
         id: baseline
-        run: echo "major=$(node -p \"require('./platform/dash/frontend/package.json').dependencies['@angular/core'].match(/[0-9]+/)[0]\")" >> "$GITHUB_OUTPUT"
+        run: |
+          major="$(node -p 'require("./platform/dash/frontend/package.json").dependencies["@angular/core"].match(/[0-9]+/)[0]')"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
       - name: Compile Angular 18 dependencies and legacy Material theme in disposable workspace
         id: migration
         if: steps.baseline.outputs.major == '17'
