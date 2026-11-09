@@ -39,10 +39,15 @@ export class KubeHunterController {
         }
         clusterId = parsedClusterId;
 
-        // @TODO: use LOGGED_IN_USER
+        // External scanner credentials must be rejected before any persistence
+        // or database identity lookup. Do not log or echo the supplied secret.
+        const scannerKey = selectScannerIngestKey(headerKey, key);
+        if (!scannerKey.trim()) {
+            throw new HttpException('Missing kube-hunter API key', HttpStatus.UNAUTHORIZED);
+        }
 
-        // find user authority by user's apikey
-        const currentUserAuthObj = await this.userDao.loadUserByApiKey(selectScannerIngestKey(headerKey, key));
+        // find user authority by user's API key
+        const currentUserAuthObj = await this.userDao.loadUserByApiKey(scannerKey);
         if (!Array.isArray(currentUserAuthObj) || currentUserAuthObj.length === 0 || !this.authService.checkAuthority(currentUserAuthObj[0].authorities, [AuthorityId.KUBEHUNTER])) {
             this.logger.log({label: 'User is unauthorized; skip saving KH scan report', data: { clusterId }}, 'KubeHunterController.saveKubeHunterReport');
             throw new HttpException('Unauthorized  - log may not have been saved', HttpStatus.UNAUTHORIZED);
