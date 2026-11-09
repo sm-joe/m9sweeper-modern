@@ -96,6 +96,10 @@ jobs:
         working-directory: platform/dash/backend
       - name: Install locked Angular dependencies
         run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Validate vendored AJSF Flex Layout runtime compatibility dependency
+        run: |
+          node -e "const pkg = require('./package.json'); if (pkg.dependencies['@angular/flex-layout'] !== '14.0.0-beta.41') process.exit(1)"
+          node -e "require.resolve('@angular/flex-layout'); require.resolve('@angular/flex-layout/core'); require.resolve('@angular/flex-layout/flex')"
       - name: Build original Angular application with modernized routes and layout
         run: npm run build:prod
   helm-charts:
