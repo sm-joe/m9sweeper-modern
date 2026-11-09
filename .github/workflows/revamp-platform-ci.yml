@@ -150,6 +150,28 @@ jobs:
             exit 1
           fi
           echo 'PASS: external environment Secrets referenced without regeneration'
+      - name: Render an all-external credential Helm init Job without bootstrap plaintext
+        shell: bash
+        run: |
+          set -euo pipefail
+          helm template release-probe platform/manifests/charts/m9sweeper \
+            --namespace m9sweeper-system \
+            --set-string dash.existingSecret=external-dash-env \
+            --set-string trawler.existingSecret=external-trawler-env \
+            --set-string dash.init.existingSecret=external-init-env \
+            >/tmp/m9-external-bootstrap.yaml
+          grep -q 'name: external-init-env' /tmp/m9-external-bootstrap.yaml
+          grep -q 'name: external-dash-env' /tmp/m9-external-bootstrap.yaml
+          grep -q 'name: external-trawler-env' /tmp/m9-external-bootstrap.yaml
+          if grep -q 'name: SUPER_ADMIN_PASSWORD' /tmp/m9-external-bootstrap.yaml; then
+            echo 'ERROR: plaintext bootstrap password leaked into manifest' >&2
+            exit 1
+          fi
+          if grep -q 'name: TRAWLER_API_KEY' /tmp/m9-external-bootstrap.yaml; then
+            echo 'ERROR: plaintext service API key leaked into init Job' >&2
+            exit 1
+          fi
+          echo 'PASS: init Job references external bootstrap Secret without inline credentials'
       - name: Validate kube-bench Secret-backed report auth (no query-string key)
         run: |
           set -euo pipefail

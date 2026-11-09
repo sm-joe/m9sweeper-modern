@@ -38,16 +38,19 @@ spec:
             value: {{ .Values.init.clusterGroupName }}
           - name: FIRST_CLUSTER_NAME
             value: {{ .Values.init.clusterName }}
+{{- if not .Values.init.existingSecret }}
           - name: CLUSTER_API_KEY
             value: {{ .Values.global.apiKey | quote }}
           - name: SUPER_ADMIN_EMAIL
             value: {{ .Values.init.superAdminEmail | quote }}
           - name: SUPER_ADMIN_PASSWORD
             value: {{ .Values.init.superAdminPassword | quote }}
+{{- end }}
           - name: INITIAL_REGISTRIES_JSON
             value: {{ .Values.init.docker | toJson | b64enc | quote }}
           - name: DEFAULT_NAMESPACE_EXCEPTIONS
             value: {{ join "," .Values.init.namespaceExceptions }}
+{{- if not .Values.init.existingSecret }}
           - name: TRAWLER_API_KEY
             value: {{ coalesce .Values.global.trawlerApiKey .Values.global.apiKey "" | quote }}
           - name: KUBE_HUNTER_API_KEY
@@ -56,11 +59,16 @@ spec:
             value: {{ coalesce .Values.global.kubeBenchApiKey "" | quote }}
           - name: FALCO_API_KEY
             value: {{ coalesce .Values.global.falcoApiKey "" | quote }}
+{{- end }}
           - name: CLI_PATH
             value: ./cli.js
         envFrom:
           - secretRef:
               name: {{ .Values.existingSecret | default (printf "%s-secrets" (include "dash.fullname" .)) }}
+{{- if .Values.init.existingSecret }}
+          - secretRef:
+              name: {{ .Values.init.existingSecret | quote }}
+{{- end }}
 {{- if or .Values.extraConfigVars .Values.extraSecretVars }}
 {{- if .Values.extraConfigVars }}
           - configMapRef:
