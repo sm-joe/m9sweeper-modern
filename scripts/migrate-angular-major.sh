@@ -30,6 +30,9 @@ node_patch="$(node -p 'process.versions.node.split(".")[2]')"
 if [[ "$target" -eq 18 && "$node_major" -ne 20 ]]; then
   echo 'ERROR: Use Node.js 20 for Angular 17 -> 18. Angular 17 does not support Node.js 22.' >&2; exit 1
 fi
+if [[ "$target" -eq 22 && "$node_major" != 22 && "$node_major" != 24 && "$node_major" != 26 ]]; then
+  echo 'ERROR: Angular 22 requires Node.js 22, 24 or 26 on supported minimum patches.' >&2; exit 1
+fi
 if [[ "$target" -eq 22 && "$node_major" -eq 22 ]] && {
   [[ "$node_minor" -lt 22 ]] || { [[ "$node_minor" -eq 22 && "$node_patch" -lt 3 ]]; }; }; then
   echo 'ERROR: Angular 22 requires Node.js >=22.22.3 in the Node 22 line.' >&2; exit 1
@@ -54,11 +57,29 @@ fi
 cd "$frontend"
 echo "UPGRADING Angular $current -> $target. No --force: resolve dependency conflicts instead."
 npm ci --legacy-peer-deps --no-audit --no-fund
-# npm exec/npx can prefer the already-installed Angular 17 binary; install the
-# target CLI locally without writing the lockfile before invoking migrations.
-npm install --no-save --no-package-lock --legacy-peer-deps --no-audit --no-fund "@angular/cli@$target"
-./node_modules/.bin/ng update "@angular/cli@^$target" "@angular/core@^$target"
-npx ng update "@angular/material@^$target"
+# A legacy Angular CLI sometimes downloads the latest CLI, even for a targeted
+# update. Install matching packages first, then run each versioned migration.
+case "$target" in
+  18) ts_version='~5.5.4' ;;
+  19) ts_version='~5.8.3' ;;
+  20|21) ts_version='~5.9.3' ;;
+  22) ts_version='~6.0.2' ;;
+esac
+ng_packages=(
+  @angular/animations @angular/common @angular/core @angular/forms
+  @angular/platform-browser @angular/platform-browser-dynamic @angular/router
+  @angular/cdk @angular/material
+)
+prod_versions=()
+for pkg in "${ng_packages[@]}"; do prod_versions+=("$pkg@$target"); done
+npm install --save --legacy-peer-deps --no-audit --no-fund "${prod_versions[@]}"
+npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
+  "@angular/cli@$target" "@angular/compiler@$target" "@angular/compiler-cli@$target" \
+  "@angular/language-service@$target" "@angular-devkit/build-angular@$target" \
+  "@angular-builders/custom-webpack@$target" "typescript@$ts_version"
+for pkg in @angular/cli @angular/core @angular/material; do
+  ./node_modules/.bin/ng update "$pkg" --migrate-only --from="$current" --to="$target"
+done
 npm run build:prod
 printf '\nPASS: Angular %s production build. Review migrations and commit generated lockfile.\n' "$target"
 printf 'NEXT: execute Playwright acceptance and scanner regression before promotion.\n'
