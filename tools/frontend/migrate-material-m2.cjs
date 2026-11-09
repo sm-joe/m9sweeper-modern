@@ -23,11 +23,12 @@ const palettes = [
 function transform(source) {
   let output = source;
   for (const [oldName, newName] of mappings) {
-    output = output.replace(new RegExp('\\\\bmat\\\\.' + oldName + '\\\\b', 'g'), 'mat.' + newName);
+    output = output.split('mat.' + oldName + '(').join('mat.' + newName + '(');
   }
   for (const color of palettes) {
-    const original = new RegExp('\\\\bmat\\\\.\\\\$' + color + '-palette\\\\b', 'g');
-    output = output.replace(original, 'mat.$m2-' + (color === 'gray' ? 'grey' : color) + '-palette');
+    output = output.split('mat.$' + color + '-palette').join(
+      'mat.$m2-' + (color === 'gray' ? 'grey' : color) + '-palette'
+    );
   }
   return output;
 }
