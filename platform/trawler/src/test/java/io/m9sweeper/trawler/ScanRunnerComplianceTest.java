@@ -20,6 +20,13 @@ class ScanRunnerComplianceTest {
                 .withNumCriticalIssues(1).build()));
     }
 
+    @Test void laterSuccessfulScannerCannotEraseEarlierFailure() {
+        assertTrue(ScanRunner.scanHasFailed(true, true));
+        assertTrue(ScanRunner.scanHasFailed(false, false));
+        assertTrue(ScanRunner.scanHasFailed(false, true));
+        assertFalse(ScanRunner.scanHasFailed(true, false));
+    }
+
     @Test void successfulZeroFindingRunCanBeCompliant() {
         var report = new ScanResultBuilder(null).withEncounteredError(false)
                 .withNumCriticalIssues(0).withNumHighIssues(0).build();

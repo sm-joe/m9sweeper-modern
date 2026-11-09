@@ -47,6 +47,9 @@ public class ScanRunner {
 
         String newImageHash = "";
 
+        if (policies == null || policies.isEmpty()) {
+            throw new IllegalStateException("No scan policies were supplied; refusing to mark an image scan complete");
+        }
         if (policies != null && policies.size() > 0) {
             for (PolicyWithScannerDto policyWithScannerDto: policies) {
                 if (!policyWithScannerDto.isEnabled()) {
@@ -58,13 +61,16 @@ public class ScanRunner {
                         .withPolicy(policyWithScannerDto.getId().longValue());
 
                 ArrayList<ScanResultIssue> scanResultIssues = new ArrayList<>();
+                boolean scannerExecuted = false;
+                boolean anyScannerFailed = false;
+                List<String> scannerFailures = new ArrayList<>();
 
-                if (policyWithScannerDto.getScanners().size() > 0) {
+                if (policyWithScannerDto.getScanners() != null && !policyWithScannerDto.getScanners().isEmpty()) {
                     for (ScannerDto scannerDto : policyWithScannerDto.getScanners()) {
-                        if (!scannerDto.isEnabled()) {
+                        if (scannerDto == null || !scannerDto.isEnabled()) {
                             continue;
                         }
-
+                        scannerExecuted = true;
                         try {
                             if (scannerDto.getType().toUpperCase().equals(ScannerType.TRIVY.name())) {
                                 scanConfig.setScanId(scannerDto.getId().intValue());
@@ -82,18 +88,17 @@ public class ScanRunner {
                                 System.out.println("Scanner " + scannerDto.getType().toUpperCase() + " is not implemented yet.");
                                 throw new UnsupportedOperationException("Scanner " + scannerDto.getType().toUpperCase() + " is not implemented yet.");
                             }
-                            scanResultBuilder.withEncounteredError(false);
-                            scanResultBuilder.withSummary("");
                         } catch (Exception e) {
-                            scanResultBuilder.withEncounteredError(true);
-                            scanResultBuilder.withSummary(e.getMessage());
+                            anyScannerFailed = true;
+                            scannerFailures.add("Scanner failed: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
                         }
                     }
-                } else {
-                    scanResultBuilder.withEncounteredError(true);
-                    scanResultBuilder.withSummary("No Scanner found");
-                    if (TrawlerConfiguration.getInstance().getDebug()) System.out.println("policyWithScannerDto.getScanners().size(): " + policyWithScannerDto.getScanners().size());
                 }
+                if (!scannerExecuted) {
+                    scannerFailures.add("No enabled scanner found for policy");
+                }
+                scanResultBuilder.withEncounteredError(scanHasFailed(scannerExecuted, anyScannerFailed));
+                scanResultBuilder.withSummary(String.join("; ", scannerFailures));
 
                 int totalCriticalIssues = 0;
                 int totalHighIssues = 0;
@@ -132,6 +137,10 @@ public class ScanRunner {
             }
         }
 
+        if (scanResults.isEmpty()) {
+            throw new IllegalStateException("No enabled scan policies executed; refusing to mark an image scan complete");
+        }
+
         if (TrawlerConfiguration.getInstance().getDebug()) {
             System.out.println("Scan Results: " + scanResults.toString());
         }
@@ -166,6 +175,11 @@ public class ScanRunner {
                 ).collect(Collectors.toList()))).collect(Collectors.toList());
 
         saveScanResults(imageTrawlerResultDtos);
+    }
+
+    /** Failure is sticky across a policy's scanners; later successes cannot clear it. */
+    static boolean scanHasFailed(boolean scannerExecuted, boolean anyScannerFailed) {
+        return !scannerExecuted || anyScannerFailed;
     }
 
     /** Never mark an incomplete or failed scanner run as policy compliant. */

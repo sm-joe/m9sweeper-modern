@@ -2,7 +2,7 @@
   <mat-card-header class="title-with-button">
     <mat-card-title class="title-with-button">
         <div class="page-card-title">Rules</div>
-        <button mat-raised-button color="primary"
+        <button *ngIf="canManageGlobalRules" mat-raised-button color="primary"
         [routerLink]="['/private','falco']">
           Manage Falco Rules
         </button>

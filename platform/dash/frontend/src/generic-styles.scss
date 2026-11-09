@@ -153,7 +153,7 @@ $classesToGenerate: (
   background-color: (
     abbreviation: 'background-color',
     values: (
-      grey: mat.get-color-from-palette(mat.$gray-palette, 300),
+      'grey': mat.get-color-from-palette(mat.$gray-palette, 300),
     )
   )
 );

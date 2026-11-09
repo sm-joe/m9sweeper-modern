@@ -1,5 +1,13 @@
 name: Full m9sweeper platform source validation
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'platform/**'
+      - '.github/workflows/revamp-platform-ci.yml'
+      - 'tools/security/**'
+      - 'deploy/kind/**'
+      - 'docs/**'
   push:
     branches: [main, revamp/original-platform, product/m9sweeper-new-foundation, 'fix/rc3-trivy-queue-fail-closed', 'release/m9sweeper-new-rc4-security-reliability', 'release/linux-k8s-hardening-rc5', 'security/p0-retire-query-key-default']
     paths:
@@ -45,6 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/verify-linux-rc5.sh
+          sh -n tools/security/test_kubehunter_live_denials.sh
           bash -n scripts/check-broker-health-linux.sh
           test -s docs/linux-k8s-release-readiness.md
           grep -q 'Linux' README.md
@@ -87,6 +96,10 @@ jobs:
         working-directory: platform/dash/backend
       - name: Install locked Angular dependencies
         run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Validate vendored AJSF Flex Layout runtime compatibility dependency
+        run: |
+          node -e "const pkg = require('./package.json'); if (pkg.dependencies['@angular/flex-layout'] !== '14.0.0-beta.41') process.exit(1)"
+          node -e "require.resolve('@angular/flex-layout'); require.resolve('@angular/flex-layout/core'); require.resolve('@angular/flex-layout/flex')"
       - name: Build original Angular application with modernized routes and layout
         run: npm run build:prod
   helm-charts:
@@ -432,8 +445,8 @@ jobs:
           kubectl logs -n m9-inventory job/m9-kube-bench-smoke --tail=100 || true
 
   rc-source-package:
-    name: m9sweeper-new source RC (only after all current CI gates pass)
-    if: github.ref == 'refs/heads/product/m9sweeper-new-foundation'
+    name: m9sweeper-new validated source candidate (all CI gates required)
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     needs:
       - source-parity
       - original-backend
@@ -447,6 +460,7 @@ jobs:
       - trivy-live-scan
       - trawler-jvm-image
       - kind-inventory
+      - linux-operator-scripts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -461,11 +475,11 @@ jobs:
           mkdir -p dist
           commit="$(git rev-parse HEAD)"
           printf 'product=m9sweeper-new\nstatus=developer-preview-not-production\ncommit=%s\nupstream=%s\n'             "$commit" "$(cat platform/.upstream-source-revision)" > dist/BUILD-IDENTITY.txt
-          tar --exclude='node_modules' --exclude='.git' -czf dist/m9sweeper-new-0.1.0-rc2-source.tar.gz             platform docs tools README.md ATTRIBUTION.md
-          (cd dist && sha256sum m9sweeper-new-0.1.0-rc2-source.tar.gz > SHA256SUMS)
+          tar --exclude='node_modules' --exclude='.git' -czf dist/m9sweeper-new-0.1.0-rc-source.tar.gz             platform docs tools README.md ATTRIBUTION.md
+          (cd dist && sha256sum m9sweeper-new-0.1.0-rc-source.tar.gz > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
-          name: m9sweeper-new-0.1.0-rc2-source-${{ github.sha }}
+          name: m9sweeper-new-0.1.0-rc-source-${{ github.sha }}
           path: dist/
           if-no-files-found: error
           retention-days: 30
