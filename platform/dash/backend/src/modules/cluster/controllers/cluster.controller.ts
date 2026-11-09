@@ -4,6 +4,7 @@ import {
     Body,
     Controller,
     Delete,
+    ForbiddenException,
     Get,
     Inject,
     Param,
@@ -50,6 +51,34 @@ export class ClusterController {
       private logger: MineLoggerService,
       private readonly database: DatabaseService
     ) {}
+
+
+    /**
+     * Cluster creation/reassignment must not let an ADMIN move workloads and
+     * credentials into another tenant's cluster group. Group access granted
+     * through one cluster is not group ownership and cannot authorize writes.
+     */
+    private async assertWritableTargetGroup(groupId: number): Promise<void> {
+        if (!Number.isSafeInteger(Number(groupId)) || Number(groupId) <= 0 ||
+            (typeof groupId !== 'number' && typeof groupId !== 'string')) {
+            throw new ForbiddenException('Valid cluster group required');
+        }
+        if (this._loggedInUser?.authorities?.some(role => role.type === Authority.SUPER_ADMIN)) {
+            return;
+        }
+        const actorId = Number(this._loggedInUser?.id);
+        if (!Number.isSafeInteger(actorId) || actorId <= 0) {
+            throw new ForbiddenException('Invalid cluster owner');
+        }
+        const knex = await this.database.getConnection();
+        const owner = await knex('cluster_group')
+            .where({id: Number(groupId), user_id: actorId})
+            .whereNull('deleted_at')
+            .first('id');
+        if (!owner) {
+            throw new ForbiddenException('Cluster-group ownership required');
+        }
+    }
 
     @Get()
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
@@ -184,6 +213,7 @@ export class ClusterController {
     })
     @UseInterceptors(AuditLogInterceptor)
     async createCluster(@Body() cluster: ClusterDto & {installWebhook: 'automatically' | 'manually', serviceAccountConfig: string}): Promise<ClusterDto> {
+        await this.assertWritableTargetGroup(cluster.groupId);
         const installWebhook = cluster.installWebhook === 'automatically';
         const serviceAccountConfig = cluster.serviceAccountConfig;
         delete cluster.installWebhook;
