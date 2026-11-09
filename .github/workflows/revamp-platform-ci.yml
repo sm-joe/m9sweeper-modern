@@ -128,8 +128,14 @@ jobs:
           ]) {
             console.log((fs.existsSync(file) ? 'FOUND ' : 'MISSING ') + file);
           }
-          const pkg = require('./node_modules/@material/dom/package.json');
-          console.log('Resolved @material/dom version:', pkg.version);
+          const domManifest = './node_modules/@material/dom/package.json';
+          if (fs.existsSync(domManifest)) {
+            const pkg = require(domManifest);
+            console.log('Resolved @material/dom version:', pkg.version);
+          } else {
+            console.log('Standalone @material/dom not installed; checking Angular Material package instead');
+          }
+          console.log('Resolved @angular/material version:', require('./node_modules/@angular/material/package.json').version);
           JS
       - name: Validate guarded Angular 17 to 18 migration preflight
         shell: bash
