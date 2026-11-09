@@ -17,6 +17,7 @@
         </mat-card-title>
       </mat-card-header>
       <mat-card-content>
+        <p *ngIf="!isAdmin">Global Falco rules can be managed by Super Admin only. Cluster-scoped rule editing is not yet supported for ordinary admins.</p>
         <div class="row">
           <div class="col-xs-12 col-md-6 col-lg-4" *ngFor="let rule of rules; index as idx">
               <div class="rule-container">
