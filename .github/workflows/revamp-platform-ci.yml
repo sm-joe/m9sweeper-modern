@@ -160,18 +160,32 @@ jobs:
             --set-string trawler.existingSecret=external-trawler-env \
             --set-string dash.init.existingSecret=external-init-env \
             >/tmp/m9-external-bootstrap.yaml
-          grep -q 'name: external-init-env' /tmp/m9-external-bootstrap.yaml
-          grep -q 'name: external-dash-env' /tmp/m9-external-bootstrap.yaml
-          grep -q 'name: external-trawler-env' /tmp/m9-external-bootstrap.yaml
-          if grep -q 'name: SUPER_ADMIN_PASSWORD' /tmp/m9-external-bootstrap.yaml; then
-            echo 'ERROR: plaintext bootstrap password leaked into manifest' >&2
-            exit 1
-          fi
-          if grep -q 'name: TRAWLER_API_KEY' /tmp/m9-external-bootstrap.yaml; then
-            echo 'ERROR: plaintext service API key leaked into init Job' >&2
-            exit 1
-          fi
-          echo 'PASS: init Job references external bootstrap Secret without inline credentials'
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          rendered = Path('/tmp/m9-external-bootstrap.yaml').read_text()
+          documents = re.split(r'(?m)^---\\s*$', rendered)
+          init_jobs = [
+              doc for doc in documents
+              if re.search(r'(?m)^kind:\\s*Job\\s*$', doc)
+              and re.search(r'(?m)^  name:\\s*release-probe-dash-init\\s*$', doc)
+          ]
+          assert len(init_jobs) == 1, f"Expected one Dash init Job, found {len(init_jobs)}"
+          init_job = init_jobs[0]
+          for secret_name in ('external-init-env', 'external-dash-env'):
+              assert re.search(r'(?m)^\\s+name:\\s*' + secret_name + r'\\s*$', init_job), (
+                  f"Missing Secret reference in Dash init Job: {secret_name}")
+          assert re.search(r'(?m)^\\s+name:\\s*external-trawler-env\\s*$', rendered), (
+              "Missing external trawler Secret reference")
+          forbidden_env = (
+              'CLUSTER_API_KEY', 'SUPER_ADMIN_EMAIL', 'SUPER_ADMIN_PASSWORD',
+              'TRAWLER_API_KEY', 'KUBE_HUNTER_API_KEY', 'KUBE_BENCH_API_KEY', 'FALCO_API_KEY'
+          )
+          for env_var in forbidden_env:
+              assert not re.search(r'(?m)^\\s+- name:\\s*' + env_var + r'\\s*$', init_job), (
+                  f"Sensitive bootstrap value rendered directly into init Job: {env_var}")
+          print('PASS: Dash init Job uses external bootstrap and runtime Secrets without inline credential env values')
+          PY
       - name: Validate kube-bench Secret-backed report auth (no query-string key)
         run: |
           set -euo pipefail
