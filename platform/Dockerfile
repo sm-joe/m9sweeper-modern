@@ -43,7 +43,9 @@ COPY ./dash/frontend /usr/src/app/frontend
 
 WORKDIR /usr/src/app/frontend
 RUN npm run build:prod
-RUN npm prune --production
+# Use the same legacy peer-resolution policy as npm ci. npm prune
+# re-resolves the AJSF/Flex Layout peer graph otherwise and fails the image.
+RUN npm prune --omit=dev --legacy-peer-deps --no-audit --no-fund
 
 #########################
 ## Stage 2: Build Docs ##
