@@ -237,6 +237,9 @@ export class ClusterController {
     })
     @UseInterceptors(AuditLogInterceptor)
     async updateCluster(@Body() cluster: ClusterDto & {installWebhook: 'automatically' | 'manually', serviceAccountConfig: string}, @Param('clusterId') id: number): Promise<ClusterDto> {
+        if (cluster.groupId !== undefined && cluster.groupId !== null) {
+            await this.assertWritableTargetGroup(cluster.groupId);
+        }
         const previous = await this.getClusterById(id);
         delete previous.kubeConfig;
 
