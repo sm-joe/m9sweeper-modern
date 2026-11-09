@@ -135,8 +135,11 @@ jobs:
         shell: bash
         run: |
           bash -n ../../../scripts/migrate-angular-major.sh
-          bash ../../../scripts/migrate-angular-major.sh 18 --preflight
-          if bash ../../../scripts/migrate-angular-major.sh 20 --preflight; then
+          current="$(node -p "require('./package.json').dependencies['@angular/core'].match(/[0-9]+/)[0]")"
+          next="$((current+1))"
+          skipped="$((current+2))"
+          bash ../../../scripts/migrate-angular-major.sh "$next" --preflight
+          if bash ../../../scripts/migrate-angular-major.sh "$skipped" --preflight; then
             echo 'ERROR: Migration runner accepted a multi-major jump' >&2
             exit 1
           fi
