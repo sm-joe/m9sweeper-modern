@@ -2,6 +2,12 @@
 
 This is an in-progress, **unverified framework migration**, not a claim that Angular 22 is deployed. Source of truth for currently installed versions: `platform/dash/frontend/package.json` and its lockfile.
 
+## Candidate checkpoint: Angular 18
+
+On migration branch `modernize/angular-sequential-migrations`, commit `817ab771` introduced Angular Core/Material/CDK 18.2.14, CLI 18.2.21, TypeScript 5.5.4, and codemodded legacy M2 Sass references. A disposable production compile succeeded in GitHub Actions run `42693374489` before the branch promotion. **Official `ng update` source migrations were not executed in that compatibility run**; the source change is an intermediate compatibility candidate and must not be represented as the completed upgrade.
+
+Future acceptance requires full branch CI and browser tests against this committed dependency graph, then the official Angular migration steps and each subsequent major. Do not merge solely on the one build-probe result.
+
 ## Reproducible migration procedure
 
 1. Use a dedicated worktree/branch based on current `main`; don't migrate on `main`.
