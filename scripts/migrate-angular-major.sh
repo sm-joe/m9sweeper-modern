@@ -54,7 +54,7 @@ fi
 cd "$frontend"
 echo "UPGRADING Angular $current -> $target. No --force: resolve dependency conflicts instead."
 npm ci --legacy-peer-deps --no-audit --no-fund
-npx ng update "@angular/cli@^$target" "@angular/core@^$target"
+npx --yes "@angular/cli@$target" update "@angular/cli@^$target" "@angular/core@^$target"
 npx ng update "@angular/material@^$target"
 npm run build:prod
 printf '\nPASS: Angular %s production build. Review migrations and commit generated lockfile.\n' "$target"
