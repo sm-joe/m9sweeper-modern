@@ -45,3 +45,7 @@ Product target: independently maintained Linux/Kubernetes deployment of m9sweepe
 - Added regression tests for malformed payloads and client-supplied report metadata. Existing kube-hunter staging scanner values and Helm release remain unchanged.
 
 Still outstanding before final production release: explicit secure-probe DB/dashboard report verification, two-tenant scanner authorization and revocation E2E, Trivy RabbitMQ->Java->PostgreSQL->Angular real acceptance and DLQ, live Falco event to dashboard, Helm rollback/restore, modern framework and admission policies. CI passing is not release signoff.
+
+## Java scanner failure aggregation fix
+
+The Java ScanRunner now makes scanner failures sticky across every enabled scanner for a policy. A successful scanner after a failed scanner cannot reset `encounterError` to false. Policies with zero enabled scanners produce an explicit failed result, and requests with zero enabled policies throw instead of uploading an empty successful scan. The compliance check continues to treat HIGH/CRITICAL findings as noncompliant. These are source-level fixes pending full CI and live Trivy queue/DB/browser confirmation.
