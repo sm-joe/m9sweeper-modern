@@ -96,6 +96,10 @@ if (!modern.startsWith('8.')) throw new Error('Angular build requires AJV 8; fou
 console.log('PASS: Angular build AJV', modern, 'and isolated AJSF AJV', legacy);
 JS
 fi
+if [[ "$target" -eq 19 ]]; then
+  node "$repo_root/tools/frontend/migrate-angular19-nonstandalone.test.cjs"
+  node "$repo_root/tools/frontend/migrate-angular19-nonstandalone.cjs"
+fi
 if [[ "$target" -eq 18 ]]; then
   # Angular Material 18 namespaces legacy Material 2 Sass APIs under m2-*.
   node "$repo_root/tools/frontend/migrate-material-m2.cjs"
