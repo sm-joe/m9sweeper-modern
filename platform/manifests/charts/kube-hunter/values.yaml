@@ -63,6 +63,9 @@ reportRelay:
   # Existing Secret with a key named apiKey (or override secretKey).
   existingSecret: ""
   secretKey: apiKey
+  # Optional Secret with ca.crt for private Kubernetes TLS PKI.
+  caSecret: ""
+  caSecretKey: ca.crt
   resources:
     requests:
       cpu: 10m
