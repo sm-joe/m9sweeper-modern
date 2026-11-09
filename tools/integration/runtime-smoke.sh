@@ -120,5 +120,57 @@ if [[ "$before" != "$after" ]]; then
 fi
 echo 'PASS: unauthorized scanner calls persisted no kube-hunter/Falco report rows'
 
+# Fresh integration fixture lives only inside the disposable GitHub CI Compose
+# database. Prove actual authenticated HTTP -> NestJS -> PostgreSQL persistence,
+# not simply that the scanner process can run.
+ci_cluster_id="$(docker compose -p m9-runtime exec -T postgres sh -c \
+  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -qAt -v ON_ERROR_STOP=1 \
+  -c "INSERT INTO clusters(name,ip_address,port,group_id,context) VALUES ('\''m9-ci-collector-fixture'\'','\''127.0.0.1'\'','\''443'\'',1,'\''ci'\'') RETURNING id;"' | tr -d '[:space:]')"
+[[ "$ci_cluster_id" =~ ^[1-9][0-9]*$ ]] || {
+  echo "FAIL: no disposable cluster record to test scanner ingestion" >&2; exit 1;
+}
+python3 - "$ci_cluster_id" <<'PY'
+import json,sys
+from pathlib import Path
+from urllib.request import Request,urlopen
+cluster_id=int(sys.argv[1])
+env=dict(line.split('=',1) for line in Path('.env').read_text().splitlines() if '=' in line)
+url='http://127.0.0.1:3000/api/'
+test_cases=[
+    ('kubehunter/hunter/', 'KUBE_HUNTER_API_KEY', {
+        'nodes': {}, 'services': {}, 'vulnerabilities': {'value': []}
+    }),
+    ('falco/', 'FALCO_API_KEY', {
+        'hostname': 'ci-host.invalid', 'output': 'ci-generated integration event',
+        'priority': 'Warning', 'rule': 'm9-runtime-integration-ci',
+        'source': 'syscall', 'tags': [], 'time': '2026-11-09T00:00:00Z',
+        'output_fields': {'k8s.ns.name': 'm9-ci', 'k8s.pod.name':'ci-probe'}
+    })
+]
+for route,keyname,body in test_cases:
+    fullpath=(url+route+str(cluster_id)) if route.startswith('falco/') else (url+route+str(cluster_id))
+    if route.startswith('falco/'): fullpath += '/create'
+    req=Request(fullpath, json.dumps(body).encode('utf8'), {
+        'Content-Type':'application/json',
+        'X-API-Key':env[keyname]
+    },method='POST')
+    with urlopen(req,timeout=20) as resp:
+        if resp.status not in (200,201):
+            raise AssertionError(f'{route} unexpected response {resp.status}')
+    print(f'PASS: authenticated {route} accepted using header-only test credential')
+PY
+
+hunter_records="$(docker compose -p m9-runtime exec -T postgres sh -c \
+  "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -qAt -v ON_ERROR_STOP=1 \
+   -c 'SELECT COUNT(*) FROM kube_hunter WHERE cluster_id=$ci_cluster_id;'" | tr -d '[:space:]')"
+falco_records="$(docker compose -p m9-runtime exec -T postgres sh -c \
+  "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -qAt -v ON_ERROR_STOP=1 \
+   -c 'SELECT COUNT(*) FROM project_falco_logs WHERE cluster_id=$ci_cluster_id;'" | tr -d '[:space:]')"
+[[ "$hunter_records" == "1" && "$falco_records" == "1" ]] || {
+  echo "FAIL: expected one persisted kube-hunter and one Falco report for CI cluster" >&2; exit 1;
+}
+echo 'PASS: real kube-hunter and Falco webhook reports persisted to Postgres under the selected cluster'
+
+
 
 echo 'PASS: original full app, Postgres, RabbitMQ, admin seed and authentication'

@@ -49,3 +49,7 @@ Still outstanding before final production release: explicit secure-probe DB/dash
 ## Java scanner failure aggregation fix
 
 The Java ScanRunner now makes scanner failures sticky across every enabled scanner for a policy. A successful scanner after a failed scanner cannot reset `encounterError` to false. Policies with zero enabled scanners produce an explicit failed result, and requests with zero enabled policies throw instead of uploading an empty successful scan. The compliance check continues to treat HIGH/CRITICAL findings as noncompliant. These are source-level fixes pending full CI and live Trivy queue/DB/browser confirmation.
+
+## Disposable CI webhook positive integration evidence
+
+The full runtime smoke test now exercises an isolated test cluster in the ephemeral CI PostgreSQL database, posts a header-authenticated kube-hunter report and Falco event to the actual NestJS endpoints, and verifies exactly one new report row per scanner associated with that cluster. The same run already checks that unauthenticated/invalid requests cannot add reports. Test credentials are loaded from CI's generated private .env and never printed. Passing this check still does **not** prove live Kind Falco kernel event forwarding, the Java RabbitMQ worker's vulnerability scan, or Angular visual acceptance.
