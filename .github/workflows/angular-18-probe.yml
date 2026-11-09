@@ -1,4 +1,4 @@
-name: Angular 18 migration compatibility probe
+name: Angular 18 committed dependency and build verification
 on:
   push:
     branches:
@@ -61,7 +61,7 @@ jobs:
             angular-18-git-status.txt
             angular-18-environment.txt
           retention-days: 7
-      - name: Fail probe if migration or production build failed
+      - name: Fail probe if dependency upgrade or production build failed
         if: steps.migration.outcome != 'success'
         run: |
           echo 'Angular 18 migration is not yet passing; inspect migration log and fix dependency blockers.' >&2
