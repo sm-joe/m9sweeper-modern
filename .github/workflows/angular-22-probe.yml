@@ -1,0 +1,73 @@
+name: Angular 22 compilation migration gate
+on:
+  push:
+    branches: [modernize/angular-sequential-migrations]
+    paths:
+      - 'scripts/migrate-angular-major.sh'
+      - '.github/workflows/angular-22-probe.yml'
+      - 'platform/dash/frontend/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  angular22-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine installed Angular major
+        id: baseline
+        run: |
+          major="$(node -p 'require("./platform/dash/frontend/package.json").dependencies["@angular/core"].match(/[0-9]+/)[0]')"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+          cache: npm
+          cache-dependency-path: platform/dash/frontend/package-lock.json
+      - name: Install shared NestJS DTO dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+        working-directory: platform/dash/backend
+      - name: Verify one-major transition eligibility
+        if: steps.baseline.outputs.major == '21'
+        run: bash scripts/migrate-angular-major.sh 22 --preflight
+      - name: Compile Angular 22 candidate using compatible dependency graph
+        id: compile
+        if: steps.baseline.outputs.major == '21'
+        continue-on-error: true
+        env:
+          M9_SKIP_ANGULAR_MIGRATIONS: '1'
+        run: bash scripts/migrate-angular-major.sh 22
+      - name: Verify committed Angular 22 candidate
+        if: steps.baseline.outputs.major == '22'
+        run: |
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          npm run build:prod
+        working-directory: platform/dash/frontend
+      - name: Save upgrade evidence
+        if: always()
+        run: |
+          git diff --binary > angular-22-candidate.patch
+          node -p "JSON.stringify({angular:require('./platform/dash/frontend/package.json').dependencies['@angular/core'],material:require('./platform/dash/frontend/package.json').dependencies['@angular/material']})" > angular-22-versions.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: angular-22-compatibility-evidence
+          path: |
+            angular-22-candidate.patch
+            angular-22-versions.json
+          retention-days: 7
+      - name: Reject unsuccessful Angular 22 compilation
+        if: steps.baseline.outputs.major == '21' && steps.compile.outcome != 'success'
+        run: exit 1
+      - name: Promote verified Angular 22 candidate to migration branch
+        if: github.event_name == 'push' && steps.baseline.outputs.major == '21' && steps.compile.outcome == 'success'
+        run: |
+          set -euo pipefail
+          test "$(node -p 'require("./platform/dash/frontend/package.json").dependencies["@angular/core"].match(/[0-9]+/)[0]')" = '22'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add platform/dash/frontend/package.json platform/dash/frontend/package-lock.json platform/dash/frontend/src platform/dash/frontend/tsconfig.json
+          git diff --cached --quiet && { echo 'No candidate files to promote'; exit 1; }
+          git commit -m "chore(angular): promote verified Angular 22 compilation candidate"
+          git push origin HEAD:refs/heads/modernize/angular-sequential-migrations
