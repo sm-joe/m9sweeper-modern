@@ -7,6 +7,8 @@ on:
       - '.github/workflows/revamp-platform-ci.yml'
       - 'tools/import-platform/**'
       - 'tools/security/**'
+      - 'deploy/kind/**'
+      - '.gitignore'
       - 'README.md'
       - 'ATTRIBUTION.md'
       - 'docs/**'
