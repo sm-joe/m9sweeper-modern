@@ -33,7 +33,9 @@ WORKDIR /usr/src/app/frontend
 COPY ./dash/frontend/package.json /usr/src/app/frontend
 COPY ./dash/frontend/package-lock.json /usr/src/app/frontend
 COPY ./dash/frontend/vendor /usr/src/app/frontend/vendor
-RUN npm ci && \
+# Vendored AJSF Material depends on Angular 14 Flex Layout while the dashboard uses
+# Angular 17. Mirror the locked CI install until this legacy UI dependency is removed.
+RUN npm ci --legacy-peer-deps --no-audit --no-fund && \
     chown -R root:root node_modules
 
 WORKDIR /usr/src/app
