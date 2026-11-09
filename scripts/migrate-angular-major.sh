@@ -77,6 +77,25 @@ npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
   "@angular/cli@$target" "@angular/compiler@$target" "@angular/compiler-cli@$target" \
   "@angular/language-service@$target" "@angular-devkit/build-angular@$target" \
   "@angular-builders/custom-webpack@$target" "typescript@$ts_version"
+if [[ "$target" -ge 19 ]]; then
+  # Angular 19+ build tooling expects AJV 8; vendored AJSF still declares AJV 6.
+  # npm must preserve AJV 6 underneath AJSF or the candidate is not acceptable.
+  npm install --save --legacy-peer-deps --no-audit --no-fund 'ajv@^8'
+  node - <<'JS'
+const fs = require('node:fs');
+const path = require('node:path');
+const root = process.cwd();
+const legacyDir = path.resolve(root, 'vendor/@ajsf/core');
+const legacyResolved = require.resolve('ajv/package.json', { paths: [legacyDir] });
+const legacy = require(legacyResolved).version;
+if (!legacy.startsWith('6.')) {
+  throw new Error('AJSF requires AJV 6 but resolved ' + legacy + ' at ' + legacyResolved);
+}
+const modern = require('./node_modules/ajv/package.json').version;
+if (!modern.startsWith('8.')) throw new Error('Angular build requires AJV 8; found ' + modern);
+console.log('PASS: Angular build AJV', modern, 'and isolated AJSF AJV', legacy);
+JS
+fi
 if [[ "$target" -eq 18 ]]; then
   # Angular Material 18 namespaces legacy Material 2 Sass APIs under m2-*.
   node "$repo_root/tools/frontend/migrate-material-m2.cjs"
