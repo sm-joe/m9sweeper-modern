@@ -78,3 +78,14 @@ On each claimed supported **Linux-node** Kubernetes version: `helm upgrade --ins
 - Scanner credential rotation and audit of all generated URLs, logs and Secret permissions.
 
 No P0 completion or production release may be claimed solely on green GitHub Actions checks.
+
+
+## Follow-up P0 hardening: Falco rule changes and API-key identity lifecycle
+
+The follow-up branch `security/p0-falco-rules-key-lifecycle` closes two source-level gaps:
+- Falco rule creation, update and deletion are **SUPER_ADMIN only** until per-cluster rule ownership and all-clusters mutation checks are implemented. Ordinary ADMIN rule editing is intentionally denied: the existing rules API accepts arbitrary `clusters` and can turn a scoped rule into an `allClusters` global rule. Read-only scoped rule listing remains available to authorized readers. The Angular UI must hide or disable mutation controls for ordinary admins; API enforcement is authoritative.
+- Scanner key identity queries now require active, non-deleted users, not merely active API-key and authority records. Also check user state on the general API-key identity query.
+
+**Live acceptance still required:** revoke the secure-probe key and prove a new report is rejected with no DB row; disable/deactivate the scanner user and repeat; create user A with access to cluster A but not B and attempt every B ID report/event and global Falco policy modification; verify ordinary ADMIN cannot create, update or delete a global Falco rule while SUPER_ADMIN can. For read-only role, check that a scoped list shows only rules applicable to that cluster. Ensure the existing functioning scanner installation remains unaffected.
+
+**No claim of verification:** these changes do not complete the live SQL/Angular report-persistence confirmation, cross-cluster tests, restore/rollback or browser acceptance gate.
