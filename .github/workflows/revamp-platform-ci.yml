@@ -333,7 +333,7 @@ jobs:
         run: bash tools/integration/runtime-smoke.sh
       - name: Assert the complete NestJS container runs supported Node 22 LTS
         run: |
-          docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime exec -T dash node --version | grep -E '^v22\\.'
+          docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime exec -T dash node --version | grep -E '^v22[.]'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
