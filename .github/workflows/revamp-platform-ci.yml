@@ -284,6 +284,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Start original complete NestJS/Angular application and prove live admin auth
         run: bash tools/integration/runtime-smoke.sh
+      - name: Restore CI PostgreSQL backup into isolated scratch DB and verify evidence
+        run: M9_STAGING_RESTORE_TEST=YES bash scripts/verify-postgres-restore-linux.sh
       - name: Dump full-stack logs on failure
         if: failure()
         run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime logs --tail=150
