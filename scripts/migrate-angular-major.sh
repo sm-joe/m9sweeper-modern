@@ -77,6 +77,10 @@ npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
   "@angular/cli@$target" "@angular/compiler@$target" "@angular/compiler-cli@$target" \
   "@angular/language-service@$target" "@angular-devkit/build-angular@$target" \
   "@angular-builders/custom-webpack@$target" "typescript@$ts_version"
+if [[ "$target" -eq 22 ]]; then
+  # ngx-charts 20.x imports removed ComponentFactoryResolver; 25.x supports Angular 22.
+  npm install --save --legacy-peer-deps --no-audit --no-fund '@swimlane/ngx-charts@^25.0.3'
+fi
 if [[ "$target" -ge 21 ]]; then
   # Angular 21 packages expose secondary entrypoints through package exports.
   # Resolve these under TypeScript's supported bundler resolution mode.
