@@ -75,6 +75,19 @@
         </table>
       </div>
     </mat-card>
+    <mat-card id="scanRunState" class="mb-xs-3 pt-xs-3" *ngIf="latestScanRun">
+      <h3>Latest Trivy scan: {{latestScanRun.status}}</h3>
+      <p *ngIf="latestScanRun.status === 'failed'" class="error-msg">
+        Scanner execution failed; this is not a clean assessment.
+        {{latestScanRun.failure_reason || 'Inspect scanner worker and RabbitMQ dead-letter queue.'}}
+      </p>
+      <p *ngIf="latestScanRun.status === 'queued' || latestScanRun.status === 'published' || latestScanRun.status === 'processing'">
+        Scanning is queued or running. Findings will appear when the scan completes.
+      </p>
+      <p *ngIf="latestScanRun.status === 'completed'">
+        Result: {{latestScanRun.compliant ? 'Compliant' : 'Non-compliant'}}
+      </p>
+    </mat-card>
     <mat-card id="scannerError" class="mb-xs-3 pt-xs-3" *ngIf="lastScanReport?.encounterError">
       <h3 class="error-msg" style="margin: unset; padding: 5px 10px;">Error</h3>
       <div [innerHTML]="lastScanReport?.summary" class="error-msg"></div>

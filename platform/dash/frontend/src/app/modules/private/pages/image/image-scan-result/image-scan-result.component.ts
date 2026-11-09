@@ -4,7 +4,7 @@ import {AlertService} from 'src/app/core/services/alert.service';
 import {ImageService} from '../../../../../core/services/image.service';
 import {ImageScanResultIssueService} from '../../../../../core/services/image-scan-result-issue.service';
 import {IServerResponse} from '../../../../../core/entities/IServerResponse';
-import {IImage, IImageScanData} from '../../../../../core/entities/IImage';
+import {IImage, IImageScanData, IImageScanRun} from '../../../../../core/entities/IImage';
 import {IImageScanResultIssue} from '../../../../../core/entities/IImageScanResultIssue';
 import {MatTableDataSource} from '@angular/material/table';
 import {MatSort} from '@angular/material/sort';
@@ -83,6 +83,7 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
   displayImageScanSpinner$: Observable<boolean>;
 
   lastScanReport: IImageScanData;
+  latestScanRun: IImageScanRun | null = null;
   private unsubscribe$ = new Subject<void>();
   private scanStatusSubscription?: Subscription;
   private readonly scanPollingTimeoutMs = 10 * 60 * 1000;
@@ -109,6 +110,19 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
     this.getImageByImageId();
     // this.setImageScanQueueStatus();
     this.getCountOfImageScanData();
+    this.refreshScanRunStatus();
+  }
+
+  refreshScanRunStatus(): void {
+    this.imageService.getLatestImageScanRun(this.clusterId, this.imageId)
+      .pipe(take(1), takeUntil(this.unsubscribe$))
+      .subscribe({
+        next: result => {
+          this.latestScanRun = result.data || null;
+          if (this.latestScanRun?.status === 'failed') this.scanResultTextColor = 'red';
+        },
+        error: () => { this.latestScanRun = null; }
+      });
   }
 
   ngAfterViewInit() {
@@ -136,7 +150,7 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
         switchMap((response: IServerResponse<IImage>) => {
           this.dataSource = response.data;
           this.scanResultText = this.dataSource.scanResults ? this.dataSource.scanResults : 'Unscanned';
-          this.scanResultTextColor = ['unscanned', 'non-compliant'].includes(this.scanResultText.toLowerCase()) ? 'red' : 'green';
+          this.scanResultTextColor = ['unscanned', 'non-compliant', 'failed'].includes(this.scanResultText.toLowerCase()) ? 'red' : 'green';
           this.pageBrowserTitle = this.dataSource.name + ':' + this.dataSource.tag;
           this.titleService.setTitle(this.pageBrowserTitle);
           if (response.data.scanQueued) {
@@ -255,6 +269,7 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
     this.imageService.scanImageModule(this.clusterId, filterImageIds).subscribe(response => {
       if (response.success) {
         this.alertService.success('Image Scan Queued');
+        this.refreshScanRunStatus();
         this.setImageScanQueueStatus();
       }
     }, error => {
@@ -263,13 +278,15 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   handleImageScanResultsIssues(response: IServerResponse<{totalCount: number, list: IImageScanResultIssue[]}>) {
-    if (!response.data?.totalCount && !this.lastScanReport.encounterError) {
+    if (!response?.data) return;
+    if (!response.data.totalCount && !this.lastScanReport?.encounterError &&
+        this.latestScanRun?.status !== 'failed') {
       this.alertService.warning('There are no issues for the current image and/or scanner');
     }
     const modifiedData = response.data.list ? response.data.list.map(d => {
-      d.packageName = d.packageName ?? d.extraData.PkgName;
-      d.installedVersion = d.installedVersion ?? d.extraData.InstalledVersion;
-      d.fixedVersion = d.fixedVersion ?? d.extraData.FixedVersion;
+      d.packageName = d.packageName ?? d.extraData?.PkgName;
+      d.installedVersion = d.installedVersion ?? d.extraData?.InstalledVersion;
+      d.fixedVersion = d.fixedVersion ?? d.extraData?.FixedVersion;
       return d;
     }) : [];
     this.imageScanResultIssueData = new MatTableDataSource(modifiedData);
@@ -313,6 +330,7 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
             this.getImageByImageId();
             this.getCountOfImageScanData();
             this.getImageScanDataByImageId(true);
+            this.refreshScanRunStatus();
           }
         },
         error: () => {
