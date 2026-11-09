@@ -151,3 +151,10 @@ kubectl -n m9sweeper-system delete configmap m9-p0-auth-probe-script
 Expected: both missing credentials and invalid `X-API-Key` return 401/403. **Verify database report count did not increase** after these denied requests, and the dashboard has no fabricated new clean report. If the Pod fails, inspect its logs before cleanup.
 
 **Revoked token, disabled account, cross-cluster grants and URL-only legacy-token denial:** test against a staging backend with `SCANNER_REQUIRE_CLUSTER_BINDINGS=true` and `SCANNER_ALLOW_LEGACY_QUERY_KEYS=false`, using isolated test credentials. Never send a live key in a URL or log and do not enable these flags on the existing deployment until all scanners have been migrated and granted.
+
+
+## P0 cluster-group mutation boundary (follow-up)
+
+An ordinary ADMIN must own the target `cluster_group` row before creating a cluster under that group or reassigning an existing cluster's `groupId`. A read grant on a cluster in the group does **not** confer group ownership or permission to move clusters into a foreign tenant. `SUPER_ADMIN` retains global access. Tests include foreign-group create, owned-group create, foreign-group update, missing/invalid group, and global administrator behavior.
+
+Live tenant A/B verification: sign in as an ADMIN owning group A; try creating a cluster using group B's numeric ID and changing A's existing cluster to group B. Both must fail before contacting or mutating Kubernetes, and no new/changed `clusters` row should appear. Repeat an authorized own-group onboarding test using a disposable staging cluster and trusted CA. **Do not use your working kind-local-test cluster as a destructive fixture.**
