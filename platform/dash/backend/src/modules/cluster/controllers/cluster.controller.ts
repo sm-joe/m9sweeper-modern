@@ -1,3 +1,5 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
+import {DatabaseService} from '../../shared/services/database.service';
 import {
     Body,
     Controller,
@@ -45,7 +47,8 @@ export class ClusterController {
       private readonly clusterService: ClusterService,
       private readonly kubernetesClusterService: KubernetesClusterService,
       private readonly  kubernetesApiService: KubernetesApiService,
-      private logger: MineLoggerService
+      private logger: MineLoggerService,
+      private readonly database: DatabaseService
     ) {}
 
     @Get()
@@ -57,7 +60,26 @@ export class ClusterController {
     })
     async getAllClusters(): Promise<ClusterDto[]> {
         const clusters: ClusterDto[] = await this.clusterService.getAllClusters();
-        return clusters && clusters.map(c => {
+        let visible = clusters || [];
+        const actor = this._loggedInUser;
+        if (!actor?.authorities?.some(role => role.type === Authority.SUPER_ADMIN)) {
+            if (!Number.isSafeInteger(actor?.id) || actor.id <= 0) {
+                return [];
+            }
+            const knex = await this.database.getConnection();
+            const [owned, granted] = await Promise.all([
+                knex('clusters as c').join('cluster_group as cg', 'cg.id', 'c.group_id')
+                    .where('cg.user_id', actor.id).whereNull('c.deleted_at')
+                    .whereNull('cg.deleted_at').select('c.id'),
+                knex('cluster_user_access').where('user_id', actor.id).select('cluster_id')
+            ]);
+            const allowed = new Set([
+                ...owned.map(row => Number(row.id)),
+                ...granted.map(row => Number(row.cluster_id))
+            ]);
+            visible = visible.filter(c => allowed.has(Number(c.id)));
+        }
+        return visible.map(c => {
             delete c.kubeConfig;
             delete c.ipAddress;
             delete c.port;
@@ -74,7 +96,7 @@ export class ClusterController {
         type: ClusterResponse
     })
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY, Authority.TRAWLER)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getClusterById(@Param('clusterId') clusterId: number): Promise<ClusterDto> {
         const cluster = await this.clusterService.getClusterById(clusterId);
         delete cluster.kubeConfig;
@@ -91,7 +113,15 @@ export class ClusterController {
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.TRAWLER)
     @UseGuards(AuthGuard, AuthorityGuard)
     async getClusterByClusterName(@Param('clusterName') clusterName: string): Promise<ClusterDto> {
-        const clusters: ClusterDto[] = await this.clusterService.searchClustersByName(clusterName);
+        let clusters: ClusterDto[] = await this.clusterService.searchClustersByName(clusterName);
+        const roles = this._loggedInUser?.authorities || [];
+        const isSuperAdmin = roles.some(role => role.type === Authority.SUPER_ADMIN);
+        const transitionalTrawler = roles.some(role => role.type === Authority.TRAWLER) &&
+            process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS !== 'true';
+        if (!isSuperAdmin && !transitionalTrawler) {
+            const allowedIds = new Set((await this.getAllClusters()).map(c => Number(c.id)));
+            clusters = (clusters || []).filter(c => allowedIds.has(Number(c.id)));
+        }
         if (clusters && clusters.length){
             return clusters.map(c => {
                 delete c.kubeConfig;
@@ -110,7 +140,8 @@ export class ClusterController {
     @UseGuards(AuthGuard, AuthorityGuard)
     async getClusterListByGroupId(@Param('groupId') groupId: number): Promise<ClusterDto[]> {
         const clusters = await this.clusterService.getClustersByGroupId(groupId);
-        return clusters && clusters.map(c => {
+        const allowedIds = new Set((await this.getAllClusters()).map(c => Number(c.id)));
+        return clusters && clusters.filter(c => allowedIds.has(Number(c.id))).map(c => {
             delete c.kubeConfig;
             return c;
         });
@@ -125,7 +156,8 @@ export class ClusterController {
     @UseGuards(AuthGuard, AuthorityGuard)
     async searchClusters(@Param('groupId') groupId: number, @Query('q') searchTerm: string): Promise<ClusterDto[]> {
         const clusters =  await this.clusterService.searchClusters(groupId, searchTerm);
-        return clusters && clusters.map(c => {
+        const allowedIds = new Set((await this.getAllClusters()).map(c => Number(c.id)));
+        return clusters && clusters.filter(c => allowedIds.has(Number(c.id))).map(c => {
             delete c.kubeConfig;
             // delete c.ipAddress;
             delete c.port;
@@ -168,7 +200,7 @@ export class ClusterController {
 
     @Put(':clusterId')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: UPDATE_CLUSTER_SCHEMA_RESPONSE
@@ -195,7 +227,7 @@ export class ClusterController {
 
     @Delete(':id')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: DELETE_CLUSTER_RESPONSE_SCHEMA
@@ -211,7 +243,7 @@ export class ClusterController {
 
     @Put(':clusterId/activate-webhook')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: UPDATE_CLUSTER_SCHEMA_RESPONSE
@@ -228,7 +260,7 @@ export class ClusterController {
 
     @Put(':clusterId/activate-image-scanning-enforcement')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 200,
         schema: UPDATE_CLUSTER_SCHEMA_RESPONSE
@@ -251,7 +283,7 @@ export class ClusterController {
      */
     @Put('/opa/:clusterId/:templateName/constraints')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201,
         schema: DELETE_CLUSTER_RESPONSE_SCHEMA
@@ -267,7 +299,7 @@ export class ClusterController {
      */
     @Delete('/opa/:clusterId/gatekeeper-template-constraints/:templateName/:constraintName')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     @ApiResponse({
         status: 201,
         schema: DELETE_CLUSTER_RESPONSE_SCHEMA

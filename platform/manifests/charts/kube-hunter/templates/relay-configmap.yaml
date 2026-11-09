@@ -1,0 +1,67 @@
+{{- if .Values.reportRelay.enabled }}
+{{- $_ := required "reportRelay.targetUrl is required when reportRelay.enabled=true" .Values.reportRelay.targetUrl -}}
+{{- $_ := required "reportRelay.existingSecret is required when reportRelay.enabled=true" .Values.reportRelay.existingSecret -}}
+{{- if not (hasPrefix "https://" .Values.reportRelay.targetUrl) -}}
+{{- fail "reportRelay.targetUrl must be HTTPS, with a trusted certificate" -}}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kube-hunter.fullname" . }}-relay
+data:
+  relay.py: |
+    """Local-only kube-hunter report relay; no URL credentials or header logging."""
+    import http.server
+    import os
+    import ssl
+    import urllib.error
+    import urllib.request
+    from urllib.parse import urlsplit
+
+    TARGET = os.environ["REPORT_RELAY_TARGET_URL"]
+    KEY = os.environ["REPORT_RELAY_API_KEY"]
+    parsed = urlsplit(TARGET)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise SystemExit("Invalid report relay target")
+    if not KEY or len(KEY) > 4096 or any(c in KEY for c in "\r\n\x00"):
+        raise SystemExit("Invalid report relay secret")
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPSHandler(context=ssl.create_default_context()),
+        NoRedirect()
+    )
+
+    class Relay(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            try:
+                length = int(self.headers.get("Content-Length", "-1"))
+            except ValueError:
+                length = -1
+            if length < 0 or length > 8 * 1024 * 1024:
+                self.send_error(413)
+                return
+            payload = self.rfile.read(length)
+            request = urllib.request.Request(
+                TARGET, data=payload, method="POST",
+                headers={
+                    "X-API-Key": KEY,
+                    "Content-Type": self.headers.get("Content-Type", "application/json"),
+                })
+            try:
+                with opener.open(request, timeout=20) as response:
+                    code = response.status
+                self.send_response(204 if 200 <= code < 300 else 502)
+            except (urllib.error.URLError, TimeoutError, ValueError):
+                self.send_response(502)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            pass
+
+    http.server.ThreadingHTTPServer(("127.0.0.1", 8765), Relay).serve_forever()
+{{- end }}

@@ -19,7 +19,7 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccount: {{ include "kube-hunter.name" . }}-sa
+      serviceAccount: {{ include "kube-hunter.serviceAccountName" . }}
 {{- if .Values.securityContext.enabled }}
       securityContext:
         fsGroup: {{ .Values.securityContext.fsGroup }}
@@ -30,6 +30,46 @@ spec:
       restartPolicy: Never
 {{- if .Values.priorityClassName }}
       priorityClassName: "{{ .Values.priorityClassName }}"
+{{- end }}
+{{- if .Values.reportRelay.enabled }}
+      initContainers:
+        - name: report-relay
+          restartPolicy: Always
+          startupProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import socket; s=socket.create_connection(('127.0.0.1', 8765), 2); s.close()"
+            periodSeconds: 1
+            timeoutSeconds: 5
+            failureThreshold: 30
+          image: {{ .Values.reportRelay.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-B", "/opt/report-relay/relay.py"]
+          env:
+            - name: REPORT_RELAY_TARGET_URL
+              value: {{ .Values.reportRelay.targetUrl | quote }}
+{{- if .Values.reportRelay.caSecret }}
+            - name: SSL_CERT_FILE
+              value: /etc/report-relay-tls/ca.crt
+{{- end }}
+            - name: REPORT_RELAY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.reportRelay.existingSecret | quote }}
+                  key: {{ .Values.reportRelay.secretKey | quote }}
+          volumeMounts:
+            - name: relay-code
+              mountPath: /opt/report-relay
+              readOnly: true
+{{- if .Values.reportRelay.caSecret }}
+            - name: relay-ca
+              mountPath: /etc/report-relay-tls
+              readOnly: true
+{{- end }}
+          resources:
+{{ toYaml .Values.reportRelay.resources | indent 12 }}
 {{- end }}
       containers:
         - name: {{ .Chart.Name }}
@@ -45,12 +85,31 @@ spec:
             {{- end }}
           env:
           - name: KUBEHUNTER_HTTP_DISPATCH_URL
+{{- if .Values.reportRelay.enabled }}
+            value: "http://127.0.0.1:8765/"
+{{- else }}
             valueFrom:
               secretKeyRef:
-                name: {{ required "dispatchAuth.existingSecret must reference a Kubernetes Secret containing the report callback URL" .Values.dispatchAuth.existingSecret | quote }}
+                name: {{ required "dispatchAuth.existingSecret is required in legacy mode" .Values.dispatchAuth.existingSecret | quote }}
                 key: {{ .Values.dispatchAuth.secretKey | quote }}
+{{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
+
+{{- if .Values.reportRelay.enabled }}
+      volumes:
+        - name: relay-code
+          configMap:
+            name: {{ include "kube-hunter.fullname" . }}-relay
+{{- if .Values.reportRelay.caSecret }}
+        - name: relay-ca
+          secret:
+            secretName: {{ .Values.reportRelay.caSecret | quote }}
+            items:
+              - key: {{ .Values.reportRelay.caSecretKey | quote }}
+                path: ca.crt
+{{- end }}
+{{- end }}
   {{- with .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}

@@ -1,11 +1,14 @@
 name: Full m9sweeper platform source validation
 on:
   push:
-    branches: [main, revamp/original-platform, product/m9sweeper-new-foundation, 'fix/rc3-trivy-queue-fail-closed', 'release/m9sweeper-new-rc4-security-reliability', 'release/linux-k8s-hardening-rc5']
+    branches: [main, revamp/original-platform, product/m9sweeper-new-foundation, 'fix/rc3-trivy-queue-fail-closed', 'release/m9sweeper-new-rc4-security-reliability', 'release/linux-k8s-hardening-rc5', 'security/p0-retire-query-key-default']
     paths:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
       - 'tools/import-platform/**'
+      - 'tools/security/**'
+      - 'deploy/kind/**'
+      - '.gitignore'
       - 'README.md'
       - 'ATTRIBUTION.md'
       - 'docs/**'
@@ -24,6 +27,15 @@ jobs:
         run: |
           python3 tools/import-platform/verify.py
           python3 tools/import-platform/test_product.py
+      - name: Inventory every HTTP route and enforce P0 guard regression gates
+        run: python3 tools/security/audit_http_routes.py --output p0-http-route-inventory.csv
+      - name: Upload route inventory for endpoint-by-endpoint security review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-http-route-inventory
+          path: p0-http-route-inventory.csv
+          if-no-files-found: ignore
   linux-operator-scripts:
     runs-on: ubuntu-latest
     steps:
@@ -150,6 +162,42 @@ jobs:
           done
           grep -q 'kind: CronJob' /tmp/kube-hunter-true.yaml
           grep -q 'kind: Job' /tmp/kube-hunter-false.yaml
+      - name: Verify kube-hunter header relay chart rendering and fail-closed configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          chart=platform/manifests/charts/kube-hunter
+          for scheduled in true false; do
+            helm template kube-hunter "$chart" --namespace m9sweeper-system --kube-version 1.31.0 \
+              --set cronjob.enabled="$scheduled" \
+              --set reportRelay.enabled=true \
+              --set-string reportRelay.targetUrl=https://dash.example.invalid/api/kubehunter/hunter/1 \
+              --set-string reportRelay.existingSecret=report-auth \
+              --set-string reportRelay.caSecret=report-ca \
+              >"/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'name: report-relay' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'socket.create_connection' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'timeoutSeconds: 5' "/tmp/hunter-relay-$scheduled.yaml"
+            if grep -q 'tcpSocket:' "/tmp/hunter-relay-$scheduled.yaml"; then echo 'ERROR: localhost relay must not use Pod-IP TCP probe' >&2; exit 1; fi
+            grep -q 'http://127.0.0.1:8765/' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'report-auth' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'REPORT_RELAY_API_KEY' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'SSL_CERT_FILE' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'report-ca' "/tmp/hunter-relay-$scheduled.yaml"
+            python3 tools/security/check_kube_hunter_relay_resources.py "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'kind: ConfigMap' "/tmp/hunter-relay-$scheduled.yaml"
+            if [ "$scheduled" = false ]; then
+              python3 tools/security/test_kube_hunter_relay.py "/tmp/hunter-relay-$scheduled.yaml"
+            fi
+            if grep -q 'key=' "/tmp/hunter-relay-$scheduled.yaml"; then exit 1; fi
+          done
+          if helm template kube-hunter "$chart" --set reportRelay.enabled=true \
+            --set-string reportRelay.targetUrl=http://unsafe.example.invalid/report \
+            --set-string reportRelay.existingSecret=report-auth >/dev/null 2>&1; then
+            echo 'ERROR: relay accepted insecure HTTP target' >&2
+            exit 1
+          fi
+          echo 'PASS: kube-hunter relay secret-backed HTTPS render and insecure target rejection'
       - name: Render Kubernetes resources for a modern API target
         run: |
           JWT_SECRET="$(openssl rand -hex 32)"

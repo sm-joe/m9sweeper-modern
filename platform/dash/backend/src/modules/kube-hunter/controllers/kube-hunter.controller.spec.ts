@@ -20,9 +20,31 @@ describe('kube-hunter ingestion authentication', () => {
     expect(reports.saveKubeHunterReport).toHaveBeenCalled();
   });
 
-  it('keeps legacy query authentication during the migration', async () => {
-    await controller.saveKubeHunterReport({nodes: {}}, 1, 'legacy-key');
-    expect(users.loadUserByApiKey).toHaveBeenCalledWith('legacy-key');
+  it('denies legacy query authentication by default', async () => {
+    const previous = process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS;
+    delete process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS;
+    users.loadUserByApiKey.mockResolvedValueOnce([]);
+    try {
+      await expect(controller.saveKubeHunterReport({nodes: {}}, 1, 'legacy-key'))
+        .rejects.toMatchObject({status: 401});
+      expect(users.loadUserByApiKey).toHaveBeenCalledWith('');
+      expect(reports.saveKubeHunterReport).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS;
+      else process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS = previous;
+    }
+  });
+
+  it('allows legacy query authentication only with explicit temporary opt-in', async () => {
+    const previous = process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS;
+    process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS = 'true';
+    try {
+      await controller.saveKubeHunterReport({nodes: {}}, 1, 'legacy-key');
+      expect(users.loadUserByApiKey).toHaveBeenCalledWith('legacy-key');
+    } finally {
+      if (previous === undefined) delete process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS;
+      else process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS = previous;
+    }
   });
 
   it('rejects missing credentials without saving a report', async () => {
@@ -51,7 +73,7 @@ describe('kube-hunter ingestion authentication', () => {
     }]);
     users.scannerHasClusterGrant = jest.fn().mockResolvedValue(false);
     try {
-      await expect(controller.saveKubeHunterReport({nodes: {}}, 3, 'scanner-key'))
+      await expect(controller.saveKubeHunterReport({nodes: {}}, 3, undefined, 'scanner-key'))
         .rejects.toMatchObject({status: 401});
       expect(reports.saveKubeHunterReport).not.toHaveBeenCalled();
       expect(users.scannerHasClusterGrant).toHaveBeenCalledWith(17, 3);

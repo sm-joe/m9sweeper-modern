@@ -1,3 +1,4 @@
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
 import {
     BadRequestException,
     Controller,
@@ -31,7 +32,7 @@ export class ReportsController {
 
     @Get('/vulnerability-export')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getVulnerabilityExport(
         @Query('limit') limit: number,
         @Query('cluster-id') clusterId?: number,
@@ -50,7 +51,7 @@ export class ReportsController {
     @Get('/vulnerability-export/download')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
     @Header('Content-Type', 'text/csv')
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async downloadVulnerabilityExport(
         @Query('cluster-id') clusterId?: number,
         @Query('namespaces') namespaces?: Array<string>,
@@ -64,7 +65,7 @@ export class ReportsController {
 
     @Get('/running-vulnerabilities')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getRunningVulnerabilities(
         @Query('limit') limit: number,
         @Query('cluster-id') clusterId?: number,
@@ -82,7 +83,7 @@ export class ReportsController {
     @Get('/running-vulnerabilities/download')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
     @Header('Content-Type', 'text/csv')
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async downloadRunningVulnerabilitiesReport(
         @Query('cluster-id') clusterId: number,
         @Query('namespaces') namespaces?: Array<string>,
@@ -94,7 +95,7 @@ export class ReportsController {
 
     @Get('/historical-vulnerabilities')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getHistoricalVulnerabilities(
         @Query('limit') limit: number,
         @Query('cluster-id') clusterId?: number,
@@ -118,7 +119,7 @@ export class ReportsController {
 
     @Get('/worst-images')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getHistoricalWorstImages(
         @Query('cluster-id') clusterId?: number,
         @Query('start-date') startDate?: string,
@@ -132,7 +133,7 @@ export class ReportsController {
     @Get('/historical-vulnerabilities/download')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
     @Header('Content-Type', 'text/csv')
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async downloadHistoricalVulnerabilitiesReport(
         @Query('limit') limit: number,
         @Query('cluster-id') clusterId: number,
@@ -153,7 +154,7 @@ export class ReportsController {
 
     @Get('/vulnerability-difference')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getVulnerabilityDifferences(
         @Query('cluster-id') clusterId: number,
         @Query('start-date') startDate: string,
@@ -176,7 +177,7 @@ export class ReportsController {
 
     @Get('/vulnerability-difference/download')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.ADMIN, Authority.SUPER_ADMIN)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async downloadVulnerabilityDifferences(
         @Query('cluster-id') clusterId: number,
         @Query('start-date') startDate: string,

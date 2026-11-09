@@ -31,6 +31,7 @@ export class ClusterAccessGuard implements CanActivate {
         const path = String(req.originalUrl || req.url || '').split('?')[0];
         const legacyTrawlerEndpoint =
             path.includes('/trawler/') ||
+            (req.method === 'GET' && /^\/api\/clusters\/[1-9][0-9]*\/?$/.test(path)) ||
             (req.method === 'POST' && /^\/api\/clusters\/[1-9][0-9]*\/images\/?$/.test(path)) ||
             (req.method === 'GET' && /\/image-by-docker-url\/?$/.test(path));
         if (this.user.authorities.some(role => role?.type === 'TRAWLER') &&
@@ -40,8 +41,37 @@ export class ClusterAccessGuard implements CanActivate {
         const params = req.params || {};
         const query = req.query || {};
         const knex = await this.database.getConnection();
+        // The PDF endpoint accepts multiple cluster IDs. Every selected cluster
+        // must be independently accessible; omitted scope cannot become a
+        // global export for an ordinary ADMIN/READ_ONLY user.
+        if (path === '/api/reports/security-audit-report' && req.method === 'GET') {
+            const raw = query.clusterIds;
+            const values = (Array.isArray(raw) ? raw : raw === undefined ? [] : [raw])
+                .flatMap(value => String(value).split(','));
+            if (!values.length || values.length > 100 ||
+                values.some(value => !/^[1-9][0-9]*$/.test(value) ||
+                    !Number.isSafeInteger(Number(value)))) {
+                throw new ForbiddenException('Explicit authorized cluster list required');
+            }
+            for (const idText of new Set(values)) {
+                const id = Number(idText);
+                const owner = await knex('clusters as c')
+                    .join('cluster_group as cg', 'cg.id', 'c.group_id')
+                    .where({'c.id': id, 'cg.user_id': this.user.id})
+                    .whereNull('c.deleted_at').whereNull('cg.deleted_at').first('c.id');
+                if (owner) continue;
+                const grant = await knex('cluster_user_access')
+                    .where({cluster_id: id, user_id: this.user.id}).first('can_write');
+                if (!grant) {
+                    throw new ForbiddenException('PDF export includes unauthorized cluster');
+                }
+            }
+            return true;
+        }
         const rawCluster = params.clusterId ?? params.clusterid ??
-            query.clusterId ?? query['cluster-id'];
+            query.clusterId ?? query['cluster-id'] ??
+            (req.method === 'DELETE' && /^\/api\/clusters\/[1-9][0-9]*\/?$/.test(path)
+                ? params.id : undefined);
         let clusterId = Number(rawCluster);
         if (!Number.isSafeInteger(clusterId) || clusterId <= 0) {
             if (params.imageId) {
@@ -56,6 +86,14 @@ export class ClusterAccessGuard implements CanActivate {
             } else if (params.id && String(req.originalUrl || req.url).includes('/kubehunter/')) {
                 const report = await knex('kube_hunter')
                     .select('cluster_id').where({id: Number(params.id)}).first();
+                clusterId = Number(report?.cluster_id);
+            } else if (params.id && path.includes('/kube-bench/')) {
+                const reportId = Number(params.id);
+                if (!Number.isSafeInteger(reportId) || reportId <= 0) {
+                    throw new ForbiddenException('Invalid kube-bench report identifier');
+                }
+                const report = await knex('kube_bench')
+                    .select('cluster_id').where({id: reportId}).first();
                 clusterId = Number(report?.cluster_id);
             }
         }
