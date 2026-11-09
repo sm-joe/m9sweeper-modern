@@ -104,6 +104,33 @@ jobs:
         run: |
           node -e "const pkg = require('./package.json'); if (pkg.dependencies['@angular/flex-layout'] !== '14.0.0-beta.41') process.exit(1)"
           node -e "require.resolve('@angular/flex-layout'); require.resolve('@angular/flex-layout/core'); require.resolve('@angular/flex-layout/flex')"
+      - name: Enforce modern browser test entrypoint (no Protractor CLI target)
+        run: |
+          node - <<'JS'
+          const fs = require('node:fs');
+          const pkg = require('./package.json');
+          const workspace = JSON.parse(fs.readFileSync('./angular.json', 'utf8'));
+          if (pkg.scripts.e2e !== 'npm --prefix ../../../tools/browser-e2e test') {
+            throw new Error('Frontend e2e command must use maintained Playwright runner');
+          }
+          if (Object.prototype.hasOwnProperty.call(workspace.projects.frontend.architect, 'e2e')) {
+            throw new Error('Obsolete Angular CLI Protractor e2e target remains');
+          }
+          console.log('PASS: frontend browser test command points to Playwright');
+          JS
+      - name: Diagnose resolved Material Sass dependencies
+        run: |
+          node - <<'JS'
+          const fs = require('node:fs');
+          for (const file of [
+            'node_modules/@material/dom/_dom.scss',
+            'node_modules/@material/textfield/_text-field.scss'
+          ]) {
+            console.log((fs.existsSync(file) ? 'FOUND ' : 'MISSING ') + file);
+          }
+          const pkg = require('./node_modules/@material/dom/package.json');
+          console.log('Resolved @material/dom version:', pkg.version);
+          JS
       - name: Build original Angular application with modernized routes and layout
         run: npm run build:prod
   helm-charts:
