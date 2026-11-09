@@ -20,3 +20,11 @@ M9_STAGING_E2E_TEST=YES python3 tools/integration/real-trivy-e2e-staging.py
 The script creates a new staging cluster, policy, enabled Trivy scanner and Alpine image fixture, grants the Java Trawler identity only the fixture cluster, starts the actual worker, queues a scan through the authenticated NestJS API, waits for a durable `completed` result and calls the read-only PostgreSQL evidence checker. It does not insert fabricated reports. These staging fixtures remain in the staging database for auditing. It must not be run against an existing production-like Dash database. Real Trivy image scanning may require a registry connection and a vulnerability DB download.
 
 The final live acceptance also requires visually inspecting the same image in Angular, verifying full findings, RBAC, and an independent Helm upgrade/rollback and PostgreSQL restore drill. `py_compile` in CI verifies script syntax only, not a live scan.
+
+## Staging-only Helm lifecycle drill
+
+Before running, install an existing release in an isolated namespace labelled `m9sweeper-staging=true`. Keep the private values file outside Git and protect its permissions. Run on Linux:
+
+`M9_STAGING_HELM_TEST=YES NAMESPACE=m9-rc-staging RELEASE=m9-staging VALUES_FILE=/secure/path/values.yaml bash scripts/verify-helm-rollback-staging-linux.sh`
+
+The script refuses the `m9sweeper-system` namespace; it upgrades the existing release, rolls back to its prior revision, compares PVC names and volume bindings and prints workload status. It does not prove database contents, schema rollback or scanner connectivity automatically; verify those after the drill using the Trivy/restore checks. Never use it on the user's working Kind deployment.
