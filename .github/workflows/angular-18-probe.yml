@@ -1,0 +1,48 @@
+name: Angular 18 migration compatibility probe
+on:
+  push:
+    branches:
+      - modernize/angular-sequential-migrations
+    paths:
+      - 'scripts/migrate-angular-major.sh'
+      - 'platform/dash/frontend/**'
+      - '.github/workflows/angular-18-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  angular-18-migration-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: platform/dash/frontend/package-lock.json
+      - name: Attempt first official Angular CLI and Material major migrations in disposable workspace
+        id: migration
+        continue-on-error: true
+        run: bash scripts/migrate-angular-major.sh 18
+      - name: Save migration patch and version evidence
+        if: always()
+        run: |
+          git diff --binary > angular-18-migration.patch
+          git status --short > angular-18-git-status.txt
+          node --version > angular-18-environment.txt
+          node -e "const p=require('./platform/dash/frontend/package.json'); console.log(p.dependencies['@angular/core'],p.dependencies['@angular/material'])" >> angular-18-environment.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: angular-18-migration-evidence
+          path: |
+            angular-18-migration.patch
+            angular-18-git-status.txt
+            angular-18-environment.txt
+          retention-days: 7
+      - name: Fail probe if migration or production build failed
+        if: steps.migration.outcome != 'success'
+        run: |
+          echo 'Angular 18 migration is not yet passing; inspect migration log and fix dependency blockers.' >&2
+          exit 1
