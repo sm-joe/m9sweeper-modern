@@ -171,11 +171,14 @@ jobs:
               --set reportRelay.enabled=true \
               --set-string reportRelay.targetUrl=https://dash.example.invalid/api/kubehunter/hunter/1 \
               --set-string reportRelay.existingSecret=report-auth \
+              --set-string reportRelay.caSecret=report-ca \
               >"/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'name: report-relay' "/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'http://127.0.0.1:8765/' "/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'report-auth' "/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'REPORT_RELAY_API_KEY' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'SSL_CERT_FILE' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'report-ca' "/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'kind: ConfigMap' "/tmp/hunter-relay-$scheduled.yaml"
             if [ "$scheduled" = false ]; then
               python3 tools/security/test_kube_hunter_relay.py "/tmp/hunter-relay-$scheduled.yaml"
