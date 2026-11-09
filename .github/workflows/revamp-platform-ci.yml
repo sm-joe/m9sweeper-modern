@@ -176,6 +176,8 @@ jobs:
               --set-string reportRelay.caSecret=report-ca \
               >"/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'name: report-relay' "/tmp/hunter-relay-$scheduled.yaml"
+            grep -q 'socket.create_connection' "/tmp/hunter-relay-$scheduled.yaml"
+            if grep -q 'tcpSocket:' "/tmp/hunter-relay-$scheduled.yaml"; then echo 'ERROR: localhost relay must not use Pod-IP TCP probe' >&2; exit 1; fi
             grep -q 'http://127.0.0.1:8765/' "/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'report-auth' "/tmp/hunter-relay-$scheduled.yaml"
             grep -q 'REPORT_RELAY_API_KEY' "/tmp/hunter-relay-$scheduled.yaml"
