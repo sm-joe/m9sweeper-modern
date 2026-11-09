@@ -77,6 +77,17 @@ npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
   "@angular/cli@$target" "@angular/compiler@$target" "@angular/compiler-cli@$target" \
   "@angular/language-service@$target" "@angular-devkit/build-angular@$target" \
   "@angular-builders/custom-webpack@$target" "typescript@$ts_version"
+if [[ "$target" -ge 21 ]]; then
+  # Angular 21 packages expose secondary entrypoints through package exports.
+  # Resolve these under TypeScript's supported bundler resolution mode.
+  node - <<'JS'
+const fs = require('node:fs');
+const path = 'tsconfig.json';
+const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+config.compilerOptions.moduleResolution = 'bundler';
+fs.writeFileSync(path, JSON.stringify(config, null, 2) + '\n');
+JS
+fi
 if [[ "$target" -ge 19 ]]; then
   # TypeScript 5.8 must not compile the legacy Node 18 declaration package.
   npm install --save-dev --legacy-peer-deps --no-audit --no-fund '@types/node@^20'
