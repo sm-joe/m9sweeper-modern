@@ -36,8 +36,11 @@ spec:
         - name: report-relay
           restartPolicy: Always
           startupProbe:
-            tcpSocket:
-              port: 8765
+            exec:
+              command:
+                - python
+                - -c
+                - "import socket; s=socket.create_connection(('127.0.0.1', 8765), 2); s.close()"
             periodSeconds: 1
             failureThreshold: 30
           image: {{ .Values.reportRelay.image | quote }}
