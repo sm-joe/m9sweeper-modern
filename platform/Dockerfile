@@ -1,7 +1,7 @@
 #####################
 ## STAGE 1 - BUILD ##
 #####################
-FROM node:20-bookworm-slim as builder
+FROM node:22.22.3-bookworm-slim as builder
 
 # Install Python3 used in dependencies for building
 RUN apt update && \
@@ -33,8 +33,8 @@ WORKDIR /usr/src/app/frontend
 COPY ./dash/frontend/package.json /usr/src/app/frontend
 COPY ./dash/frontend/package-lock.json /usr/src/app/frontend
 COPY ./dash/frontend/vendor /usr/src/app/frontend/vendor
-# Vendored AJSF Material depends on Angular 14 Flex Layout while the dashboard uses
-# Angular 17. Mirror the locked CI install until this legacy UI dependency is removed.
+# Legacy AJSF and Flex Layout still require a temporary peer-resolution policy.
+# Remove it only after replacement forms and responsive layouts pass regression.
 RUN npm ci --legacy-peer-deps --no-audit --no-fund && \
     chown -R root:root node_modules
 
@@ -66,8 +66,7 @@ RUN hugo --config config-local.toml
 ######################
 FROM node:22-alpine
 
-# NestJS runtime moves to supported Node 22 LTS. The legacy Angular 17 build
-# remains on its supported Node 20 toolchain until the Angular major upgrade.
+# Node 22 is used by both the Angular build and NestJS runtime.
 # Make the app directory
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
