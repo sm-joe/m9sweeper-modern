@@ -29,11 +29,11 @@ jobs:
         run: npm ci --legacy-peer-deps --no-audit --no-fund
         working-directory: platform/dash/backend
       - name: Verify one-major transition eligibility
-        if: steps.baseline.outputs.major == '21'
+        if: steps.baseline.outputs.major == '20'
         run: bash scripts/migrate-angular-major.sh 21 --preflight
       - name: Compile Angular 21 candidate using compatible dependency graph
         id: compile
-        if: steps.baseline.outputs.major == '21'
+        if: steps.baseline.outputs.major == '20'
         continue-on-error: true
         env:
           M9_SKIP_ANGULAR_MIGRATIONS: '1'
@@ -58,10 +58,10 @@ jobs:
             angular-21-versions.json
           retention-days: 7
       - name: Reject unsuccessful Angular 21 compilation
-        if: steps.baseline.outputs.major == '21' && steps.compile.outcome != 'success'
+        if: steps.baseline.outputs.major == '20' && steps.compile.outcome != 'success'
         run: exit 1
       - name: Promote verified Angular 21 candidate to migration branch
-        if: github.event_name == 'push' && steps.baseline.outputs.major == '21' && steps.compile.outcome == 'success'
+        if: github.event_name == 'push' && steps.baseline.outputs.major == '20' && steps.compile.outcome == 'success'
         run: |
           set -euo pipefail
           test "$(node -p 'require("./platform/dash/frontend/package.json").dependencies["@angular/core"].match(/[0-9]+/)[0]')" = '21'
