@@ -27,7 +27,7 @@ describe('kube-hunter ingestion authentication', () => {
     try {
       await expect(controller.saveKubeHunterReport({nodes: {}}, 1, 'legacy-key'))
         .rejects.toMatchObject({status: 401});
-      expect(users.loadUserByApiKey).toHaveBeenCalledWith('');
+      expect(users.loadUserByApiKey).not.toHaveBeenCalled();
       expect(reports.saveKubeHunterReport).not.toHaveBeenCalled();
     } finally {
       if (previous === undefined) delete process.env.SCANNER_ALLOW_LEGACY_QUERY_KEYS;
