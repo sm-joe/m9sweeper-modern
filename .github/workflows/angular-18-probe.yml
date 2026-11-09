@@ -10,7 +10,7 @@ on:
       - '.github/workflows/angular-18-probe.yml'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   angular-18-migration-probe:
     runs-on: ubuntu-latest
@@ -27,12 +27,22 @@ jobs:
       - name: Install backend DTO dependencies required by Angular compilation
         run: npm ci --legacy-peer-deps --no-audit --no-fund
         working-directory: platform/dash/backend
-      - name: Attempt first official Angular CLI and Material major migrations in disposable workspace
+      - name: Identify frontend baseline
+        id: baseline
+        run: echo "major=$(node -p \"require('./platform/dash/frontend/package.json').dependencies['@angular/core'].match(/[0-9]+/)[0]\")" >> "$GITHUB_OUTPUT"
+      - name: Compile Angular 18 dependencies and legacy Material theme in disposable workspace
         id: migration
+        if: steps.baseline.outputs.major == '17'
         continue-on-error: true
         env:
           M9_SKIP_ANGULAR_MIGRATIONS: '1'
         run: bash scripts/migrate-angular-major.sh 18
+      - name: Verify committed Angular 18 when no upgrade needed
+        if: steps.baseline.outputs.major == '18'
+        run: |
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          npm run build:prod
+        working-directory: platform/dash/frontend
       - name: Save migration patch and version evidence
         if: always()
         run: |
@@ -54,3 +64,14 @@ jobs:
         run: |
           echo 'Angular 18 migration is not yet passing; inspect migration log and fix dependency blockers.' >&2
           exit 1
+      - name: Promote built Angular 18 candidate to migration branch
+        if: github.event_name == 'push' && steps.migration.outcome == 'success' && steps.baseline.outputs.major == '17'
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./platform/dash/frontend/package.json').dependencies['@angular/core'].match(/[0-9]+/)[0]")" = 18
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add platform/dash/frontend/package.json platform/dash/frontend/package-lock.json platform/dash/frontend/src
+          git diff --cached --quiet && { echo "No upgraded frontend files produced"; exit 1; }
+          git commit -m "chore(angular): promote compiled Angular 18 dependency and M2 Sass candidate"
+          git push origin HEAD:refs/heads/modernize/angular-sequential-migrations
