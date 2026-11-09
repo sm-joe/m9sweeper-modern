@@ -163,7 +163,9 @@ export class UserDao {
           this.on('user_auth.authority_id', '=', 'authority_levels.id')
         })
         .andWhere('ak.api', '=', key)
-        .andWhere('ak.is_active', '=', 'true')
+        .andWhere('ak.is_active', '=', true)
+        .andWhere('u.is_active', '=', true)
+        .whereNull('u.deleted_at')
         .andWhere('user_auth.active', '=', 'true'));
     return result;
   }
