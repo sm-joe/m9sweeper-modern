@@ -79,7 +79,10 @@ export class ApiKeyDao {
             }).leftJoin('authority_levels', function () {
                 this.on('user_auth.authority_id', '=', 'authority_levels.id');
             })
-            .where(searchClause))
+            .where(searchClause)
+            .where('u.is_active', true)
+            .whereNull('u.deleted_at')
+            .where('a.is_active', true))
             .then(data => data);
     }
 
