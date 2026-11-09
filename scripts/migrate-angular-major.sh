@@ -77,9 +77,13 @@ npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
   "@angular/cli@$target" "@angular/compiler@$target" "@angular/compiler-cli@$target" \
   "@angular/language-service@$target" "@angular-devkit/build-angular@$target" \
   "@angular-builders/custom-webpack@$target" "typescript@$ts_version"
-for pkg in @angular/cli @angular/core @angular/material; do
-  ./node_modules/.bin/ng update "$pkg@$target" --migrate-only --from="$current" --to="$target" --allow-dirty
-done
+if [[ "${M9_SKIP_ANGULAR_MIGRATIONS:-0}" == "1" ]]; then
+  echo 'PROBE ONLY: checking upgraded dependency compilation; official source migrations are NOT executed.'
+else
+  for pkg in @angular/cli @angular/core @angular/material; do
+    ./node_modules/.bin/ng update "$pkg@$target" --migrate-only --from="$current" --to="$target" --allow-dirty
+  done
+fi
 npm run build:prod
 printf '\nPASS: Angular %s production build. Review migrations and commit generated lockfile.\n' "$target"
 printf 'NEXT: execute Playwright acceptance and scanner regression before promotion.\n'
