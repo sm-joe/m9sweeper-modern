@@ -62,7 +62,7 @@ jobs:
             angular-18-environment.txt
           retention-days: 7
       - name: Fail probe if dependency upgrade or production build failed
-        if: steps.migration.outcome != 'success'
+        if: steps.baseline.outputs.major == '17' && steps.migration.outcome != 'success'
         run: |
           echo 'Angular 18 migration is not yet passing; inspect migration log and fix dependency blockers.' >&2
           exit 1
