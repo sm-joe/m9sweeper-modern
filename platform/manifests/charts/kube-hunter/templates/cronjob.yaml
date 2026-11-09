@@ -68,8 +68,8 @@ spec:
                 - name: REPORT_RELAY_TARGET_URL
                   value: {{ .Values.reportRelay.targetUrl | quote }}
   {{- if .Values.reportRelay.caSecret }}
-              - name: SSL_CERT_FILE
-                value: /etc/report-relay-tls/ca.crt
+                - name: SSL_CERT_FILE
+                  value: /etc/report-relay-tls/ca.crt
 {{- end }}
               - name: REPORT_RELAY_API_KEY
                   valueFrom:
