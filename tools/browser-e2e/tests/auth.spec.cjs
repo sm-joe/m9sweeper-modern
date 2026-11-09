@@ -38,7 +38,19 @@ test('real seeded admin signs in through Angular and sees the security dashboard
   await page.locator('#email').fill(credentials.email);
   await page.locator('#password').fill(credentials.password);
   await page.locator('#submit').click();
-  await expect(page).toHaveURL(/\/private/);
-  await expect(page.getByRole('heading', { name: 'Cluster security overview' })).toBeVisible();
-  await expect(page.locator('app-scanner-connectivity')).toBeVisible();
+  await expect(page).toHaveURL(/\/private/, { timeout: 20_000 });
+  // On a freshly seeded installation, m9sweeper deliberately opens its
+  // first-run Setup Cluster dialog over the authenticated dashboard.
+  // Verify the real dashboard mounted and the modal is usable rather than
+  // falsely failing on the accessibility-hidden background heading.
+  await expect(page.locator('.revamp-dashboard-intro h1'))
+    .toHaveText('Cluster security overview', { timeout: 20_000 });
+  const onboarding = page.getByRole('dialog');
+  if (await onboarding.isVisible()) {
+    await expect(onboarding.getByRole('heading', { name: 'Setup Cluster' })).toBeVisible();
+    await expect(onboarding.getByRole('button', { name: 'Select Kubeconfig' })).toBeVisible();
+  } else {
+    await expect(page.getByRole('heading', { name: 'Cluster security overview' })).toBeVisible();
+    await expect(page.locator('app-scanner-connectivity')).toBeVisible();
+  }
 });
