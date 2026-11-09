@@ -29,7 +29,8 @@ export class FalcoOrgSettingsPageComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
-    this.isAdmin = this.jwtAuthService.isAdmin();
+    this.isAdmin = this.jwtAuthService.currentUserAuthorities?.includes('SUPER_ADMIN') ?? false;
+    if (!this.isAdmin) return;
     this.falcoService.listRules()
       .pipe(take(1))
       .subscribe({
