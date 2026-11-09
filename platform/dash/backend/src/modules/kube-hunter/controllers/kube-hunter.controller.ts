@@ -58,8 +58,24 @@ export class KubeHunterController {
              !await this.userDao.scannerHasClusterGrant(currentUserAuthObj[0].id, clusterId))) {
             throw new HttpException('Scanner identity is not authorized for this cluster', HttpStatus.UNAUTHORIZED);
         }
+        // Accept real kube-hunter report sections, not arbitrary client-supplied
+        // database columns (id, uuid, cluster_id, created_at, etc.).
+        // A malformed or empty authenticated scan must never appear as a clean report.
+        if (!report || typeof report !== 'object' || Array.isArray(report)) {
+            throw new HttpException('Malformed kube-hunter report', HttpStatus.BAD_REQUEST);
+        }
+        const sections = ['nodes', 'services', 'vulnerabilities'] as const;
+        if (!sections.some(section => Object.prototype.hasOwnProperty.call(report, section)) ||
+            sections.some(section => report[section] !== undefined &&
+                (report[section] === null || typeof report[section] !== 'object'))) {
+            throw new HttpException('Malformed kube-hunter report sections', HttpStatus.BAD_REQUEST);
+        }
         this.logger.log({label: 'User has been authorized; saving KH scan report', data: { clusterId }}, 'KubeHunterController.saveKubeHunterReport');
-        const reportAsDto = Object.assign(new KubeHunterDto(), report);
+        const reportAsDto = Object.assign(new KubeHunterDto(), {
+            nodes: report.nodes ?? {},
+            services: report.services ?? {},
+            vulnerabilities: report.vulnerabilities ?? {},
+        });
         reportAsDto.uuid = uuid();
         reportAsDto.clusterId = clusterId;
         const newEntry = await this.kubeHunterService.saveKubeHunterReport(reportAsDto);

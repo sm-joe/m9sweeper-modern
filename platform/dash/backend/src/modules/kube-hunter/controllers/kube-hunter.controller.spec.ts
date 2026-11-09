@@ -54,6 +54,31 @@ describe('kube-hunter ingestion authentication', () => {
     expect(reports.saveKubeHunterReport).not.toHaveBeenCalled();
   });
 
+  it('rejects authenticated empty or malformed reports instead of recording clean scans', async () => {
+    for (const invalid of [{}, {nodes: null}, {vulnerabilities: 'not-a-section'}, []]) {
+      await expect(controller.saveKubeHunterReport(invalid, 1, undefined, 'valid-key'))
+        .rejects.toMatchObject({status: 400});
+    }
+    expect(reports.saveKubeHunterReport).not.toHaveBeenCalled();
+  });
+
+  it('only persists report sections, regenerates UUID and never trusts client DB metadata', async () => {
+    await controller.saveKubeHunterReport({
+      nodes: {}, services: {}, vulnerabilities: {},
+      id: 9999, uuid: 'caller-forgery', clusterId: 333,
+      createdAt: 0, maliciousColumn: 'must-not-persist'
+    }, 1, undefined, 'valid-key');
+    const saved = reports.saveKubeHunterReport.mock.calls[0][0];
+    expect(saved.clusterId).toBe(1);
+    expect(saved.uuid).not.toBe('caller-forgery');
+    expect(saved).not.toHaveProperty('id');
+    expect(saved).not.toHaveProperty('createdAt');
+    expect(saved).not.toHaveProperty('maliciousColumn');
+    expect(Object.keys(saved).sort()).toEqual(
+      ['clusterId', 'nodes', 'services', 'uuid', 'vulnerabilities'].sort()
+    );
+  });
+
   it('disables raw scanner key export by default', async () => {
     const original = process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT;
     delete process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT;

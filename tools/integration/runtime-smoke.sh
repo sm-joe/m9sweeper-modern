@@ -107,7 +107,7 @@ for credential_case in missing invalid; do
   }
   falco_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 -X POST \
     -H 'Content-Type: application/json' "${key_header[@]}" \
-    --data '{"rule":"ci-negative","priority":"Warning","output":"not-a-real-event","outputFields":{}}' \
+    --data '{"hostname":"ci-host.invalid","output":"not-a-real-event","priority":"Warning","rule":"ci-negative","source":"syscall","tags":[],"time":"2026-11-09T00:00:00Z","output_fields":{}}' \
     http://127.0.0.1:3000/api/falco/1/create)"
   [[ "$falco_code" == 401 || "$falco_code" == 403 ]] || {
     echo "FAIL: Falco $credential_case credential returned HTTP $falco_code" >&2; exit 1;

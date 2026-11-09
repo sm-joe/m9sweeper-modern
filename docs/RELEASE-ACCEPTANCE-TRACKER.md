@@ -36,3 +36,12 @@ Product target: independently maintained Linux/Kubernetes deployment of m9sweepe
 - Never publish scanner API keys or use insecure URL query-token dispatch as the default.
 - After each source fix, provide exact PowerShell commands to pull, build and test.
 - A green GitHub check proves automated coverage only. Live Kind/real Kubernetes and DB acceptance remains separate.
+
+## Consolidated product stabilization commit (2026-11-09)
+
+- Fixed the real runtime integration Falco negative-auth fixture to match the actual typed webhook schema, so invalid credentials are rejected as unauthorized instead of a malformed-body 400. Requires live CI confirmation.
+- Reject authenticated kube-hunter reports lacking valid report sections, never treating malformed/empty reports as successful scans.
+- Kube-hunter persistence now takes only nodes/services/vulnerabilities from scanner input, generating UUID and cluster identity server-side. A scanner cannot inject id/createdAt/other database fields into a stored report.
+- Added regression tests for malformed payloads and client-supplied report metadata. Existing kube-hunter staging scanner values and Helm release remain unchanged.
+
+Still outstanding before final production release: explicit secure-probe DB/dashboard report verification, two-tenant scanner authorization and revocation E2E, Trivy RabbitMQ->Java->PostgreSQL->Angular real acceptance and DLQ, live Falco event to dashboard, Helm rollback/restore, modern framework and admission policies. CI passing is not release signoff.
