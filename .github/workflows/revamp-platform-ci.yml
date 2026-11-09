@@ -54,6 +54,8 @@ jobs:
           set -euo pipefail
           bash -n scripts/verify-linux-rc5.sh
           sh -n tools/security/test_kubehunter_live_denials.sh
+          bash -n scripts/verify-trivy-e2e-linux.sh
+          bash -n scripts/verify-postgres-restore-linux.sh
           bash -n scripts/check-broker-health-linux.sh
           test -s docs/linux-k8s-release-readiness.md
           grep -q 'Linux' README.md
