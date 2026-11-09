@@ -42,6 +42,7 @@ spec:
                 - -c
                 - "import socket; s=socket.create_connection(('127.0.0.1', 8765), 2); s.close()"
             periodSeconds: 1
+            timeoutSeconds: 5
             failureThreshold: 30
           image: {{ .Values.reportRelay.image | quote }}
           imagePullPolicy: IfNotPresent
