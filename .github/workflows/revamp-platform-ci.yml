@@ -6,6 +6,7 @@ on:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
       - 'tools/security/**'
+      - 'tools/browser-e2e/**'
       - 'deploy/kind/**'
       - 'docs/**'
   push:
@@ -15,6 +16,7 @@ on:
       - '.github/workflows/revamp-platform-ci.yml'
       - 'tools/import-platform/**'
       - 'tools/security/**'
+      - 'tools/browser-e2e/**'
       - 'deploy/kind/**'
       - '.gitignore'
       - 'README.md'
