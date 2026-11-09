@@ -78,6 +78,10 @@ npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
   "@angular/language-service@$target" "@angular-devkit/build-angular@$target" \
   "@angular-builders/custom-webpack@$target" "typescript@$ts_version"
 if [[ "$target" -ge 19 ]]; then
+  # TypeScript 5.8 must not compile the legacy Node 18 declaration package.
+  npm install --save-dev --legacy-peer-deps --no-audit --no-fund '@types/node@^20'
+fi
+if [[ "$target" -ge 19 ]]; then
   # Angular 19+ build tooling expects AJV 8; vendored AJSF still declares AJV 6.
   # npm must preserve AJV 6 underneath AJSF or the candidate is not acceptable.
   npm install --save --legacy-peer-deps --no-audit --no-fund 'ajv@^8'
