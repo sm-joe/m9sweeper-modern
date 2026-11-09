@@ -77,6 +77,10 @@ npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
   "@angular/cli@$target" "@angular/compiler@$target" "@angular/compiler-cli@$target" \
   "@angular/language-service@$target" "@angular-devkit/build-angular@$target" \
   "@angular-builders/custom-webpack@$target" "typescript@$ts_version"
+if [[ "$target" -eq 18 ]]; then
+  # Angular Material 18 namespaces legacy Material 2 Sass APIs under m2-*.
+  node "$repo_root/tools/frontend/migrate-material-m2.cjs"
+fi
 if [[ "${M9_SKIP_ANGULAR_MIGRATIONS:-0}" == "1" ]]; then
   echo 'PROBE ONLY: checking upgraded dependency compilation; official source migrations are NOT executed.'
 else
