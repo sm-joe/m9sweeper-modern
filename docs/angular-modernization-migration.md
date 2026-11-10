@@ -1,5 +1,15 @@
 # Angular 17 → 22 migration: release gate
 
+## Angular 22 compiled candidate (not yet a general-availability release)
+
+The branch now declares Angular Core 22.2.5, Material/CDK 22.2.6 and TypeScript 6.0.2. The Angular 22 compatibility probe built the upgraded dependency graph successfully and promoted the source/lockfile candidate. The separate full-platform CI (including the Docker image and authenticated Playwright tests) must pass on the **promoted commit** before any merge.
+
+The Gatekeeper constraint editor no longer imports the vendored AJSF Angular components. It uses an Angular-native schema-property editor with required-field, numeric, enum and structured JSON validation. Runtime equivalence for arbitrary OpenAPI schemas still requires explicit cluster-level acceptance testing; do not claim complete schema coverage based on compilation alone.
+
+TypeScript 6 enables stricter defaults for old projects. The migration currently records `strict: false` explicitly to preserve the earlier TypeScript 5 checking baseline; it retains Angular template and DI checking. Treat incremental strict typing as separate tech debt, not as a completed quality improvement. The legacy `baseUrl` resolution is retained under the TypeScript 6 deprecation compatibility setting until the imports are migrated.
+
+**Remaining technical debt:** dependency declarations still include vendored AJSF/Flex Layout, Protractor and TSLint; the custom Webpack builder and source migration collections are not fully retired. The compatibility probes set `M9_SKIP_ANGULAR_MIGRATIONS=1`; they verify compilation, not execution of all official `ng update` transformations. Do not mark the six-step platform modernization as wholly complete on this basis.
+
 This is an in-progress, **unverified framework migration**, not a claim that Angular 22 is deployed. Source of truth for currently installed versions: `platform/dash/frontend/package.json` and its lockfile.
 
 ## Candidate checkpoint: Angular 18
