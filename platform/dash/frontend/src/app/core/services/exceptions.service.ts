@@ -1,7 +1,7 @@
 import {Injectable} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {Observable} from 'rxjs';
-import {ExceptionCreateDto} from '../../../../../backend/src/modules/exceptions/dto/exceptioncreateDto';
+import {IExceptionCreate} from '../entities/IExceptionCreate';
 
 @Injectable({
   providedIn: 'root'
@@ -10,7 +10,7 @@ import {ExceptionCreateDto} from '../../../../../backend/src/modules/exceptions/
 export class ExceptionsService {
   constructor(private httpClient: HttpClient) {}
 
-  createException(data: ExceptionCreateDto): Observable<any>{
+  createException(data: IExceptionCreate): Observable<any>{
     return this.httpClient.post('/api/exceptions/create', data);
   }
   getAllExceptions(): Observable<any>{
@@ -22,7 +22,7 @@ export class ExceptionsService {
   deleteExceptionById(id: number): Observable<any>{
     return this.httpClient.delete(`api/exceptions/${id}`);
   }
-  updateExceptionById(data: ExceptionCreateDto, id: number): Observable<any> {
+  updateExceptionById(data: IExceptionCreate, id: number): Observable<any> {
     return this.httpClient.put(`api/exceptions/${id}`, data);
   }
 }
