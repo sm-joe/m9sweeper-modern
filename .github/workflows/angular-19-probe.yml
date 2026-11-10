@@ -1,0 +1,73 @@
+name: Angular 19 compatibility probe
+on:
+  push:
+    branches: [modernize/angular-sequential-migrations]
+    paths:
+      - 'scripts/migrate-angular-major.sh'
+      - '.github/workflows/angular-19-probe.yml'
+      - 'platform/dash/frontend/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  angular19-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: platform/dash/frontend/package-lock.json
+      - name: Install shared NestJS DTO dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+        working-directory: platform/dash/backend
+      - name: Determine installed Angular version
+        id: baseline
+        run: |
+          major="$(node -p 'require("./platform/dash/frontend/package.json").dependencies["@angular/core"].match(/[0-9]+/)[0]')"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+      - name: Check Angular 19 migration eligibility
+        if: steps.baseline.outputs.major == '18'
+        run: bash scripts/migrate-angular-major.sh 19 --preflight
+      - name: Compile Angular 19 dependency candidate without source migrations
+        id: compile
+        if: steps.baseline.outputs.major == '18'
+        continue-on-error: true
+        env:
+          M9_SKIP_ANGULAR_MIGRATIONS: '1'
+        run: bash scripts/migrate-angular-major.sh 19
+      - name: Verify committed Angular 19 production build
+        if: steps.baseline.outputs.major == '19'
+        run: |
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          npm run build:prod
+        working-directory: platform/dash/frontend
+      - name: Capture Angular 19 dependency and source diff
+        if: always()
+        run: |
+          git diff --binary > angular19-compat.patch
+          node -p "JSON.stringify({angular:require('./platform/dash/frontend/package.json').dependencies['@angular/core'],material:require('./platform/dash/frontend/package.json').dependencies['@angular/material']})" > angular19-versions.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: angular19-compatibility-evidence
+          path: |
+            angular19-compat.patch
+            angular19-versions.json
+          retention-days: 7
+      - name: Fail on unsuccessful Angular 19 build
+        if: steps.baseline.outputs.major == '18' && steps.compile.outcome != 'success'
+        run: exit 1
+      - name: Promote verified Angular 19 candidate to migration branch
+        if: github.event_name == 'push' && steps.baseline.outputs.major == '18' && steps.compile.outcome == 'success'
+        run: |
+          set -euo pipefail
+          test "$(node -p 'require("./platform/dash/frontend/package.json").dependencies["@angular/core"].match(/[0-9]+/)[0]')" = 19
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add platform/dash/frontend/package.json platform/dash/frontend/package-lock.json platform/dash/frontend/src
+          git diff --cached --quiet && { echo "No migration files generated"; exit 1; }
+          git commit -m "chore(angular): promote compiled Angular 19 NgModule-compatible candidate"
+          git push origin HEAD:refs/heads/modernize/angular-sequential-migrations

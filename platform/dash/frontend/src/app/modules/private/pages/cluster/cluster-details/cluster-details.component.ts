@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ClusterService } from '../../../../../core/services/cluster.service';
 
 @Component({
+  standalone: false,
   selector: 'app-cluster-details',
   templateUrl: './cluster-details.component.html',
   styleUrls: ['./cluster-details.component.scss']

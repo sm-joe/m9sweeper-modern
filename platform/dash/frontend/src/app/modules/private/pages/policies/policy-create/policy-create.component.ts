@@ -18,6 +18,7 @@ import {AlertDialogComponent} from '../../../../shared/alert-dialog/alert-dialog
 import {take} from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-policy-create',
   templateUrl: './policy-create.component.html',
   styleUrls: ['./policy-create.component.scss']

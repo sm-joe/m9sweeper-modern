@@ -3,6 +3,7 @@ import {ThemePalette} from '@angular/material/core';
 
 
 @Component({
+  standalone: false,
   selector: 'app-readonly-checkbox',
   templateUrl: './readonly-checkbox.component.html',
   styleUrls: ['./readonly-checkbox.component.scss']

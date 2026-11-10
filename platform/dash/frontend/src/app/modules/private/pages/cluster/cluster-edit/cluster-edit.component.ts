@@ -20,6 +20,7 @@ import {environment} from '../../../../../../environments/environment';
 
 
 @Component({
+  standalone: false,
   selector: 'app-cluster-edit',
   templateUrl: './cluster-edit.component.html',
   styleUrls: ['./cluster-edit.component.scss']

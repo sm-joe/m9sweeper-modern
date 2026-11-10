@@ -2,6 +2,7 @@ import {Component, Inject, OnInit} from '@angular/core';
 import {MAT_DIALOG_DATA, MatDialog, MatDialogRef} from '@angular/material/dialog';
 
 @Component({
+  standalone: false,
   selector: 'app-confirm-scan-all-dialog',
   templateUrl: './confirm-scan-all-dialog.component.html',
   styleUrls: ['./confirm-scan-all-dialog.component.scss']

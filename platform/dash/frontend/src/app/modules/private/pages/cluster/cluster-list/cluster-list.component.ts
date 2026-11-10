@@ -20,6 +20,7 @@ import {ClusterListMenuService} from '../../../menus/services/cluster-list-menu.
 import {environment} from '../../../../../../environments/environment.prod';
 
 @Component({
+  standalone: false,
   selector: 'app-cluster-list',
   templateUrl: './cluster-list.component.html',
   styleUrls: ['./cluster-list.component.scss', '../../../../../../styles.scss']

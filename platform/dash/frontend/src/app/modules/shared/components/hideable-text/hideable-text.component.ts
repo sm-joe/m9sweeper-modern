@@ -1,6 +1,7 @@
 import {Component, Input} from '@angular/core';
 
 @Component({
+  standalone: false,
   selector: 'app-hideable-text',
   templateUrl: './hideable-text.component.html',
   styleUrls: ['./hideable-text.component.scss']

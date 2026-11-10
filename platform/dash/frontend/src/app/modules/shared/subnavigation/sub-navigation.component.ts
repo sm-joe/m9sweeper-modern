@@ -3,6 +3,7 @@ import {ThemePalette} from '@angular/material/core';
 import {Authority} from '../../../core/enum/Authority';
 
 @Component({
+  standalone: false,
   selector: 'app-sub-navigation',
   templateUrl: './sub-navigation.component.html',
   styleUrls: ['./sub-navigation.component.scss']

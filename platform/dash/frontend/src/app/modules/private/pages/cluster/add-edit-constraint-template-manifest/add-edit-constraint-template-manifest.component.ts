@@ -7,6 +7,7 @@ import {take} from 'rxjs/operators';
 import {JwtAuthService} from '../../../../../core/services/jwt-auth.service';
 
 @Component({
+  standalone: false,
   selector: 'app-add-edit-constraint-template-manifest',
   templateUrl: './add-edit-constraint-template-manifest.component.html',
   styleUrls: ['./add-edit-constraint-template-manifest.component.scss']

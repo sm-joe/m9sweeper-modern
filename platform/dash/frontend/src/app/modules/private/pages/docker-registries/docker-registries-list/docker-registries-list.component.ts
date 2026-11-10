@@ -15,6 +15,7 @@ import { IDockerRegistries } from '../../../../../core/entities/IDockerRegistrie
 import { take, takeUntil } from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-docker-registries-list',
   templateUrl: './docker-registries-list.component.html',
   styleUrls: ['./docker-registries-list.component.scss']

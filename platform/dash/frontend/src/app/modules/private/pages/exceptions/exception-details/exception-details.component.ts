@@ -14,6 +14,7 @@ import {Authority, AuthorityId} from '../../../../../core/enum/Authority';
 import {ThemePalette} from '@angular/material/core';
 
 @Component({
+  standalone: false,
   selector: 'app-exception-details',
   templateUrl: './exception-details.component.html',
   styleUrls: ['./exception-details.component.scss']

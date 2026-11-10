@@ -20,6 +20,7 @@ interface IGSelectedTemplate {
 }
 
 @Component({
+  standalone: false,
   selector: 'app-add-constraint-dialog',
   templateUrl: './add-constraint-dialog.component.html',
   styleUrls: ['./add-constraint-dialog.component.scss']
@@ -88,6 +89,16 @@ export class AddConstraintDialogComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.unsubscribe$.next();
     this.unsubscribe$.complete();
+  }
+
+  selectedTemplateKind(item: IGSelectedTemplate): string {
+    return typeof item.selectedTemplate === 'string' ? item.selectedTemplateName : item.selectedTemplate.kind;
+  }
+
+  selectedTemplateDescription(item: IGSelectedTemplate): string {
+    return typeof item.selectedTemplate === 'string'
+      ? ''
+      : (item.selectedTemplate.metadata?.annotations?.description ?? '');
   }
 
   toggleSidenav() {

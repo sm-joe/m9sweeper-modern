@@ -12,6 +12,7 @@ import {ACRAuthDetails, AzureCRAuthDetails, GCRAuthDetails} from '../../../../..
 import {ENTER, SPACE} from '@angular/cdk/keycodes';
 
 @Component({
+  standalone: false,
   selector: 'app-docker-registries-create',
   templateUrl: './docker-registries-create.component.html',
   styleUrls: ['./docker-registries-create.component.scss']

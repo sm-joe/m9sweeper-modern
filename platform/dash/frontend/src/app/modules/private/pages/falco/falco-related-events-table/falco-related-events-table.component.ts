@@ -7,6 +7,7 @@ import {AlertService} from 'src/app/core/services/alert.service';
 import {UtilService} from '../../../../../core/services/util.service';
 
 @Component({
+  standalone: false,
   selector: 'app-falco-related-events-table',
   templateUrl: './falco-related-events-table.component.html',
   styleUrls: ['./falco-related-events-table.component.scss']

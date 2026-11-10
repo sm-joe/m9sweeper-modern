@@ -13,7 +13,7 @@
 @mixin toolbar-light-theme($theme) {
   app-private {
     .mat-toolbar {
-      background-color: mat.get-color-from-palette(mat.$gray-palette, A100);
+      background-color: mat.m2-get-color-from-palette(mat.$m2-grey-palette, A100);
     }
   }
 }

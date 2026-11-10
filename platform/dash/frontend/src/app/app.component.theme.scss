@@ -3,7 +3,7 @@
 @use '@angular/material' as mat;
 
 @mixin app-root-theme($theme) {
-  $color-config: mat.get-color-config($theme);
+  $color-config: mat.m2-get-color-config($theme);
   $primary: map.get($color-config, primary);
   $accent: map.get($color-config, accent);
   //$foreground: map.get($color-config, foreground);
@@ -11,10 +11,10 @@
 
   app-root {
     .app-container {
-      background-color:  mat.get-color-from-palette(mat.$gray-palette, 300);
+      background-color:  mat.m2-get-color-from-palette(mat.$m2-grey-palette, 300);
       > div {
         //&.theme-changer-container {
-        //  background:  mat.get-color-from-palette(mat.$gray-palette, A100);
+        //  background:  mat.m2-get-color-from-palette(mat.$m2-grey-palette, A100);
         //}
       }
     }

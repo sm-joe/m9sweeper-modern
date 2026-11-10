@@ -15,6 +15,7 @@ import {take} from 'rxjs/operators';
 import {JwtAuthService} from '../../../../../core/services/jwt-auth.service';
 
 @Component({
+  standalone: false,
   selector: 'app-policy-list',
   templateUrl: './policy-list.component.html',
   styleUrls: ['./policy-list.component.scss']

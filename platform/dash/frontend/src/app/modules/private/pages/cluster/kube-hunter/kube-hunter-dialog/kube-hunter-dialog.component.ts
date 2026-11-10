@@ -10,6 +10,7 @@ import {AlertService} from 'src/app/core/services/alert.service';
 import {Router} from '@angular/router';
 
 @Component({
+  standalone: false,
   selector: 'app-kube-hunter-dialog',
   templateUrl: './kube-hunter-dialog.component.html',
   styleUrls: ['./kube-hunter-dialog.component.scss']

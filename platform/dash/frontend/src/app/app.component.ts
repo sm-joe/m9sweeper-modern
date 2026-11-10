@@ -10,6 +10,7 @@ import { filter } from 'rxjs/operators';
 import { JwtAuthService } from './core/services/jwt-auth.service';
 
 @Component({
+  standalone: false,
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']

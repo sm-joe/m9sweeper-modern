@@ -4,6 +4,7 @@ import { take } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 
 @Component({
+  standalone: false,
   selector: 'app-reports',
   templateUrl: './reports.component.html',
   styleUrls: ['./reports.component.scss']

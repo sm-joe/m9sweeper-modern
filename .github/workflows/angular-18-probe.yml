@@ -1,0 +1,79 @@
+name: Angular 18 committed dependency and build verification
+on:
+  push:
+    branches:
+      - modernize/angular-sequential-migrations
+    paths:
+      - 'scripts/migrate-angular-major.sh'
+      - 'tools/frontend/**'
+      - 'platform/dash/frontend/**'
+      - '.github/workflows/angular-18-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  angular-18-migration-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: platform/dash/frontend/package-lock.json
+      - name: Test Angular Material M2 compatibility transform
+        run: node tools/frontend/migrate-material-m2.test.cjs
+      - name: Install backend DTO dependencies required by Angular compilation
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+        working-directory: platform/dash/backend
+      - name: Identify frontend baseline
+        id: baseline
+        run: |
+          major="$(node -p 'require("./platform/dash/frontend/package.json").dependencies["@angular/core"].match(/[0-9]+/)[0]')"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+      - name: Compile Angular 18 dependencies and legacy Material theme in disposable workspace
+        id: migration
+        if: steps.baseline.outputs.major == '17'
+        continue-on-error: true
+        env:
+          M9_SKIP_ANGULAR_MIGRATIONS: '1'
+        run: bash scripts/migrate-angular-major.sh 18
+      - name: Verify committed Angular 18 when no upgrade needed
+        if: steps.baseline.outputs.major == '18'
+        run: |
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          npm run build:prod
+        working-directory: platform/dash/frontend
+      - name: Save migration patch and version evidence
+        if: always()
+        run: |
+          git diff --binary > angular-18-migration.patch
+          git status --short > angular-18-git-status.txt
+          node --version > angular-18-environment.txt
+          node -e "const p=require('./platform/dash/frontend/package.json'); console.log(p.dependencies['@angular/core'],p.dependencies['@angular/material'])" >> angular-18-environment.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: angular-18-migration-evidence
+          path: |
+            angular-18-migration.patch
+            angular-18-git-status.txt
+            angular-18-environment.txt
+          retention-days: 7
+      - name: Fail probe if dependency upgrade or production build failed
+        if: steps.baseline.outputs.major == '17' && steps.migration.outcome != 'success'
+        run: |
+          echo 'Angular 18 migration is not yet passing; inspect migration log and fix dependency blockers.' >&2
+          exit 1
+      - name: Promote built Angular 18 candidate to migration branch
+        if: github.event_name == 'push' && steps.migration.outcome == 'success' && steps.baseline.outputs.major == '17'
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./platform/dash/frontend/package.json').dependencies['@angular/core'].match(/[0-9]+/)[0]")" = 18
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add platform/dash/frontend/package.json platform/dash/frontend/package-lock.json platform/dash/frontend/src
+          git diff --cached --quiet && { echo "No upgraded frontend files produced"; exit 1; }
+          git commit -m "chore(angular): promote compiled Angular 18 dependency and M2 Sass candidate"
+          git push origin HEAD:refs/heads/modernize/angular-sequential-migrations

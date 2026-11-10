@@ -7,6 +7,7 @@ import { NgxUiLoaderService } from 'ngx-ui-loader';
 import { take } from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-reset-password',
   templateUrl: './send-reset-password-mail.component.html',
   styleUrls: ['./send-reset-password-mail.component.scss']

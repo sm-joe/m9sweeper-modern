@@ -11,6 +11,7 @@ import { IServerResponse } from '../../../../../core/entities/IServerResponse';
 import {merge} from 'rxjs';
 
 @Component({
+  standalone: false,
   selector: 'app-user-list',
   templateUrl: './user-list.component.html',
   styleUrls: ['./user-list.component.scss']

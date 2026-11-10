@@ -11,6 +11,7 @@ import {SecurityAuditReportTools} from '../../../../../core/enum/SecurityAuditRe
 import {AlertService} from '../../../../../core/services/alert.service';
 
 @Component({
+  standalone: false,
   selector: 'app-security-audit-report',
   templateUrl: './security-audit-report.component.html',
   styleUrls: ['./security-audit-report.component.scss']

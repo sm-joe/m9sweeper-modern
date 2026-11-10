@@ -3,6 +3,7 @@ import {JwtAuthService} from '../../../core/services/jwt-auth.service';
 import {AlertService} from 'src/app/core/services/alert.service';
 
 @Directive({
+  standalone: false,
   // tslint:disable-next-line:directive-selector
   selector: '[allowedRoles]'
 })

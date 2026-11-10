@@ -59,7 +59,7 @@
             </div>
           </ng-container>
         </form>
-        <ng-container *ngIf="selectedInSiteCredentialAuthenticationMethod?.type === 'GOOGLE'">
+        <ng-container *ngIf="$any(selectedInSiteCredentialAuthenticationMethod?.type) === 'GOOGLE'">
           <mat-card-actions>
               <div class="external-auth-buttons-holder">
                 <a mat-raised-button color="accent"

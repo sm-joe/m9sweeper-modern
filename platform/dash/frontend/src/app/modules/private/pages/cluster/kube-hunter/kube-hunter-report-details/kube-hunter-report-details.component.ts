@@ -9,6 +9,7 @@ import {ICluster} from '../../../../../../core/entities/ICluster';
 import {UtilService} from '../../../../../../core/services/util.service';
 
 @Component({
+  standalone: false,
   selector: 'app-kube-hunter-report-details',
   templateUrl: './kube-hunter-report-details.component.html',
   styleUrls: ['./kube-hunter-report-details.component.scss']

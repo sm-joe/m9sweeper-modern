@@ -6,6 +6,7 @@ import {UtilService} from '../../../../core/services/util.service';
  * If clickable, clicking on the text will open the text in a dialog.
  */
 @Component({
+  standalone: false,
   selector: 'app-ellipsis-text',
   templateUrl: './ellipsis-text.component.html',
   styleUrls: ['./ellipsis-text.component.scss']

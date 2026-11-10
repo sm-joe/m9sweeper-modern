@@ -4,6 +4,7 @@ import { Validators,  FormGroup, FormBuilder} from '@angular/forms';
 import {IConstraintSpecMatchKinds} from '../../../../../core/entities/gatekeeper';
 
 @Component({
+  standalone: false,
   selector: 'app-add-constraint-criteria',
   templateUrl: './add-constraint-criteria.component.html',
   styleUrls: ['./add-constraint-criteria.component.scss']

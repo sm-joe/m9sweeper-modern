@@ -5,6 +5,7 @@ import {IFalcoRule} from '../../../../../core/entities/IFalcoRule';
 import {JwtAuthService} from '../../../../../core/services/jwt-auth.service';
 
 @Component({
+  standalone: false,
   selector: 'app-falco-rules-cluster-list',
   templateUrl: './falco-rules-cluster-list.component.html',
   styleUrls: ['./falco-rules-cluster-list.component.scss']

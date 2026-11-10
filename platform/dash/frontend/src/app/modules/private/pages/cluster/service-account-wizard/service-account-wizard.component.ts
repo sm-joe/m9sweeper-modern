@@ -7,6 +7,7 @@ import {ClusterService} from '../../../../../core/services/cluster.service';
 import {take} from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-service-account-wizard',
   templateUrl: './service-account-wizard.component.html',
   styleUrls: ['./service-account-wizard.component.scss']

@@ -13,6 +13,7 @@ import {ChartSizeService} from '../../../../../core/services/chart-size.service'
 import {CustomValidatorService} from '../../../../../core/services/custom-validator.service';
 
 @Component({
+  standalone: false,
   selector: 'app-worst-images',
   templateUrl: './worst-images.component.html',
   styleUrls: ['./worst-images.component.scss']

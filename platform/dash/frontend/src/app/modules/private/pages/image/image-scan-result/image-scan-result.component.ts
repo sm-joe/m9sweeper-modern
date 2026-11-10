@@ -22,6 +22,7 @@ import {VulnerabilitySeverity, VulnerabilitySeverityAbbreviations} from '../../.
 
 
 @Component({
+  standalone: false,
   selector: 'app-image-scan-result',
   templateUrl: './image-scan-result.component.html',
   styleUrls: ['./image-scan-result.component.scss']

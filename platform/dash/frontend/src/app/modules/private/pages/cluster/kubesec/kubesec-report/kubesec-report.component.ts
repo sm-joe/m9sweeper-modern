@@ -6,6 +6,7 @@ import {NgxUiLoaderService} from 'ngx-ui-loader';
 import {DomSanitizer} from '@angular/platform-browser';
 
 @Component({
+  standalone: false,
   selector: 'app-kubesec-report',
   templateUrl: './kubesec-report.component.html',
   styleUrls: ['./kubesec-report.component.scss']

@@ -7,6 +7,7 @@ import {CommonService} from '../../../../../../core/services/common.service';
 import {take} from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-kube-bench-dialog',
   templateUrl: './kube-bench-dialog.component.html',
   styleUrls: ['./kube-bench-dialog.component.scss']

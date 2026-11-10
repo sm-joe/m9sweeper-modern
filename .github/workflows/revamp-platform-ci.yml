@@ -94,7 +94,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22.22.3'
           cache: npm
           cache-dependency-path: platform/dash/frontend/package-lock.json
       - name: Install backend DTO dependencies consumed by the original Angular compiler
@@ -130,9 +130,38 @@ jobs:
           ]) {
             console.log((fs.existsSync(file) ? 'FOUND ' : 'MISSING ') + file);
           }
-          const pkg = require('./node_modules/@material/dom/package.json');
-          console.log('Resolved @material/dom version:', pkg.version);
+          const domManifest = './node_modules/@material/dom/package.json';
+          if (fs.existsSync(domManifest)) {
+            const pkg = require(domManifest);
+            console.log('Resolved @material/dom version:', pkg.version);
+          } else {
+            console.log('Standalone @material/dom not installed; checking Angular Material package instead');
+          }
+          console.log('Resolved @angular/material version:', require('./node_modules/@angular/material/package.json').version);
           JS
+      - name: Validate guarded Angular 17 to 18 migration preflight
+        shell: bash
+        run: |
+          bash -n ../../../scripts/migrate-angular-major.sh
+          current="$(node -p "require('./package.json').dependencies['@angular/core'].match(/[0-9]+/)[0]")"
+          if [[ "$current" -eq 22 ]]; then
+            # Final supported target: no Angular 23 transition exists in this runner.
+            # Re-applying 22 or downgrading to 21 must be rejected.
+            if bash ../../../scripts/migrate-angular-major.sh 22 --preflight ||
+               bash ../../../scripts/migrate-angular-major.sh 21 --preflight; then
+              echo 'ERROR: Final Angular 22 baseline accepted an invalid migration' >&2
+              exit 1
+            fi
+            echo 'PASS: Angular 22 is the final supported migration target'
+          else
+            next="$((current+1))"
+            skipped="$((current+2))"
+            bash ../../../scripts/migrate-angular-major.sh "$next" --preflight
+            if bash ../../../scripts/migrate-angular-major.sh "$skipped" --preflight; then
+              echo 'ERROR: Migration runner accepted a multi-major jump' >&2
+              exit 1
+            fi
+          fi
       - name: Build original Angular application with modernized routes and layout
         run: npm run build:prod
   helm-charts:

@@ -12,6 +12,7 @@ interface AlertDialogData {
 }
 
 @Component({
+  standalone: false,
   selector: 'app-alert',
   templateUrl: './alert-dialog.component.html',
   styleUrls: ['./alert-dialog.component.scss']

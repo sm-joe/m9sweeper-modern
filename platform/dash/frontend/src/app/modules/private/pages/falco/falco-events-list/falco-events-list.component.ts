@@ -17,6 +17,7 @@ import {FalcoJsonDataDialogComponent} from '../falco-json-data-dialog/falco-json
 
 
 @Component({
+  standalone: false,
   selector: 'app-falco-events-list',
   templateUrl: './falco-events-list.component.html',
   styleUrls: ['./falco-events-list.component.scss']

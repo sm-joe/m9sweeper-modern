@@ -7,6 +7,7 @@ import {IServerResponse} from '../../../../../core/entities/IServerResponse';
 import {IScanResult} from '../../../../../core/entities/IImage';
 
 @Component({
+  standalone: false,
   selector: 'app-image-scan-result-scanner-details',
   templateUrl: './image-scan-result-scanner-details.component.html',
   styleUrls: ['./image-scan-result-scanner-details.component.scss']

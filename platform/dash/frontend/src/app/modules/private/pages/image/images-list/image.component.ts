@@ -26,6 +26,7 @@ import {JwtAuthService} from '../../../../../core/services/jwt-auth.service';
 import {VulnerabilitySeverityAbbreviations} from '../../../../../core/enum/VulnerabilitySeverity';
 
 @Component({
+  standalone: false,
   selector: 'app-image',
   templateUrl: './image.component.html',
   styleUrls: ['./image.component.scss']

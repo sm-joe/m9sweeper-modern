@@ -6,6 +6,7 @@ import { AlertService } from 'src/app/core/services/alert.service';
 import { CustomValidators } from '../../../form-validator/custom-validators';
 import {IScanner, VulnerabilitySettings} from '../../../../../core/entities/IScanner';
 @Component({
+  standalone: false,
   selector: 'app-scanner-create',
   templateUrl: './scanner-create.component.html',
   styleUrls: ['./scanner-create.component.scss']

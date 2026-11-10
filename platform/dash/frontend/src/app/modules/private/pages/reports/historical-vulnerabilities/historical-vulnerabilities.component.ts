@@ -12,6 +12,7 @@ import {take} from 'rxjs/operators';
 import {format} from 'date-fns';
 
 @Component({
+  standalone: false,
   selector: 'app-historical-vulnerabilities',
   templateUrl: './historical-vulnerabilities.component.html',
   styleUrls: ['./historical-vulnerabilities.component.scss']

@@ -59,9 +59,9 @@
                 <mat-card-title>{{template.selectedTemplateName}}</mat-card-title>
               </div>
               <div class="col-xs-12 col-md-11 col-md-offset-1 ps-md-0">
-                <div class="category-text mb-half-rem"><strong>Category: </strong>{{template.selectedTemplate.kind}}</div>
+                <div class="category-text mb-half-rem"><strong>Category: </strong>{{selectedTemplateKind(template)}}</div>
                 <strong>Description: </strong>
-                <p class="my-0">{{template.selectedTemplate.metadata.annotations.description}}</p>
+                <p class="my-0">{{selectedTemplateDescription(template)}}</p>
                 <div id="btn" class="mt-half-rem">
                   <button mat-raised-button color="primary"
                           (click)="openK8sManifest(i)">Review or Edit Kubernetes Manifest</button>

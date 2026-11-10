@@ -34,11 +34,11 @@
           <mat-card-content>
             <div>
               <ngx-charts-line-chart
-                [view]="complianceSummaryLineChartAttributes.view"
-                [scheme]="complianceSummaryLineChartAttributes.colorScheme"
+                [view]="$any(complianceSummaryLineChartAttributes.view)"
+                [scheme]="$any(complianceSummaryLineChartAttributes.colorScheme)"
                 [results]="complianceSummaryLineChartAttributes.results"
                 [legend]="complianceSummaryLineChartAttributes.showLegend"
-                [legendPosition]="complianceSummaryLineChartAttributes.legendPosition"
+                [legendPosition]="$any(complianceSummaryLineChartAttributes.legendPosition)"
                 [gradient]="complianceSummaryLineChartAttributes.gradient"
                 [xAxis]="complianceSummaryLineChartAttributes.showXAxis"
                 [yAxis]="complianceSummaryLineChartAttributes.showYAxis"
@@ -78,11 +78,11 @@
           <mat-card-content>
             <div>
               <ngx-charts-line-chart
-                [view]="lineChartAttributes.view"
-                [scheme]="lineChartAttributes.colorScheme"
+                [view]="$any(lineChartAttributes.view)"
+                [scheme]="$any(lineChartAttributes.colorScheme)"
                 [results]="lineChartAttributes.results"
                 [legend]="lineChartAttributes.showLegend"
-                [legendPosition]="lineChartAttributes.legendPosition"
+                [legendPosition]="$any(lineChartAttributes.legendPosition)"
                 [gradient]="lineChartAttributes.gradient"
                 [xAxis]="lineChartAttributes.showXAxis"
                 [yAxis]="lineChartAttributes.showYAxis"
@@ -121,11 +121,11 @@
           <mat-card-content>
             <div>
               <ngx-charts-bar-vertical-stacked
-                [view]="barChartAttributes.view"
-                [scheme]="barChartAttributes.colorScheme"
+                [view]="$any(barChartAttributes.view)"
+                [scheme]="$any(barChartAttributes.colorScheme)"
                 [results]="barChartAttributes.results"
                 [legend]="barChartAttributes.showLegend"
-                [legendPosition]="barChartAttributes.legendPosition"
+                [legendPosition]="$any(barChartAttributes.legendPosition)"
                 [gradient]="barChartAttributes.gradient"
                 [xAxis]="barChartAttributes.showXAxis"
                 [yAxis]="barChartAttributes.showYAxis"
