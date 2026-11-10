@@ -57,15 +57,15 @@ export class ExceptionCreateDto {
     relevantForAllKubernetesNamespaces: boolean;
 
     @IsOptional()
-    @ApiProperty({name: 'clusters', type: Array(Number)})
+    @ApiProperty({name: 'clusters', type: Number, isArray: true})
     clusters: number[];
 
     @IsOptional()
-    @ApiProperty({name: 'policies', type: Array(Number)})
+    @ApiProperty({name: 'policies', type: Number, isArray: true})
     policies: number[];
 
     @IsOptional()
-    @ApiProperty({name: 'namespaces', type: Array(Number)})
+    @ApiProperty({name: 'namespaces', type: Number, isArray: true})
     namespaces: string[];
 
     @IsOptional()
