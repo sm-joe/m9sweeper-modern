@@ -35,10 +35,11 @@ jobs:
             '@nestjs/axios@^4' '@nestjs/common@^11' '@nestjs/config@^4' \
             '@nestjs/core@^11' '@nestjs/jwt@^11' '@nestjs/platform-express@^11' \
             '@nestjs/schedule@^6' '@nestjs/serve-static@^5' \
-            '@nestjs/swagger@^11' '@willsoto/nestjs-prometheus@^6.0.2'
+            '@nestjs/swagger@^11' '@willsoto/nestjs-prometheus@^6.0.2' \
+            'express@^5'
           npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
             '@nestjs/cli@^11' '@nestjs/schematics@^11' \
-            '@nestjs/testing@^11'
+            '@nestjs/testing@^11' '@types/express@^5'
       - name: Verify dependency major versions and source compilation
         run: |
           node - <<'JS'
