@@ -27,7 +27,8 @@ export class FalcoDao {
       pod?: string,
       image?: string,
       ): Knex.QueryBuilder {
-        if (priorities) {
+        // No priority selected means 'all priorities', not an empty SQL IN list.
+        if (Array.isArray(priorities) && priorities.length > 0) {
             query = query.whereIn('level', priorities);
         }
         switch (orderBy) {
