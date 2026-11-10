@@ -116,8 +116,14 @@ export class FalcoDao {
             query.where('anomaly_signature', signature);
         }
 
-        // set limit to whichever is lower: 1000 or whatever is provided
-        limit = Math.min(limit, 1000);
+        // A missing/non-finite limit must not become LIMIT 0 (which hides saved events).
+        // Apply the same bounded defaults for internal callers and HTTP requests.
+        const pageLimit = Number(limit);
+        const pageNumber = Number(page);
+        limit = Number.isFinite(pageLimit) && pageLimit > 0
+          ? Math.min(Math.floor(pageLimit), 1000) : 20;
+        page = Number.isFinite(pageNumber) && pageNumber >= 0
+          ? Math.floor(pageNumber) : 0;
         query = query.limit(limit).offset(page * limit) // limit: page size
 
         // Filtered list per page for pagination
