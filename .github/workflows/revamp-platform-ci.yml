@@ -370,7 +370,15 @@ jobs:
             --set-string global.apiKey="$API_KEY" \
             --set-string dash.init.superAdminEmail="ci@example.invalid" \
             --set-string dash.init.superAdminPassword="$JWT_SECRET" \
-            >/dev/null
+            >/tmp/m9-nonroot-render.yaml
+          for expected in 'runAsNonRoot: true' 'runAsUser: 1050' 'allowPrivilegeEscalation: false' 'type: RuntimeDefault'; do
+            count="$(grep -Fc "$expected" /tmp/m9-nonroot-render.yaml)"
+            if [ "$count" -lt 3 ]; then
+              echo "FAIL: expected at least three hardened Dash/init/trawler containers for $expected, got $count" >&2
+              exit 1
+            fi
+          done
+          echo 'PASS: Dash, init and trawler enforce non-root execution and runtime restrictions'
   original-trawler:
     runs-on: ubuntu-latest
     timeout-minutes: 20
