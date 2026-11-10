@@ -77,24 +77,18 @@
             <div class="padding-bottom-5px">
               <h3>Properties</h3>
             </div>
-            <json-schema-form #propertyFields *ngIf="generateFormFromSchema"
-                              loadExternalAssets="true"
-                              framework="material-design"
-                              [schema]="formSchema"
-                              id="schema_form"
-                              (onChanges)="saveSchemaFormValue($event)"
-            >
-            </json-schema-form>
-            <br>
-            <json-schema-form #propertyFieldsJsonData *ngIf="!generateFormFromSchema"
-                              loadExternalAssets="true"
-                              framework="material-design"
-                              [(ngModel)]="generateFormFromJsonData"
-                              id="schema_form_edit"
-                              (onChanges)="saveSchemaFormJsonValue($event)"
-                              ngDefaultControl
-            >
-            </json-schema-form>
+            <app-constraint-schema-form *ngIf="generateFormFromSchema"
+              [schema]="formSchema.schema"
+              [value]="dynamicProperties"
+              (valueChange)="saveSchemaFormValue($event)"
+              (validChange)="schemaFormValid = $event">
+            </app-constraint-schema-form>
+            <app-constraint-schema-form *ngIf="!generateFormFromSchema"
+              [schema]="formSchema.schema"
+              [value]="generateFormFromJsonData"
+              (valueChange)="saveSchemaFormJsonValue($event)"
+              (validChange)="schemaFormValid = $event">
+            </app-constraint-schema-form>schema-form>
 
         </div>
       </div>
@@ -102,7 +96,7 @@
 
       <div class="row action-button-row">
         <div id="action-btn">
-          <button [disabled]="!addTemplateConstraintForm.valid" (click)="onSubmit()" mat-raised-button color="primary"
+          <button [disabled]="!addTemplateConstraintForm.valid || !schemaFormValid" (click)="onSubmit()" mat-raised-button color="primary"
                   type="submit" class="me-xs-2">
             Save Changes
           </button>
