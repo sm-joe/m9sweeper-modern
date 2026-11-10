@@ -1,0 +1,110 @@
+name: Frontend tooling dependency modernization
+on:
+  push:
+    branches: [modernize/frontend-debt-cleanup]
+    paths:
+      - '.github/workflows/frontend-tooling-modernization.yml'
+      - 'platform/dash/frontend/**'
+      - 'tools/frontend/audit-legacy-angular.cjs'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  lint-and-builder-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+          cache: npm
+          cache-dependency-path: platform/dash/frontend/package-lock.json
+      - name: Inventory AJSF and Flex Layout source references
+        run: node tools/frontend/audit-legacy-angular.cjs
+      - name: Install backend DTO dependencies used by frontend TypeScript
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+        working-directory: platform/dash/backend
+      - name: Generate locked Angular ESLint and native-builder dependency graph
+        id: migrate
+        working-directory: platform/dash/frontend
+        run: |
+          set -euo pipefail
+          if node -e "const p=require('./package.json'); process.exit(p.devDependencies['@angular-builders/custom-webpack'] || p.devDependencies.tslint || p.devDependencies.protractor ? 0:1)"; then
+            npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
+              'eslint@^9' '@typescript-eslint/parser@^8' '@typescript-eslint/utils@^8' \
+              '@angular-eslint/builder@^22.6.0' \
+              '@angular-eslint/eslint-plugin@^22.6.0' \
+              '@angular-eslint/eslint-plugin-template@^22.6.0' \
+              '@angular-eslint/template-parser@^22.6.0' \
+              '@angular-eslint/schematics@^22.6.0'
+            npm uninstall --save-dev --legacy-peer-deps --no-audit --no-fund \
+              '@angular-builders/custom-webpack' codelyzer tslint protractor '@types/jasminewd2'
+            npm uninstall --save --legacy-peer-deps --no-audit --no-fund \
+              '@ajsf/core' '@ajsf/material' '@angular/flex-layout'
+          fi
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          node ../../../tools/frontend/audit-legacy-angular.cjs | tee /tmp/legacy-audit.txt
+          if grep -E '^(ajsf|flexLayout): [1-9][0-9]* source references' /tmp/legacy-audit.txt; then
+            echo 'Cannot remove active AJSF or Flex Layout source dependencies' >&2
+            exit 1
+          fi
+          npm run lint
+          npm run build:prod
+          node - <<'JS'
+          const p = require('./package.json');
+          for (const name of ['@angular-builders/custom-webpack', 'tslint', 'protractor', 'codelyzer', '@ajsf/core', '@ajsf/material', '@angular/flex-layout']) {
+            if (p.devDependencies[name] || p.dependencies[name]) {
+              throw new Error('Obsolete dependency remains: ' + name);
+            }
+          }
+          if (!p.devDependencies['@angular-eslint/builder']) {
+            throw new Error('Angular ESLint builder is missing');
+          }
+          console.log('PASS: native Angular production build, ESLint and legacy tooling removal');
+          JS
+      - name: Promote locked tooling migration after build and lint pass
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          git add platform/dash/frontend/package.json platform/dash/frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo 'Tooling dependencies already committed'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(frontend): lock Angular ESLint and retire custom Webpack, TSLint and Protractor'
+          git push origin HEAD:refs/heads/modernize/frontend-debt-cleanup
+
+  runtime-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start disposable real NestJS/Angular/PostgreSQL/RabbitMQ stack
+        run: bash tools/integration/runtime-smoke.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+      - name: Install Chromium Playwright
+        working-directory: tools/browser-e2e
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Verify login, protected routes, policy inventory and scanner dashboard
+        working-directory: tools/browser-e2e
+        run: npm test
+      - name: Save browser traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-debt-browser-traces
+          path: tools/browser-e2e/test-results/
+          if-no-files-found: ignore
+      - name: Dump backend logs when tests fail
+        if: failure()
+        run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime logs --tail=120
+      - name: Stop disposable integration services
+        if: always()
+        run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime down --remove-orphans
