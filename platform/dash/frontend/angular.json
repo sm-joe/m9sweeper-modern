@@ -15,19 +15,18 @@
       "prefix": "app",
       "architect": {
         "build": {
-          "builder": "@angular-devkit/build-angular:browser",
+          "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "buildOptimizer": false,
-            "namedChunks": true,
             "optimization": false,
             "sourceMap": true,
-            "allowedCommonJsDependencies": [
-              "url"
-            ],
-            "outputPath": "../backend/dist/public",
+            "outputPath": {
+              "base": "../backend/dist/public",
+              "browser": ""
+            },
             "index": "src/index.html",
-            "main": "src/main.ts",
-            "polyfills": "src/polyfills.ts",
+            "polyfills": [
+              "src/polyfills.ts"
+            ],
             "tsConfig": "tsconfig.app.json",
             "aot": true,
             "assets": [
@@ -43,7 +42,8 @@
               "includePaths": [
                 "node_modules"
               ]
-            }
+            },
+            "browser": "src/main.ts"
           },
           "configurations": {
             "production": {
@@ -56,10 +56,7 @@
               "optimization": true,
               "outputHashing": "all",
               "sourceMap": false,
-              "namedChunks": false,
               "extractLicenses": true,
-              "vendorChunk": false,
-              "buildOptimizer": true,
               "budgets": [
                 {
                   "type": "initial",
@@ -74,8 +71,6 @@
               ]
             },
             "local": {
-              "buildOptimizer": false,
-              "namedChunks": true,
               "optimization": false,
               "sourceMap": true
             }
@@ -84,12 +79,12 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "frontend:build",
-            "proxyConfig": "./proxy.conf.json"
+            "proxyConfig": "./proxy.conf.json",
+            "buildTarget": "frontend:build"
           },
           "configurations": {
             "production": {
-              "browserTarget": "frontend:build:production"
+              "buildTarget": "frontend:build:production"
             },
             "dev": {
               "proxyConfig": "./proxy.dev.conf.json"
@@ -106,7 +101,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "frontend:build"
+            "buildTarget": "frontend:build"
           }
         },
         "test": {
