@@ -1,0 +1,37 @@
+name: Real queued Trivy staging acceptance
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/integration/real-trivy-e2e-staging.py'
+      - '.github/workflows/real-trivy-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: queued-trivy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-trivy-queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the real staging scanner launcher syntax
+        run: python3 -m py_compile tools/integration/real-trivy-e2e-staging.py
+      - name: Bootstrap real disposable NestJS, Angular, PostgreSQL and RabbitMQ
+        run: bash tools/integration/runtime-smoke.sh
+      - name: Run actual Java Trivy worker and verify durable scan evidence
+        env:
+          M9_STAGING_E2E_TEST: "YES"
+          M9_COMPOSE_PROJECT: m9-runtime
+        run: python3 tools/integration/real-trivy-e2e-staging.py
+      - name: Show container health without exporting credential-bearing logs
+        if: always()
+        run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime ps || true
+      - name: Tear down disposable CI containers without altering external environments
+        if: always()
+        run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime down --remove-orphans || true
