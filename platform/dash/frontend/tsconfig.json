@@ -21,7 +21,8 @@
     },
     "useDefineForClassFields": false,
     "ignoreDeprecations": "6.0",
-    "strict": false
+    "strict": false,
+    "esModuleInterop": true
   },
   "angularCompilerOptions": {
     "fullTemplateTypeCheck": true,

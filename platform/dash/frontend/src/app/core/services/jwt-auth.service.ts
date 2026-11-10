@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core';
-import * as jwt_decode from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 import {BehaviorSubject, Observable} from 'rxjs';
 import {IUser} from '../entities/IUser';
 import {AuthenticationType} from '../enum/AuthenticationType';

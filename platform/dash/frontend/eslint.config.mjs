@@ -1,5 +1,5 @@
 // Flat ESLint configuration for the Angular 22 frontend.
-// Start with a small correctness baseline; tighten rules only with verified source fixes.
+// Enforce low-risk correctness checks on legacy code without altering framework behavior.
 import tsParser from '@typescript-eslint/parser';
 import angular from '@angular-eslint/eslint-plugin';
 import templateParser from '@angular-eslint/template-parser';
@@ -19,7 +19,11 @@ export default [
     rules: {
       'constructor-super': 'error',
       'no-unsafe-finally': 'error',
-      'no-unreachable': 'error'
+      'no-unreachable': 'error',
+      'no-debugger': 'error',
+      'no-duplicate-case': 'error',
+      'no-sparse-arrays': 'error',
+      'no-compare-neg-zero': 'error'
     }
   },
   {
