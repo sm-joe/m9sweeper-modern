@@ -1,6 +1,6 @@
 # m9sweeper — Kubernetes security operations
 
-**Status:** RC4 integration merged to `main` (2026-11-08). Validated in an operator-managed Kind environment; **not yet a supported production distribution**. This project modernizes the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) application, preserving upstream source and Apache-2.0 notices. This is not an official CIS-certified compliance product.
+**Status:** Integration/release candidate with Angular 22, real queued Trivy CI and Linux/Kubernetes hardening merged through 2026-11-10; **not yet a supported production distribution**. See [verified modernization evidence and remaining release gates](docs/modernization-2026-11-10-evidence.md). This project modernizes the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) application, preserving upstream source and Apache-2.0 notices. This is not an official CIS-certified compliance product.
 
 m9sweeper provides Kubernetes cluster and image inventory, Trivy vulnerability assessments, policy and exception workflows, authenticated security reports, Falco runtime-event ingestion, kube-hunter assessments, Kubesec and optional kube-bench/cluster checks. The Angular interface, NestJS API, PostgreSQL, RabbitMQ and Java trawler are real integrated components, not a standalone scanner demo.
 
