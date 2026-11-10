@@ -1,7 +1,7 @@
 import {Component, Inject, OnInit} from '@angular/core';
 import {MAT_DIALOG_DATA, MatDialogRef} from '@angular/material/dialog';
 import {ExternalAuthConfigurationService} from '../../../../../core/services/external-auth-configuration.service';
-import {FormArray, FormBuilder, FormGroup, Validators} from '@angular/forms';
+import {AbstractControl, FormArray, FormBuilder, FormGroup, Validators} from '@angular/forms';
 import {AlertService} from 'src/app/core/services/alert.service';
 import {
   IAuthConfig,
@@ -29,6 +29,10 @@ export class ExternalAuthConfigurationCreateComponent implements OnInit {
   ldapPasswordHide = true;
   // Make enum accessible to HTML
   AuthorityId = AuthorityId;
+
+  getGroupAuthorityForm(control: AbstractControl): FormGroup {
+    return control as FormGroup;
+  }
 
   get groupAuthorities(): FormArray {
     return this.authConfigForm.controls.groupAuthorities as FormArray;
