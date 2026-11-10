@@ -3,6 +3,6 @@ import {ApiProperty} from "@nestjs/swagger";
 
 export class ImageScanCreateDto {
     @IsNumber({},{each: true})
-    @ApiProperty({name: 'imageIds', type: Array(Number)})
+    @ApiProperty({name: 'imageIds', type: Number, isArray: true})
     imageIds: number[];
 }
