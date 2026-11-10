@@ -25,7 +25,7 @@
                     <mat-label>Enter a start date</mat-label>
                     <input matInput [matDatepicker]="start" disabled formControlName="start">
                     <mat-datepicker-toggle matSuffix [for]="start"></mat-datepicker-toggle>
-                    <mat-datepicker #start disabled="false"></mat-datepicker>
+                    <mat-datepicker #start [disabled]="false"></mat-datepicker>
                   </mat-form-field>
                 </div>
                 <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
@@ -43,7 +43,7 @@
                     <mat-label>Enter an end date</mat-label>
                     <input matInput [matDatepicker]="end" disabled formControlName="end">
                     <mat-datepicker-toggle matSuffix [for]="end"></mat-datepicker-toggle>
-                    <mat-datepicker #end disabled="false"></mat-datepicker>
+                    <mat-datepicker #end [disabled]="false"></mat-datepicker>
                   </mat-form-field>
                 </div>
               </div>
