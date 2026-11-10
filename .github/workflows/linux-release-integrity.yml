@@ -34,9 +34,21 @@ jobs:
           mkdir -p dist
           git rev-parse HEAD >dist/SOURCE-COMMIT.txt
           printf 'product=m9sweeper\nversion=%s\nplatform=linux-kubernetes\nstatus=integration-candidate-not-production\n' "$VERSION" >dist/RELEASE-METADATA.txt
-          tar -czf "dist/m9sweeper-${VERSION}-source.tar.gz" \
-            --exclude=node_modules --exclude=.git --exclude=.env \
-            platform docs scripts README.md ATTRIBUTION.md
+          # git archive exports tracked files only (never local secrets or build junk).
+          # gzip -n avoids embedding wall-clock timestamps in the gzip header.
+          git archive --format=tar HEAD \
+            platform docs scripts tools deploy README.md ATTRIBUTION.md \
+            | gzip -n >"dist/m9sweeper-${VERSION}-source.tar.gz"
+          git archive --format=tar HEAD \
+            platform docs scripts tools deploy README.md ATTRIBUTION.md \
+            | gzip -n >"dist/reproducibility-check.tar.gz"
+          cmp "dist/m9sweeper-${VERSION}-source.tar.gz" dist/reproducibility-check.tar.gz
+          rm dist/reproducibility-check.tar.gz
+          for required in platform/LICENSE ATTRIBUTION.md README.md tools/integration/runtime-smoke.sh scripts/verify-linux-rc5.sh; do
+            tar -tzf "dist/m9sweeper-${VERSION}-source.tar.gz" | grep -Fxq "$required" || {
+              echo "Missing required release file: $required" >&2; exit 1;
+            }
+          done
           ( cd dist && sha256sum "m9sweeper-${VERSION}-source.tar.gz" >SHA256SUMS && sha256sum -c SHA256SUMS )
       - name: Generate source dependency SPDX SBOM
         uses: anchore/sbom-action@v0
