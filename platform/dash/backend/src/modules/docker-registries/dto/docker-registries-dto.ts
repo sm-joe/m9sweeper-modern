@@ -49,7 +49,7 @@ export class DockerRegistriesDto {
 
   @IsOptional()
   @IsString({each: true})
-  @ApiProperty({name: 'aliases', type: Array(String)})
+  @ApiProperty({name: 'aliases', type: String, isArray: true})
   aliases: string[];
 
   createdAt: number;
