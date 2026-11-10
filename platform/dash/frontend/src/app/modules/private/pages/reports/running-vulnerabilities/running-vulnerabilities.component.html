@@ -37,7 +37,7 @@
                     <mat-label>Enter a date</mat-label>
                     <input matInput [matDatepicker]="dp3" disabled formControlName="date">
                     <mat-datepicker-toggle matSuffix [for]="dp3"></mat-datepicker-toggle>
-                    <mat-datepicker #dp3 disabled="false"></mat-datepicker>
+                    <mat-datepicker #dp3 [disabled]="false"></mat-datepicker>
                   </mat-form-field>
                 </div>
                 <div class="col-xs-12">
