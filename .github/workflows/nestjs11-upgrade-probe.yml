@@ -6,6 +6,7 @@ on:
       - '.github/workflows/nestjs11-upgrade-probe.yml'
       - 'platform/dash/backend/package.json'
       - 'platform/dash/backend/package-lock.json'
+      - 'platform/dash/backend/src/**'
   workflow_dispatch:
 
 permissions:
