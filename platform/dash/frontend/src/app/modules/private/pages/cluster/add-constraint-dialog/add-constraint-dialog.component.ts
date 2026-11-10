@@ -91,6 +91,16 @@ export class AddConstraintDialogComponent implements OnInit, OnDestroy {
     this.unsubscribe$.complete();
   }
 
+  selectedTemplateKind(item: IGSelectedTemplate): string {
+    return typeof item.selectedTemplate === 'string' ? item.selectedTemplateName : item.selectedTemplate.kind;
+  }
+
+  selectedTemplateDescription(item: IGSelectedTemplate): string {
+    return typeof item.selectedTemplate === 'string'
+      ? ''
+      : (item.selectedTemplate.metadata?.annotations?.description ?? '');
+  }
+
   toggleSidenav() {
     this.sidenavExpanded = !this.sidenavExpanded;
   }
