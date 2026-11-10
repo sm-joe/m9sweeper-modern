@@ -1,7 +1,7 @@
 import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
 import {parseScannerClusterId, selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
 import {Controller, Get, Headers, HttpException, HttpStatus, Param, Post, Query, UseGuards} from '@nestjs/common';
-import {QuotedBody} from "../../../decorators/quoted-body.decorator";
+import {QuotedBody, parseQuotedBody} from "../../../decorators/quoted-body.decorator";
 import {KubeHunterService} from "../service/kube-hunter.service";
 import {KubeHunterDto} from "../dto/kube-hunter-dto";
 import {uuid} from "uuidv4";
@@ -58,6 +58,9 @@ export class KubeHunterController {
              !await this.userDao.scannerHasClusterGrant(currentUserAuthObj[0].id, clusterId))) {
             throw new HttpException('Scanner identity is not authorized for this cluster', HttpStatus.UNAUTHORIZED);
         }
+        // Parse only after scanner identity and cluster access are verified.
+        // Parameter decorators execute before controller authentication.
+        report = parseQuotedBody(report);
         // Accept real kube-hunter report sections, not arbitrary client-supplied
         // database columns (id, uuid, cluster_id, created_at, etc.).
         // A malformed or empty authenticated scan must never appear as a clean report.
