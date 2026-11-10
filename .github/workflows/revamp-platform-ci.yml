@@ -142,12 +142,23 @@ jobs:
         run: |
           bash -n ../../../scripts/migrate-angular-major.sh
           current="$(node -p "require('./package.json').dependencies['@angular/core'].match(/[0-9]+/)[0]")"
-          next="$((current+1))"
-          skipped="$((current+2))"
-          bash ../../../scripts/migrate-angular-major.sh "$next" --preflight
-          if bash ../../../scripts/migrate-angular-major.sh "$skipped" --preflight; then
-            echo 'ERROR: Migration runner accepted a multi-major jump' >&2
-            exit 1
+          if [[ "$current" -eq 22 ]]; then
+            # Final supported target: no Angular 23 transition exists in this runner.
+            # Re-applying 22 or downgrading to 21 must be rejected.
+            if bash ../../../scripts/migrate-angular-major.sh 22 --preflight ||
+               bash ../../../scripts/migrate-angular-major.sh 21 --preflight; then
+              echo 'ERROR: Final Angular 22 baseline accepted an invalid migration' >&2
+              exit 1
+            fi
+            echo 'PASS: Angular 22 is the final supported migration target'
+          else
+            next="$((current+1))"
+            skipped="$((current+2))"
+            bash ../../../scripts/migrate-angular-major.sh "$next" --preflight
+            if bash ../../../scripts/migrate-angular-major.sh "$skipped" --preflight; then
+              echo 'ERROR: Migration runner accepted a multi-major jump' >&2
+              exit 1
+            fi
           fi
       - name: Build original Angular application with modernized routes and layout
         run: npm run build:prod
