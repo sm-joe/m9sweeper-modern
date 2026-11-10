@@ -17,6 +17,25 @@ describe('Falco ingestion authentication', () => {
     controller = new FalcoController(falco, {} as any, users, auth, {log: jest.fn()} as any);
   });
 
+  it('applies nonzero default pagination to the real Falco history endpoint', async () => {
+    falco.getFalcoLogs = jest.fn().mockResolvedValue({logCount: 1, list: [{id: 12}]});
+    const result = await controller.getFalcoLogs(3);
+    expect(falco.getFalcoLogs).toHaveBeenCalledWith(
+      3, 20, 0, undefined, undefined, undefined, undefined,
+      undefined, undefined, undefined, undefined
+    );
+    expect(result.logCount).toBe(1);
+  });
+
+  it('rejects invalid pagination values by applying safe defaults', async () => {
+    falco.getFalcoLogs = jest.fn().mockResolvedValue({logCount: 0, list: []});
+    await controller.getFalcoLogs(3, -5, Number.NaN);
+    expect(falco.getFalcoLogs).toHaveBeenCalledWith(
+      3, 20, 0, undefined, undefined, undefined, undefined,
+      undefined, undefined, undefined, undefined
+    );
+  });
+
   it('uses the header in preference to the query token', async () => {
     await controller.createFalcoLog(3, {rule: 'test', priority: 'Warning', output: 'test', outputFields: {}} as any, 'legacy-token', 'header-token');
     expect(users.loadUserByApiKey).toHaveBeenCalledWith('header-token');
