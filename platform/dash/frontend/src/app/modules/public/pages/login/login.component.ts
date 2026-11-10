@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { AuthService } from '../../../../core/services/api/auth.service';
 import { IAuthenticationMethod } from '../../../../core/entities/IAuthenticationMethod';
 import { AlertService } from 'src/app/core/services/alert.service';
@@ -34,7 +34,8 @@ export class LoginComponent implements OnInit {
               private formBuilder: FormBuilder,
               private router: Router,
               private route: ActivatedRoute,
-              private loaderService: NgxUiLoaderService) { }
+              private loaderService: NgxUiLoaderService,
+              private changeDetector: ChangeDetectorRef) { }
 
   ngOnInit(): void {
     const errorMessage = this.route.snapshot.queryParamMap.get('error_message');
@@ -55,9 +56,13 @@ export class LoginComponent implements OnInit {
           const signInMethod = this.inSiteCredentialAuthenticationMethods.find(iscam => String(iscam.id) === savedLoginId)
             || this.inSiteCredentialAuthenticationMethods.find(iscam => iscam.type === 'LOCAL_AUTH');
           this.selectedInSiteCredentialAuthenticationMethod = signInMethod;
+          // Angular 21+ can run without zone-driven checks. The API callback
+          // updates template-bound authentication state asynchronously.
+          this.changeDetector.markForCheck();
           },
         error: error => {
           this.alertService.danger('Failed to load authentication methods!');
+          this.changeDetector.markForCheck();
         }
       });
   }
