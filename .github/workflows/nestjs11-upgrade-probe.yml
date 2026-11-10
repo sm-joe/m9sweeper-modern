@@ -1,0 +1,58 @@
+name: Isolated NestJS 11 upgrade probe
+on:
+  push:
+    branches: [modernize/nestjs11-upgrade-probe]
+    paths:
+      - '.github/workflows/nestjs11-upgrade-probe.yml'
+      - 'platform/dash/backend/package.json'
+      - 'platform/dash/backend/package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade-and-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: platform/dash/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+      - name: Resolve NestJS 11 compatible dependencies and lockfile
+        run: |
+          set -euo pipefail
+          npm install --save --legacy-peer-deps --no-audit --no-fund \
+            '@nestjs/axios@^4' '@nestjs/common@^11' '@nestjs/config@^4' \
+            '@nestjs/core@^11' '@nestjs/jwt@^11' '@nestjs/platform-express@^11' \
+            '@nestjs/schedule@^6' '@nestjs/serve-static@^5' \
+            '@nestjs/swagger@^11' '@willsoto/nestjs-prometheus@^6.0.2'
+          npm install --save-dev --legacy-peer-deps --no-audit --no-fund \
+            '@nestjs/cli@^11' '@nestjs/schematics@^11' \
+            '@nestjs/testing@^11' 'typescript@^5.9'
+      - name: Verify dependency major versions and source compilation
+        run: |
+          node - <<'JS'
+          const p=require('./package.json');
+          for (const name of ['@nestjs/common','@nestjs/core','@nestjs/platform-express']) {
+            if (!p.dependencies[name].includes('11')) throw new Error(name+' must target NestJS 11');
+          }
+          JS
+          npm run build:api
+          npm test -- --runInBand
+      - name: Commit validated manifest and complete npm lockfile to probe branch
+        run: |
+          set -euo pipefail
+          git add platform/dash/backend/package.json platform/dash/backend/package-lock.json
+          if git diff --cached --quiet; then
+            echo 'Dependency graph already locked'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'build(nestjs): stage locked NestJS 11 framework dependencies'
+          git push origin HEAD:refs/heads/modernize/nestjs11-upgrade-probe
