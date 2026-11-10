@@ -47,6 +47,24 @@ describe('kube-hunter ingestion authentication', () => {
     }
   });
 
+  it('rejects missing credentials before validating a missing or malformed body', async () => {
+    await expect(controller.saveKubeHunterReport(undefined, 1, '')).rejects.toMatchObject({status: 401});
+    await expect(controller.saveKubeHunterReport('not-json', 1, '')).rejects.toMatchObject({status: 401});
+    expect(users.loadUserByApiKey).not.toHaveBeenCalled();
+    expect(reports.saveKubeHunterReport).not.toHaveBeenCalled();
+  });
+
+  it('accepts legacy JSON text only after valid scanner authentication', async () => {
+    await controller.saveKubeHunterReport('{"nodes":{}}', 1, undefined, 'valid-key');
+    expect(reports.saveKubeHunterReport).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects malformed JSON text after authentication without persistence', async () => {
+    await expect(controller.saveKubeHunterReport('not-json', 1, undefined, 'valid-key'))
+      .rejects.toMatchObject({status: 400});
+    expect(reports.saveKubeHunterReport).not.toHaveBeenCalled();
+  });
+
   it('rejects missing credentials without saving a report', async () => {
     users.loadUserByApiKey.mockResolvedValue([]);
     await expect(controller.saveKubeHunterReport({}, 1, ''))
