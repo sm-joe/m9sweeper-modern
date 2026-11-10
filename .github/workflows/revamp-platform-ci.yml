@@ -80,6 +80,8 @@ jobs:
           cache-dependency-path: platform/dash/backend/package-lock.json
       - name: Install locked NestJS dependencies
         run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Assert backend startup failure and HTTP metric contracts
+        run: node ../../../tools/security/check_backend_startup.cjs
       - name: Build original NestJS services
         run: npm run build:api
       - name: Regression test original policy compliance and exception behavior
