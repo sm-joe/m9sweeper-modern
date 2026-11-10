@@ -22,7 +22,8 @@ export class FalcoRelatedEventsTableComponent implements OnInit, OnChanges {
   };
   @Output() recentEventClicked = new EventEmitter<IFalcoLog>();
 
-  relatedEventsTableData: MatTableDataSource<IFalcoLog>;
+  relatedEventsTableData = new MatTableDataSource<IFalcoLog>([]);
+  private latestRequestId = 0;
 
   limit = this.getLimitFromLocalStorage() ? Number(this.getLimitFromLocalStorage()) : 10;
   logCount: number;
@@ -35,11 +36,14 @@ export class FalcoRelatedEventsTableComponent implements OnInit, OnChanges {
   ) {}
 
   ngOnInit() {
-    this.getRelatedEvents();
+    // Inputs have already triggered ngOnChanges by this point. Avoid a
+    // competing second request that can overwrite the newest result.
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    this.getRelatedEvents();
+    if (this.clusterId && (changes['clusterId'] || changes['filters'])) {
+      this.getRelatedEvents();
+    }
   }
 
   getLimitFromLocalStorage(): string | null {
@@ -59,12 +63,14 @@ export class FalcoRelatedEventsTableComponent implements OnInit, OnChanges {
 
   getRelatedEvents() {
     if (!this.clusterId) {
-      this.alertService.warning('cluster ID is not currently set - could not retrieve event logs');
+      return;
     }
+    const requestId = ++this.latestRequestId;
     const falcoLogFilterOptions = this.buildFalcoLogFilters();
     this.falcoService.getFalcoLogs(this.clusterId,  falcoLogFilterOptions)
       .pipe(take(1))
       .subscribe(response => {
+        if (requestId !== this.latestRequestId) return;
         const dataList = response.data.list;
         // one less log count - without the current event log
         // current problem: we pop out the one that matches the id of the current event log
@@ -77,13 +83,15 @@ export class FalcoRelatedEventsTableComponent implements OnInit, OnChanges {
           if (this.currentEventLogId) {
             modifiedEvent.isCurrent = eventLog.id === this.currentEventLogId;
           }
-          modifiedEvent.image = eventLog.image ? this.utilService.getImageName(eventLog.image) : 'Unknown';
+          modifiedEvent.image = typeof eventLog.image === 'string' && eventLog.image
+            ? this.utilService.getImageName(eventLog.image) : 'Unknown';
           newDataList.push(modifiedEvent);
         });
         // use the new data list to display related events
         this.relatedEventsTableData = new MatTableDataSource(newDataList);
 
       }, (err) => {
+        if (requestId !== this.latestRequestId) return;
         if (err?.error?.message) {
           this.alertService.danger(err.error.message);
         } else if (err?.error) {
@@ -102,8 +110,9 @@ export class FalcoRelatedEventsTableComponent implements OnInit, OnChanges {
       page: this.page,
     };
     const omitEmpty = obj => {
-      Object.keys(obj).filter(k => !obj[k]).forEach(k => delete(obj[k]));
-      return obj;
+      return Object.fromEntries(
+        Object.entries(obj ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== '')
+      );
     };
     return {
       ...omitEmpty(this.filters),
