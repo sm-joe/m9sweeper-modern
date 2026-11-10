@@ -157,7 +157,7 @@ ci_cluster_id="$(docker compose -p m9-runtime exec -T postgres sh -c \
 }
 # Expose only the disposable cluster ID (never a credential) to the Chromium
 # acceptance suite running later in this same GitHub Actions checkout.
-printf '%s\\n' "$ci_cluster_id" > ../../tools/browser-e2e/.ci-cluster-id
+printf '%s\n' "$ci_cluster_id" > ../../tools/browser-e2e/.ci-cluster-id
 python3 - "$ci_cluster_id" <<'PY'
 import json,sys
 from pathlib import Path
