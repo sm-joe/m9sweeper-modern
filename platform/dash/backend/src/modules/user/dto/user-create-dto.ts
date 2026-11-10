@@ -31,7 +31,7 @@ export class UserCreateDto {
     phone:              string;
 
     @IsNumber({},{each: true})
-    @ApiProperty({name: 'authorities', type: Array(Number)})
+    @ApiProperty({name: 'authorities', type: Number, isArray: true})
     authorities: number[];
 
     @IsBoolean()
