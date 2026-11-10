@@ -51,3 +51,18 @@ test('authenticated admin retains scanner overview after dashboard navigation', 
     .toHaveText('Cluster security overview');
   await expect(page.locator('app-scanner-connectivity')).toHaveCount(1);
 });
+
+test('persisted authenticated Falco webhook event is visible in Angular cluster history', async ({ page }) => {
+  const fixturePath = path.resolve(__dirname, '../.ci-cluster-id');
+  const clusterId = fs.readFileSync(fixturePath, 'utf8').trim();
+  if (!/^[1-9][0-9]*$/.test(clusterId)) {
+    throw new Error('Disposable Falco integration cluster ID is missing or invalid');
+  }
+  await signIn(page);
+  await page.goto(`/private/clusters/${clusterId}/falco`);
+  await expect(page).toHaveURL(new RegExp(`/private/clusters/${clusterId}/falco(?:[/?#]|$)`));
+  await expect(page.locator('app-falco-events-list')).toHaveCount(1);
+  await expect(page.locator('.page-title').filter({ hasText: 'Project Falco' })).toHaveCount(1);
+  await expect(page.locator('#related-events-table mat-row')
+    .filter({ hasText: 'ci-generated integration event' })).toHaveCount(1, { timeout: 20_000 });
+});
