@@ -35,7 +35,7 @@
                 <div class="col-xs-12 col-sm-6 col-md-3">
                   <mat-form-field appearance="fill" [formGroup]="filterForm">
                     <mat-label>Enter a date</mat-label>
-                    <input matInput [matDatepicker]="dp3" disabled formControlName="date">
+                    <input matInput [matDatepicker]="dp3" [disabled]="true" formControlName="date">
                     <mat-datepicker-toggle matSuffix [for]="dp3"></mat-datepicker-toggle>
                     <mat-datepicker #dp3 [disabled]="false"></mat-datepicker>
                   </mat-form-field>
