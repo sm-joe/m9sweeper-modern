@@ -431,6 +431,7 @@ jobs:
           docker compose -f platform/docker-compose/docker-compose.yml --env-file platform/docker-compose/.env config --quiet
           docker compose -f platform/docker-compose/docker-compose.yml -f platform/docker-compose/docker-compose.kind.yml --env-file platform/docker-compose/.env config --quiet
           rendered="$(docker compose -f platform/docker-compose/docker-compose.yml --env-file platform/docker-compose/.env config --format json)"
+          echo "$rendered" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["services"]["dash"]["environment"]["SCANNER_ALLOW_LEGACY_QUERY_KEYS"] == "false", "Compose must disable URL API keys by default"; print("PASS: scanner API keys are header-only by default")'
           echo "$rendered" | python3 -c 'import json,sys; d=json.load(sys.stdin); expected={"dash":"3000","postgres":"5432","rabbitmq":"5672","kubesec":"6116"}; [(lambda p: (_ for _ in ()).throw(AssertionError(s)) if any(x.get("host_ip") != "127.0.0.1" for x in p) else None)(d["services"][s].get("ports",[])) for s in expected]; print("Compose public bindings: none")'
   runtime-integration:
     runs-on: ubuntu-latest
