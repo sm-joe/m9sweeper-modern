@@ -161,12 +161,6 @@ async function bootstrap() {
 
   const bodyParser = json({limit: requestLimit});
   const rawParser = text({type: 'json', limit: requestLimit});
-  app.use(ResponseTime(function (req: Request, res, time) {
-    if (req.url !== '/api/v2/metrics' && req && req.url) {
-      prometheusService.responses.labels(req.method, getRoute(req.url), res.statusCode).observe(time);
-    }
-  }));
-
   app.use((req: any, res: any, next: any) => {
     if(req.url.includes('/api/kubehunter/hunter')) {
       rawParser(req, res, next);
