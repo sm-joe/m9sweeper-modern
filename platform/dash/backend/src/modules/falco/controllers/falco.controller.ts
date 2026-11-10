@@ -69,9 +69,13 @@ export class FalcoController {
         @Query('signature') signature?: string,
     ): Promise<{ logCount: number, list: FalcoDto[], }>
     {
-        // default values - seems to be filling with NaN instead of null which causes the defaults in Dao to not work right
-        if (!limit) limit = null;
-        if (!page) page = null;
+        // Query params arrive as strings; a null limit becomes a zero-row DAO query.
+        const requestedLimit = Number(limit);
+        const requestedPage = Number(page);
+        limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+          ? Math.floor(requestedLimit) : 20;
+        page = Number.isFinite(requestedPage) && requestedPage >= 0
+          ? Math.floor(requestedPage) : 0;
 
         return this.falcoService.getFalcoLogs(clusterId, limit, page, priorities, orderBy, startDate, endDate, namespace, pod, image, signature);
     }

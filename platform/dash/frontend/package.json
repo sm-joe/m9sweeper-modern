@@ -12,7 +12,9 @@
     "build:prod": "ng build --configuration production",
     "test": "ng test",
     "lint": "ng lint",
-    "e2e": "npm --prefix ../../../tools/browser-e2e test"
+    "e2e": "npm --prefix ../../../tools/browser-e2e test",
+    "check:client-boundary": "node scripts/check-client-boundary.cjs",
+    "prebuild:prod": "npm run check:client-boundary"
   },
   "private": true,
   "dependencies": {
