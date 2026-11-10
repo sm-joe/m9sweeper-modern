@@ -176,11 +176,7 @@ async function bootstrap() {
     return getPath.replace(/\d+/g, '?');
   };
 
-  app.use(ResponseTime(function (req: Request, res, time) {
-    if (req.url !== '/api/v2/metrics' && req && req.url) {
-      prometheusService.responses.labels(req.method, getRoute(req.url), res.statusCode).observe(time);
-    }
-  }));
+
 
   app.use((req: any, res: any, next: any) => {
     if (req.url !== '/api/v2/metrics' && req && req.url) {
@@ -205,4 +201,8 @@ async function bootstrap() {
   await app.listen(configurationService.get('server.port'));
 }
 
-bootstrap().catch(console.error);
+bootstrap().catch(error => {
+  // A failed server initialization must fail the container, not leave a green process.
+  console.error('Fatal NestJS startup failure', error);
+  process.exitCode = 1;
+});
