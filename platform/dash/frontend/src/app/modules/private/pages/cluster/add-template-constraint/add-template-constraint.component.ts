@@ -34,6 +34,7 @@ export class AddTemplateConstraintComponent implements OnInit, AfterViewInit {
   isEdit = false;
   generateFormFromJsonData = {};
   generateFormFromSchema = true;
+  schemaFormValid = true;
 
   @ViewChild('propertyFields') propertyFields: ElementRef;
   @ViewChild('propertyFieldsJsonData') propertyFieldsJsonData: ElementRef;
@@ -56,10 +57,11 @@ export class AddTemplateConstraintComponent implements OnInit, AfterViewInit {
     if (this.data.isEdit) {
       this.isEdit = true;
       this.generateFormFromSchema = false;
-      this.generateFormFromJsonData = this.data.constraint.spec.parameters;
-    } else {
-      this.formSchema.schema.properties = this.data.openApiSchema;
+      this.generateFormFromJsonData = this.data.constraint.spec.parameters ?? {};
+      this.dynamicProperties = structuredClone(this.generateFormFromJsonData);
     }
+    // OpenAPI/Gatekeeper metadata supplies parameter properties in both create and edit modes.
+    this.formSchema.schema.properties = this.data.openApiSchema ?? {};
 
     this.addTemplateConstraintForm = this.formBuilder.group({
       name: [
@@ -122,6 +124,10 @@ export class AddTemplateConstraintComponent implements OnInit, AfterViewInit {
   }
 
   onSubmit() {
+    if (!this.schemaFormValid) {
+      this.alertService.danger('Constraint properties do not match the required schema');
+      return;
+    }
     if (!this.templateConstraintCriteria.length) {
       this.alertService.danger('Please add at least one match criteria');
     } else {
@@ -202,8 +208,7 @@ export class AddTemplateConstraintComponent implements OnInit, AfterViewInit {
     this.generateFormFromSchema = false;
     this.generateFormFromJsonData = template.spec.parameters;
     this.dynamicProperties = template.spec.parameters;
-    this.removeSubmitButtonAndSchemaText();
-    const propertiesForm = this.elementRef.nativeElement.querySelector('#schema_form_edit');
+    this.schemaFormValid = true;
   }
 
   formToTemplate() {
@@ -228,11 +233,12 @@ export class AddTemplateConstraintComponent implements OnInit, AfterViewInit {
   }
 
   saveSchemaFormValue($event: any) {
-    this.dynamicProperties = $event.schema;
+    this.dynamicProperties = $event;
   }
 
   saveSchemaFormJsonValue($event: any) {
     this.dynamicProperties = $event;
+    this.generateFormFromJsonData = $event;
   }
 
   removeSubmitButtonAndSchemaText(){
