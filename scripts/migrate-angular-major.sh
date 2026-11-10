@@ -101,7 +101,10 @@ if [[ "$target" -eq 22 ]]; then
 const fs = require('node:fs');
 const path = 'tsconfig.json';
 const config = JSON.parse(fs.readFileSync(path, 'utf8'));
-delete config.compilerOptions.baseUrl;
+// Retain baseUrl: legacy 'src/app/...' imports depend on it. TypeScript 6
+// deprecates this setting, but replacement paths are a separate migration.
+config.compilerOptions.baseUrl = './';
+config.compilerOptions.ignoreDeprecations = '6.0';
 delete config.compilerOptions.downlevelIteration;
 config.compilerOptions.strict = false;
 fs.writeFileSync(path, JSON.stringify(config, null, 2) + '\n');
