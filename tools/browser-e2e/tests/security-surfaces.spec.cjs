@@ -59,7 +59,14 @@ test('persisted authenticated Falco webhook event is visible in Angular cluster 
     throw new Error('Disposable Falco integration cluster ID is missing or invalid');
   }
   await signIn(page);
-  await page.goto(`/private/clusters/${clusterId}/falco`);
+  const [falcoResponse] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === '/api/falco' && response.request().method() === 'GET'),
+    page.goto(`/private/clusters/${clusterId}/falco`),
+  ]);
+  expect(falcoResponse.status()).toBe(200);
+  const falcoPayload = await falcoResponse.json();
+  expect(falcoPayload?.data?.list?.some(event => String(event.message).includes('ci-generated integration event')),
+    `Falco list API did not return persisted CI event: ${JSON.stringify(falcoPayload).slice(0, 1200)}`).toBeTruthy();
   await expect(page).toHaveURL(new RegExp(`/private/clusters/${clusterId}/falco(?:[/?#]|$)`));
   await expect(page.locator('app-falco-events-list')).toHaveCount(1);
   await expect(page.locator('.page-title').filter({ hasText: 'Project Falco' })).toHaveCount(1);
