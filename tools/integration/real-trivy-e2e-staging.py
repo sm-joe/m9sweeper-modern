@@ -75,7 +75,11 @@ query("INSERT INTO cluster_user_access(cluster_id,user_id,can_write,created_at) 
       "FROM users WHERE email='Trawler' ON CONFLICT(cluster_id,user_id) "
       "DO UPDATE SET can_write=true;")
 print(f"Staging fixture cluster={cluster_id} image={image_id} policy={policy_id}")
-command("docker", "compose", "-f", str(root / "platform/docker-compose/docker-compose.yml"),
+# CI uses a named disposable Compose project; standalone staging hosts may
+# omit M9_COMPOSE_PROJECT to preserve their existing default project.
+project_args = ["-p", os.environ["M9_COMPOSE_PROJECT"]] if os.getenv("M9_COMPOSE_PROJECT") else []
+command("docker", "compose", *project_args,
+        "-f", str(root / "platform/docker-compose/docker-compose.yml"),
         "up", "-d", "trawler")
 auth = api("/auth/non-redirectable-login/local", method="POST", body={
     "username": env["SUPER_ADMIN_EMAIL"], "password": env["SUPER_ADMIN_PASSWORD"]
