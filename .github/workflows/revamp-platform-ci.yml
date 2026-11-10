@@ -65,6 +65,21 @@ jobs:
           grep -q 'Linux' README.md
           grep -q 'Kubernetes' README.md
           echo 'PASS: Linux operator scripts syntax'
+
+      - name: Verify Linux release source archive completeness and reproducibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2; do
+            git archive --format=tar HEAD platform docs scripts tools deploy README.md ATTRIBUTION.md | gzip -n >"/tmp/m9-source-$attempt.tar.gz"
+          done
+          cmp /tmp/m9-source-1.tar.gz /tmp/m9-source-2.tar.gz
+          tar -tzf /tmp/m9-source-1.tar.gz >/tmp/m9-source-files.txt
+          for required in platform/LICENSE README.md ATTRIBUTION.md tools/integration/runtime-smoke.sh scripts/verify-linux-rc5.sh; do
+            grep -Fxq "$required" /tmp/m9-source-files.txt || { echo "Missing release file: $required" >&2; exit 1; }
+          done
+          echo 'PASS: reproducible complete Linux source candidate'
+
   original-backend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
