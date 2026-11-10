@@ -1,10 +1,8 @@
 import { HttpModule } from '@nestjs/axios';
-import { MiddlewareConsumer } from '@nestjs/common/interfaces/middleware/middleware-consumer.interface';
-import { Module } from '@nestjs/common/decorators/modules/module.decorator';
-import { NestModule } from '@nestjs/common/interfaces/modules/nest-module.interface';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { RouterModule } from '@nestjs/core';
-import { WinstonModule} from 'nest-winston/dist/winston.module';
-import { ServeStaticModule } from '@nestjs/serve-static/dist/serve-static.module';
+import { WinstonModule } from 'nest-winston';
+import { ServeStaticModule } from '@nestjs/serve-static';
 import { format, transports } from 'winston';
 import { join } from 'path';
 import { routes } from './app.module.router';
