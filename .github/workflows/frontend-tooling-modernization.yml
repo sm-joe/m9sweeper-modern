@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/frontend-tooling-modernization.yml'
       - 'platform/dash/frontend/**'
+      - 'tools/frontend/audit-legacy-angular.cjs'
   workflow_dispatch:
 permissions:
   contents: write
@@ -19,6 +20,8 @@ jobs:
           node-version: '22.22.3'
           cache: npm
           cache-dependency-path: platform/dash/frontend/package-lock.json
+      - name: Inventory AJSF and Flex Layout source references
+        run: node tools/frontend/audit-legacy-angular.cjs
       - name: Install backend DTO dependencies used by frontend TypeScript
         run: npm ci --legacy-peer-deps --no-audit --no-fund
         working-directory: platform/dash/backend
