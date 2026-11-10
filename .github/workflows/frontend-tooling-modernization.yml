@@ -36,16 +36,24 @@ jobs:
               '@angular-eslint/builder@^22.6.0' \
               '@angular-eslint/eslint-plugin@^22.6.0' \
               '@angular-eslint/eslint-plugin-template@^22.6.0' \
-              '@angular-eslint/template-parser@^22.6.0'
+              '@angular-eslint/template-parser@^22.6.0' \
+              '@angular-eslint/schematics@^22.6.0'
             npm uninstall --save-dev --legacy-peer-deps --no-audit --no-fund \
               '@angular-builders/custom-webpack' codelyzer tslint protractor '@types/jasminewd2'
+            npm uninstall --save --legacy-peer-deps --no-audit --no-fund \
+              '@ajsf/core' '@ajsf/material' '@angular/flex-layout'
           fi
           npm ci --legacy-peer-deps --no-audit --no-fund
+          node ../../../tools/frontend/audit-legacy-angular.cjs | tee /tmp/legacy-audit.txt
+          if grep -E '^(ajsf|flexLayout): [1-9][0-9]* source references' /tmp/legacy-audit.txt; then
+            echo 'Cannot remove active AJSF or Flex Layout source dependencies' >&2
+            exit 1
+          fi
           npm run lint
           npm run build:prod
           node - <<'JS'
           const p = require('./package.json');
-          for (const name of ['@angular-builders/custom-webpack', 'tslint', 'protractor', 'codelyzer']) {
+          for (const name of ['@angular-builders/custom-webpack', 'tslint', 'protractor', 'codelyzer', '@ajsf/core', '@ajsf/material', '@angular/flex-layout']) {
             if (p.devDependencies[name] || p.dependencies[name]) {
               throw new Error('Obsolete dependency remains: ' + name);
             }
