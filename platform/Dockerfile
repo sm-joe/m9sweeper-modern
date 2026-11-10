@@ -14,14 +14,16 @@ COPY ./dash/backend/package-lock.json /usr/src/app/backend
 RUN mkdir /usr/src/app/backend/vendor
 COPY ./dash/backend/vendor /usr/src/app/backend/vendor
 RUN node --version && npm --version
-RUN npm ci && \
+# NestJS 11 upgrade keeps a vendored legacy peer dependency tree; match the
+# locked backend CI install policy until those adapters are upgraded.
+RUN npm ci --legacy-peer-deps --no-audit --no-fund && \
     chown -R root:root node_modules
 
 COPY /dash/backend /usr/src/app/backend/
 RUN npm run prebuild
 
 RUN npm run build:prod:webpack
-RUN npm prune --omit=dev
+RUN npm prune --omit=dev --legacy-peer-deps --no-audit --no-fund
 
 # manually install a couple npm packages
 RUN rm -f node_modules/@nestjs-modules/mailer && rm -f node_modules/knexnest && \
