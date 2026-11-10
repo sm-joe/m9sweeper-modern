@@ -118,13 +118,20 @@ done
 # header-only mode is active. This tests the actual NestJS auth path, not
 # merely the value in docker compose config.
 python3 - <<'PY'
+import json
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 env = dict(line.split('=', 1) for line in Path('.env').read_text().splitlines() if '=' in line)
 url = 'http://127.0.0.1:3000/api/falco/1/create?key=' + quote(env['FALCO_API_KEY'], safe='')
-request = Request(url, b'{}', {'Content-Type': 'application/json'}, method='POST')
+valid_event = {
+    'hostname': 'ci-host.invalid', 'output': 'authentication-negative-test',
+    'priority': 'Warning', 'rule': 'ci-query-key-denial', 'source': 'syscall',
+    'tags': [], 'time': '2026-11-09T00:00:00Z', 'output_fields': {}
+}
+request = Request(url, json.dumps(valid_event).encode('utf8'),
+                  {'Content-Type': 'application/json'}, method='POST')
 try:
     with urlopen(request, timeout=15) as response:
         raise AssertionError('URL scanner key was accepted: HTTP ' + str(response.status))
