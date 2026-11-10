@@ -191,8 +191,29 @@ jobs:
           }
           console.log('PASS: Angular browser builder and NestJS output path');
           JS
+      - name: Assert Angular esbuild application target and NestJS output contract
+        run: |
+          node - <<'JS'
+          const fs = require('node:fs');
+          const workspace = JSON.parse(fs.readFileSync('angular.json','utf8'));
+          const build = workspace.projects.frontend.architect.build;
+          if (build.builder !== '@angular-devkit/build-angular:application') throw new Error('esbuild application builder not configured');
+          if (build.options.browser !== 'src/main.ts') throw new Error('Browser entry point changed');
+          const output = build.options.outputPath;
+          if (output?.base !== '../backend/dist/public' || output?.browser !== '') throw new Error('NestJS public output path changed');
+          for (const option of ['buildOptimizer','vendorChunk','main']) {
+            if (option in build.options || option in build.configurations.production) throw new Error('Unsupported legacy option: '+option);
+          }
+          console.log('PASS: esbuild application output points to NestJS static root');
+          JS
       - name: Build original Angular application with modernized routes and layout
         run: npm run build:prod
+      - name: Verify built SPA is served from NestJS static root (no browser subdirectory)
+        run: |
+          test -s ../backend/dist/public/index.html
+          test ! -e ../backend/dist/public/browser/index.html
+          grep -q 'app-root' ../backend/dist/public/index.html
+          echo 'PASS: NestJS expects the SPA at dist/public/index.html'
   helm-charts:
     runs-on: ubuntu-latest
     steps:
