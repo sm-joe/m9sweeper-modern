@@ -52,7 +52,7 @@ jobs:
       - name: Commit validated manifest and complete npm lockfile to probe branch
         run: |
           set -euo pipefail
-          git add platform/dash/backend/package.json platform/dash/backend/package-lock.json
+          git add package.json package-lock.json
           if git diff --cached --quiet; then
             echo 'Dependency graph already locked'
             exit 0
