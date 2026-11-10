@@ -12,7 +12,7 @@ permissions:
 jobs:
   lint-and-builder-migration:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -76,3 +76,35 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'chore(frontend): lock Angular ESLint and retire custom Webpack, TSLint and Protractor'
           git push origin HEAD:refs/heads/modernize/frontend-debt-cleanup
+
+  runtime-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start disposable real NestJS/Angular/PostgreSQL/RabbitMQ stack
+        run: bash tools/integration/runtime-smoke.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+      - name: Install Chromium Playwright
+        working-directory: tools/browser-e2e
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Verify login, protected routes, policy inventory and scanner dashboard
+        working-directory: tools/browser-e2e
+        run: npm test
+      - name: Save browser traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-debt-browser-traces
+          path: tools/browser-e2e/test-results/
+          if-no-files-found: ignore
+      - name: Dump backend logs when tests fail
+        if: failure()
+        run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime logs --tail=120
+      - name: Stop disposable integration services
+        if: always()
+        run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime down --remove-orphans
