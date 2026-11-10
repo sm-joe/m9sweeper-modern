@@ -80,8 +80,6 @@ import { AddConstraintCriteriaComponent } from './pages/cluster/add-constraint-c
 import { TemplateConstraintManifestComponent } from './pages/cluster/template-constraint-manifest/template-constraint-manifest.component';
 import { KubesecComponent } from './pages/cluster/kubesec/kubesec.component';
 import { ServiceAccountWizardComponent } from './pages/cluster/service-account-wizard/service-account-wizard.component';
-import { MaterialDesignFrameworkModule } from '@ajsf/material';
-import { JsonSchemaFormModule } from '@ajsf/core';
 import { KubeHunterComponent } from './pages/cluster/kube-hunter/kube-hunter.component';
 import { KubeHunterDialogComponent } from './pages/cluster/kube-hunter/kube-hunter-dialog/kube-hunter-dialog.component';
 import { KubeHunterReportDetailsComponent } from './pages/cluster/kube-hunter/kube-hunter-report-details/kube-hunter-report-details.component';
@@ -129,6 +127,7 @@ import {FalcoJsonDataDialogComponent} from './pages/falco/falco-json-data-dialog
 import {FalcoRelatedEventsTableComponent} from './pages/falco/falco-related-events-table/falco-related-events-table.component';
 import {KubesecReportComponent} from './pages/cluster/kubesec/kubesec-report/kubesec-report.component';
 import { SecurityAuditReportComponent } from './pages/reports/security-audit-report/security-audit-report.component';
+import { ConstraintSchemaFormComponent } from '../shared/constraint-schema-form.component';
 import { ScannerConnectivityComponent } from './pages/dashboard/scanner-connectivity.component';
 
 
@@ -226,6 +225,7 @@ import { ScannerConnectivityComponent } from './pages/dashboard/scanner-connecti
       FormsModule,
       ReactiveFormsModule,
       PrivateRoutingModule,
+      ConstraintSchemaFormComponent,
       MatToolbarModule,
       MatIconModule,
       MatSidenavModule,
@@ -259,8 +259,6 @@ import { ScannerConnectivityComponent } from './pages/dashboard/scanner-connecti
       NgxUiLoaderModule,
       MatSliderModule,
       CodemirrorModule,
-      MaterialDesignFrameworkModule,
-      JsonSchemaFormModule,
       MatExpansionModule,
       MatButtonToggleModule,
       NgOptimizedImage,
