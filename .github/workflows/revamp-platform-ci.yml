@@ -102,10 +102,22 @@ jobs:
         working-directory: platform/dash/backend
       - name: Install locked Angular dependencies
         run: npm ci --legacy-peer-deps --no-audit --no-fund
-      - name: Validate vendored AJSF Flex Layout runtime compatibility dependency
+      - name: Verify retired AJSF, Flex Layout, custom Webpack and TSLint
         run: |
-          node -e "const pkg = require('./package.json'); if (pkg.dependencies['@angular/flex-layout'] !== '14.0.0-beta.41') process.exit(1)"
-          node -e "require.resolve('@angular/flex-layout'); require.resolve('@angular/flex-layout/core'); require.resolve('@angular/flex-layout/flex')"
+          node - <<'JS'
+          const pkg = require('./package.json');
+          const fs = require('node:fs');
+          const retired = ['@ajsf/core', '@ajsf/material', '@angular/flex-layout', '@angular-builders/custom-webpack', 'tslint', 'protractor', 'codelyzer'];
+          for (const name of retired) {
+            if (pkg.dependencies?.[name] || pkg.devDependencies?.[name]) throw new Error('Legacy dependency still declared: ' + name);
+          }
+          if (fs.existsSync('custom-webpack.config.ts') || fs.existsSync('tslint.json')) {
+            throw new Error('Obsolete build/lint configuration remains');
+          }
+          console.log('PASS: unused legacy packages removed from Angular 22 source');
+          JS
+      - name: Run Angular ESLint for TypeScript and template files
+        run: npm run lint
       - name: Enforce modern browser test entrypoint (no Protractor CLI target)
         run: |
           node - <<'JS'
