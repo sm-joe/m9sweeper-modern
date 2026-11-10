@@ -11,5 +11,5 @@
 <mat-dialog-actions class="ps-xs-3 display-flex center-xs">
   <button [disabled]="false" mat-raised-button color="primary" type="submit" (click)="saveManifest()">Save Changes</button>
   <button mat-raised-button color="warn" type="button" (click)="onNoClick()">Cancel</button>
-  <app-copy-to-clipboard-button [text]="rawTemplate" iconButton="true"></app-copy-to-clipboard-button>
+  <app-copy-to-clipboard-button [text]="rawTemplate" [iconButton]="true"></app-copy-to-clipboard-button>
 </mat-dialog-actions>
