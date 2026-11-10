@@ -92,6 +92,21 @@ config.compilerOptions.moduleResolution = 'bundler';
 fs.writeFileSync(path, JSON.stringify(config, null, 2) + '\n');
 JS
 fi
+if [[ "$target" -eq 22 ]]; then
+  # TypeScript 6 defaults strict=true where this legacy TS 5 workspace had
+  # implicit strict=false. Preserve the existing baseline during the framework
+  # upgrade; incremental strict typing remains a separate acceptance task.
+  # Remove now-obsolete flags rather than silencing deprecation diagnostics.
+  node - <<'JS'
+const fs = require('node:fs');
+const path = 'tsconfig.json';
+const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+delete config.compilerOptions.baseUrl;
+delete config.compilerOptions.downlevelIteration;
+config.compilerOptions.strict = false;
+fs.writeFileSync(path, JSON.stringify(config, null, 2) + '\n');
+JS
+fi
 if [[ "$target" -ge 19 ]]; then
   # TypeScript 5.8 must not compile the legacy Node 18 declaration package.
   npm install --save-dev --legacy-peer-deps --no-audit --no-fund '@types/node@^20'
