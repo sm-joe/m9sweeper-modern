@@ -87,8 +87,10 @@ export class FalcoRelatedEventsTableComponent implements OnInit, OnChanges {
             ? this.utilService.getImageName(eventLog.image) : 'Unknown';
           newDataList.push(modifiedEvent);
         });
-        // use the new data list to display related events
-        this.relatedEventsTableData = new MatTableDataSource(newDataList);
+        // Keep the data source instance bound to MatTable stable. Its .data setter
+        // emits to the table immediately; replacing the object can leave a
+        // previously-rendered table subscribed to an empty data source.
+        this.relatedEventsTableData.data = newDataList;
 
       }, (err) => {
         if (requestId !== this.latestRequestId) return;
