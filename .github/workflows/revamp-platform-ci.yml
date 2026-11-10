@@ -162,6 +162,23 @@ jobs:
               exit 1
             fi
           fi
+      - name: Enforce supported Angular builder without custom Webpack
+        run: |
+          node - <<'JS'
+          const fs = require('node:fs');
+          const workspace = JSON.parse(fs.readFileSync('angular.json', 'utf8'));
+          const targets = workspace.projects.frontend.architect;
+          if (targets.build.builder !== '@angular-devkit/build-angular:browser') {
+            throw new Error('Frontend must use supported Angular browser builder');
+          }
+          if (targets.build.options.customWebpackConfig) {
+            throw new Error('Custom Webpack configuration is still enabled');
+          }
+          if (targets.build.options.outputPath !== '../backend/dist/public') {
+            throw new Error('Frontend output directory no longer matches NestJS static assets');
+          }
+          console.log('PASS: Angular browser builder and NestJS output path');
+          JS
       - name: Build original Angular application with modernized routes and layout
         run: npm run build:prod
   helm-charts:
