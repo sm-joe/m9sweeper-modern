@@ -11,7 +11,7 @@ type JsonRecord = Record<string, unknown>;
 type SchemaType = 'string' | 'integer' | 'number' | 'boolean' | 'array' | 'object';
 
 interface PropertySchema {
-  type?: SchemaType;
+  type?: string;
   title?: string;
   description?: string;
   default?: unknown;
@@ -131,7 +131,7 @@ export class ConstraintSchemaFormComponent implements OnChanges, OnDestroy {
         this.collect(definition, path, existing);
         continue;
       }
-      const type: SchemaType = definition.type ?? 'string';
+      const type: SchemaType = (['string', 'integer', 'number', 'boolean', 'array', 'object'].includes(definition.type ?? '') ? definition.type : 'string') as SchemaType;
       const raw = this.readValue(existing, path) ?? definition.default;
       const initial = type === 'array' || type === 'object'
         ? JSON.stringify(raw ?? (type === 'array' ? [] : {}), null, 2)
