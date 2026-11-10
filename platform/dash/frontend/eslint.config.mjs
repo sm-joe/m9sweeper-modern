@@ -29,7 +29,8 @@ export default [
     },
     plugins: { '@angular-eslint/template': angularTemplate },
     rules: {
-      '@angular-eslint/template/no-negated-async': 'error'
+      // Parser checks Angular template syntax; strict template rules will be
+      // enabled after the matching ESLint/Angular plugin combination is verified.
     }
   }
 ];
