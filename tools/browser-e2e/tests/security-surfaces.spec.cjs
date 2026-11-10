@@ -58,6 +58,22 @@ test('persisted authenticated Falco webhook event is visible in Angular cluster 
   if (!/^[1-9][0-9]*$/.test(clusterId)) {
     throw new Error('Disposable Falco integration cluster ID is missing or invalid');
   }
+  const diagnostics = [];
+  page.on('pageerror', error => diagnostics.push('browser-error:' + error.message));
+  page.on('response', async response => {
+    if (new URL(response.url()).pathname !== '/api/falco') return;
+    try {
+      const payload = await response.json();
+      diagnostics.push('falco-response:' + JSON.stringify({
+        status: response.status(),
+        url: response.url(),
+        count: payload?.data?.list?.length,
+        messages: payload?.data?.list?.map(x => x.message).slice(0, 3),
+      }));
+    } catch (error) {
+      diagnostics.push('falco-response-parse:' + String(error));
+    }
+  });
   await signIn(page);
   const [falcoResponse] = await Promise.all([
     page.waitForResponse(response => new URL(response.url()).pathname === '/api/falco' && response.request().method() === 'GET'),
@@ -70,6 +86,12 @@ test('persisted authenticated Falco webhook event is visible in Angular cluster 
   await expect(page).toHaveURL(new RegExp(`/private/clusters/${clusterId}/falco(?:[/?#]|$)`));
   await expect(page.locator('app-falco-events-list')).toHaveCount(1);
   await expect(page.locator('.page-title').filter({ hasText: 'Project Falco' })).toHaveCount(1);
-  await expect(page.locator('#related-events-table mat-row')
-    .filter({ hasText: 'ci-generated integration event' })).toHaveCount(1, { timeout: 20_000 });
+  try {
+    await expect(page.locator('#related-events-table mat-row')
+      .filter({ hasText: 'ci-generated integration event' })).toHaveCount(1, { timeout: 20_000 });
+  } catch (error) {
+    const tableText = await page.locator('#related-events-table').allInnerTexts();
+    const rowCount = await page.locator('#related-events-table mat-row').count();
+    throw new Error('Falco DOM mismatch: ' + JSON.stringify({ tableText, rowCount, diagnostics }).slice(0, 6000), { cause: error });
+  }
 });
