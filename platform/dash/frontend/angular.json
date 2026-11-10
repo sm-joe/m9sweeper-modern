@@ -15,16 +15,12 @@
       "prefix": "app",
       "architect": {
         "build": {
-          "builder": "@angular-builders/custom-webpack:browser",
+          "builder": "@angular-devkit/build-angular:browser",
           "options": {
             "buildOptimizer": false,
             "namedChunks": true,
             "optimization": false,
             "sourceMap": true,
-            "customWebpackConfig": {
-              "path": "./custom-webpack.config.ts",
-              "replaceDuplicatePlugins": true
-            },
             "allowedCommonJsDependencies": [
               "url"
             ],
