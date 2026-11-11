@@ -21,6 +21,14 @@ describe('Trivy report ingestion security', () => {
     expect(imageService.getCountOfFilteredImagesVulnerabilities).not.toHaveBeenCalled();
   });
 
+  it('returns zero image count for the same first-login empty cluster selection', async () => {
+    imageService.getCountOfTotalImagesRunningCount = jest.fn();
+    await expect(controller.getCountOfFilteredImages({
+      group_by: 'savedAtDate'
+    })).resolves.toBe(0);
+    expect(imageService.getCountOfTotalImagesRunningCount).not.toHaveBeenCalled();
+  });
+
   it('passes normalized Angular bracketed filters into the vulnerability service', async () => {
     const expected = [{savedAtDate: '2026-11-11', criticalIssues: 2}];
     imageService.getCountOfFilteredImagesVulnerabilities =
