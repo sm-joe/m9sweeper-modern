@@ -134,7 +134,11 @@ public class Trawler extends AbstractCommand implements Runnable {
                 conn.setReadTimeout(5000);
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
-                conn.setRequestProperty("x-auth-token", TrawlerConfiguration.getInstance().m9sweeperApiKey());
+                // LoggedInUserFactory resolves X-API-Key (not the legacy
+                // Swagger security name x-auth-token). The old header made
+                // quarantine callbacks fail authentication while the DLQ
+                // still filled, leaving image_scan_runs falsely queued.
+                conn.setRequestProperty("x-api-key", TrawlerConfiguration.getInstance().m9sweeperApiKey());
                 conn.setDoOutput(true);
                 String json = new ObjectMapper().writeValueAsString(
                         java.util.Collections.singletonMap("scanRunId", raw));
