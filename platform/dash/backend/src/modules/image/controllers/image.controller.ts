@@ -496,7 +496,11 @@ export class ImageController {
     })
     @ApiQuery({name : 'filters[clusterId]', style: "form", type: [Number]})
     @ApiQuery({name : 'filters[runningInCluster]', style: "form", type: Number})
-    async getCountOfFilteredImages(@Query('filters') filters: {clusterId: number[]; runningInCluster: number;}): Promise<number> {
+    async getCountOfFilteredImages(@Query() query: Record<string, unknown>): Promise<number> {
+        const filters = parseImageSummaryFilters(query);
+        if (filters.clusterId.length === 0) {
+            return 0;
+        }
         return await this.imageService.getCountOfTotalImagesRunningCount(filters);
     }
 
