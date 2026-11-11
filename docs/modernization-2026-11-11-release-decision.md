@@ -21,6 +21,21 @@
 | Helm lifecycle and persistence | Disposable Linux Kubernetes install, upgrade, rollback, migration check, PVC retention, TLS and webhook outage test; restore PostgreSQL dump into separate DB and compare rows | Scripts exist; environment-specific proof and versions absent |
 | Public artifacts | Version-pinned container images and charts, checksums, SBOM, attestations/signatures, independent verification, support matrix and licenses | Source archive workflow exists; complete deployable release is unproven |
 
+## Hardened Helm staging lifecycle preflight
+
+The live upgrade/rollback drill in `scripts/verify-helm-rollback-staging-linux.sh` now requires `M9_STAGING_HELM_TEST=YES`, a staging-prefixed namespace that has the `m9sweeper-staging=true` label, private `VALUES_FILE`, and an explicitly matching `M9_EXPECTED_KUBE_CONTEXT`. It refuses to call Helm when the context differs. For example, on a native Linux operator host with a **disposable staging-only** context and already-installed release:
+
+```bash
+export M9_STAGING_HELM_TEST=YES
+export M9_EXPECTED_KUBE_CONTEXT='your-disposable-staging-context'
+export NAMESPACE='m9-staging-acceptance'
+export RELEASE='m9-staging'
+export VALUES_FILE='/secure/path/staging-values.yaml'
+bash scripts/verify-helm-rollback-staging-linux.sh
+```
+
+The script requires a new revision for upgrade and rollback, checks the post-rollback release is deployed and its chart identity matches the original, and confirms PVC names/bindings remain unchanged. CI tests the **fail-closed preconditions only** with isolated fake commands. A successful unit/mock test is not a real Kubernetes lifecycle sign-off.
+
 ## Execution rules
 
 1. Never run destructive lifecycle checks against existing operator Kind/Compose data, production namespaces, or non-staging volumes.
