@@ -20,7 +20,7 @@ with tempfile.TemporaryDirectory() as work:
     marker = Path(work) / "kubectl-writes"
     fake.write_text(
         "#!/bin/sh\n"
-        "if [ \\"$1\\" = config ] && [ \\"$2\\" = current-context ]; then echo production; exit 0; fi\n"
+        'if [ "$1" = config ] && [ "$2" = current-context ]; then echo production; exit 0; fi\n'
         f"echo unexpected-write > '{marker}'\nexit 90\n"
     )
     fake.chmod(0o755)
