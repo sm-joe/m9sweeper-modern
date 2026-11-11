@@ -238,6 +238,7 @@ jobs:
           JWT_SECRET="$(openssl rand -hex 32)"
           API_KEY="$(openssl rand -hex 32)"
           helm lint platform/manifests/charts/m9sweeper \
+            --kube-version 1.35.0 \
             --set-string global.jwtSecret="$JWT_SECRET" \
             --set-string global.apiKey="$API_KEY" \
             --set-string dash.init.superAdminEmail="ci@example.invalid" \
@@ -249,6 +250,7 @@ jobs:
           JWT_SECRET="$(openssl rand -hex 32)"
           API_KEY="$(openssl rand -hex 32)"
           helm template release-probe platform/manifests/charts/m9sweeper \
+            --kube-version 1.35.0 \
             --namespace m9sweeper-system \
             --set-string global.jwtSecret="$JWT_SECRET" \
             --set-string global.apiKey="$API_KEY" \
@@ -273,6 +275,7 @@ jobs:
         run: |
           set -euo pipefail
           helm template release-probe platform/manifests/charts/m9sweeper \
+            --kube-version 1.35.0 \
             --namespace m9sweeper-system \
             --set-string dash.existingSecret=external-dash-env \
             --set-string trawler.existingSecret=external-trawler-env \
@@ -375,7 +378,7 @@ jobs:
           API_KEY="$(openssl rand -hex 32)"
           helm template m9sweeper platform/manifests/charts/m9sweeper \
             --namespace m9sweeper-system \
-            --kube-version 1.31.0 \
+            --kube-version 1.35.0 \
             --set-string global.jwtSecret="$JWT_SECRET" \
             --set-string global.apiKey="$API_KEY" \
             --set-string dash.init.superAdminEmail="ci@example.invalid" \
