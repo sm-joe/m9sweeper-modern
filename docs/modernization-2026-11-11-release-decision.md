@@ -40,6 +40,18 @@ The script requires a new revision for upgrade and rollback, checks the post-rol
 
 The existing disposable Linux/Compose recovery drill now compares both table counts and deterministic SHA-256 digests of canonical PostgreSQL JSONB row content in `clusters`, `image_scan_runs`, `image_scan_results`, `image_scan_results_issues`, `project_falco_logs`, and `kube_hunter`. It fails even if row counts match but one finding differs. The restored scratch DB is dropped on exit; the protected, permission-restricted backup remains available for review. **Only run when disposable staging writes are quiescent.** This compares restore correctness; it does not prove PITR or full production disaster recovery.
 
+## Staging-only PostgreSQL container ownership
+
+The scratch PostgreSQL backup/restore drill requires `M9_STAGING_RESTORE_TEST=YES` and `M9_EXPECTED_COMPOSE_PROJECT=m9-runtime` (or a dedicated `m9-staging-*` / `m9sweeper-staging-*` project). It validates the actual `postgres` container's Compose project label **before** `pg_dump`, `createdb`, `pg_restore` or `dropdb`. The project must be explicitly approved and disposable; the CI project is `m9-runtime`. For a staging installation:
+
+```bash
+export M9_STAGING_RESTORE_TEST=YES
+export M9_EXPECTED_COMPOSE_PROJECT=m9-staging-acceptance
+bash scripts/verify-postgres-restore-linux.sh
+```
+
+Never aim this at production, and ensure writes are quiescent while comparing security evidence digests.
+
 ## Execution rules
 
 1. Never run destructive lifecycle checks against existing operator Kind/Compose data, production namespaces, or non-staging volumes.
