@@ -162,17 +162,12 @@ export class FalcoController {
         }
         clusterId = parsedClusterId;
 
-        if (!falcoLog || typeof falcoLog !== 'object' ||
-            typeof falcoLog.rule !== 'string' || !falcoLog.rule.trim() ||
-            typeof falcoLog.priority !== 'string' || !falcoLog.priority.trim() ||
-            typeof falcoLog.output !== 'string' ||
-            !falcoLog.outputFields || typeof falcoLog.outputFields !== 'object' ||
-            Array.isArray(falcoLog.outputFields)) {
-            throw new HttpException('Malformed Falco webhook event', HttpStatus.BAD_REQUEST);
+        // Reject missing credentials before identity lookup and payload processing.
+        const scannerKey = selectScannerIngestKey(headerKey, key);
+        if (!scannerKey.trim()) {
+            throw new UnauthorizedException('Missing Falco API key');
         }
-
-        // look up user by api key
-        const currentUserAuthObj = await this.userDao.loadUserByApiKey(selectScannerIngestKey(headerKey, key));
+        const currentUserAuthObj = await this.userDao.loadUserByApiKey(scannerKey);
         if (!Array.isArray(currentUserAuthObj) || currentUserAuthObj.length === 0) {
             throw new UnauthorizedException('Access Denied!');
         }
@@ -187,6 +182,18 @@ export class FalcoController {
             (process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS === 'true' &&
              !await this.userDao.scannerHasClusterGrant(currentUserAuthObj[0].id, clusterId))) {
             throw new UnauthorizedException('Scanner identity is not authorized for this cluster');
+        }
+
+        // Validate untrusted payload only after authenticating and scoping the scanner.
+        // Invalid or revoked credentials must fail consistently as 401, even
+        // when the request body is malformed; no rule lookup/persistence occurs.
+        if (!falcoLog || typeof falcoLog !== 'object' ||
+            typeof falcoLog.rule !== 'string' || !falcoLog.rule.trim() ||
+            typeof falcoLog.priority !== 'string' || !falcoLog.priority.trim() ||
+            typeof falcoLog.output !== 'string' ||
+            !falcoLog.outputFields || typeof falcoLog.outputFields !== 'object' ||
+            Array.isArray(falcoLog.outputFields)) {
+            throw new HttpException('Malformed Falco webhook event', HttpStatus.BAD_REQUEST);
         }
 
         const action = await this.falcoService.checkRules(clusterId, falcoLog);
