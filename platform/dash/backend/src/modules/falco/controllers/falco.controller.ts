@@ -1,4 +1,5 @@
 import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
+import {FalcoIngestGuard} from '../guards/falco-ingest.guard';
 import {parseScannerClusterId, selectScannerIngestKey} from '../../shared/services/scanner-ingest-auth';
 import {
     Body,
@@ -150,6 +151,7 @@ export class FalcoController {
 
 
     @Post(':clusterid/create')
+    @UseGuards(FalcoIngestGuard)
     async createFalcoLog(
         @Param('clusterid') clusterId: number,
         @Body() falcoLog: FalcoWebhookInputDto,
