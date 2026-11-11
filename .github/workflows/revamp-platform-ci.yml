@@ -66,6 +66,7 @@ jobs:
           bash -n scripts/verify-falco-live-linux.sh
           python3 -m py_compile tools/integration/real-trivy-e2e-staging.py
           bash -n scripts/verify-helm-rollback-staging-linux.sh
+          bash -n tools/integration/helm-kind-api-lifecycle.sh
           python3 tools/security/test_helm_staging_guard.py
           bash -n scripts/check-broker-health-linux.sh
           test -s docs/linux-k8s-release-readiness.md
@@ -651,6 +652,13 @@ jobs:
           assert 'Controls' in report or (isinstance(report,list) and report), 'No CIS controls present'
           print('PASS: real kube-bench completed a CIS node run against ephemeral Kind')
           PY
+      - uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.17.3
+      - name: Verify real Helm install upgrade rollback against disposable Kind API
+        env:
+          M9_KIND_HELM_API_TEST: "YES"
+        run: bash tools/integration/helm-kind-api-lifecycle.sh
       - name: Show kube-bench diagnostics on failure
         if: failure()
         run: |
