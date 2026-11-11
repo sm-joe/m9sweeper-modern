@@ -274,4 +274,7 @@ PY
 
 
 
+# Regression for production portal login 500 caused by missing nested image filters.
+# Run against the authenticated original NestJS API and disposable CI cluster.
+python3 ../../tools/integration/check-dashboard-summary-http.py
 echo 'PASS: original full app, Postgres, RabbitMQ, admin seed and authentication'
