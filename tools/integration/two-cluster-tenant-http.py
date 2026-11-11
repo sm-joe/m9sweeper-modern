@@ -78,6 +78,54 @@ require(call("GET", f"/api/policies/by-cluster/{cluster_a}"), 200,
 require(call("GET", f"/api/policies/by-cluster/{cluster_b}"), 403,
         "foreign cluster B policy read denied")
 
+# Real policy read isolation: separate policy A, foreign policy B, mixed A+B,
+# and one legitimate global policy. No user input enters these SQL fixtures.
+policy_rows = sql(
+    "INSERT INTO policies(name,enabled,enforcement,relevant_for_all_clusters) VALUES "
+    f"('{prefix}-a',true,true,false),"
+    f"('{prefix}-b',true,true,false),"
+    f"('{prefix}-mixed',true,true,false),"
+    f"('{prefix}-global',true,true,true) RETURNING id;"
+)
+policy_ids = [int(value) for value in policy_rows.splitlines() if value.strip().isdigit()]
+if len(policy_ids) != 4:
+    raise AssertionError("Expected four isolated policies for tenant read acceptance")
+policy_a, policy_b, policy_mixed, policy_global = policy_ids
+sql(
+    "INSERT INTO policy_cluster(policy_id,cluster_id,active) VALUES "
+    f"({policy_a},{cluster_a},true),"
+    f"({policy_b},{cluster_b},true),"
+    f"({policy_mixed},{cluster_a},true),"
+    f"({policy_mixed},{cluster_b},true);"
+)
+for policy_id, expected, label in (
+    (policy_a, 200, "single-cluster authorized policy"),
+    (policy_b, 403, "foreign-cluster policy"),
+    (policy_mixed, 403, "policy spanning authorized and foreign clusters"),
+    (policy_global, 200, "global policy read-only visibility")
+):
+    require(call("GET", f"/api/policies/{policy_id}"), expected, label + " detail")
+    require(call("GET", f"/api/policies/{policy_id}/clusters"), expected, label + " cluster map")
+
+def policy_page(params):
+    req = Request("http://127.0.0.1:3000/api/policies?" + urlencode(params),
+                  headers={"X-API-Key": token})
+    with urlopen(req, timeout=20) as response:
+        return json.load(response)
+
+page = policy_page({"page": 0, "limit": 100})
+body = page.get("data", page)
+visible = {int(item["id"]) for item in body["list"]}
+if policy_a not in visible or policy_global not in visible:
+    raise AssertionError("Authorized policy inventory omitted expected visible policies")
+if policy_b in visible or policy_mixed in visible:
+    raise AssertionError("Paginated policy inventory leaked foreign or mixed-tenant resources")
+if int(body["totalCount"]) < len(visible):
+    raise AssertionError("Authorized policy inventory returned inconsistent totalCount")
+require(call("GET", "/api/policies?limit=101"), 400, "reject oversized policy pagination")
+require(call("GET", "/api/policies?page=-1"), 400, "reject negative policy pagination")
+print("PASS: real policy inventory and counts are tenant filtered before pagination")
+
 before = sql(f"SELECT COUNT(*) FROM falco_settings WHERE cluster_id IN ({cluster_a},{cluster_b});")
 # Role ADMIN without a write grant is insufficient even for cluster A.
 for cluster in (cluster_a, cluster_b):

@@ -6,6 +6,8 @@ import {
     Get, HttpException, HttpStatus,
     Inject,
     Param,
+    ParseIntPipe,
+    BadRequestException,
     Post,
     Put, Query,
     UseGuards,
@@ -29,6 +31,7 @@ import {PoliciesByClusterResponse} from '../open-api-schema/policy-by-cluster.sc
 import {POLICY_ID_BY_CLUSTER_RESPONSE_SCHEMA} from '../open-api-schema/policiesid-by-cluster.schema';
 import {AuditLogInterceptor} from "../../../interceptors/audit-log.interceptor";
 import {PolicyWriteScopeService} from '../services/policy-write-scope.service';
+import {PolicyReadScopeService} from '../services/policy-read-scope.service';
 
 @ApiTags('Policies')
 @ApiBearerAuth('jwt-auth')
@@ -38,7 +41,8 @@ export class PolicyController {
     constructor(@Inject('LOGGED_IN_USER') private readonly _loggedInUser: UserProfileDto,
                 private readonly policyService: PolicyService, private readonly scannerService: ScannerService,
                 private readonly clusterService: ClusterService,
-                private readonly policyWriteScope: PolicyWriteScopeService) {}
+                private readonly policyWriteScope: PolicyWriteScopeService,
+                private readonly policyReadScope: PolicyReadScopeService) {}
 
     @Get(':policyId')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
@@ -47,7 +51,8 @@ export class PolicyController {
         status: 200,
         schema: POLICY_RESPONSE_SCHEMA
     })
-    async getPolicyById(@Param('policyId') policyId: number): Promise<PolicyDto> {
+    async getPolicyById(@Param('policyId', ParseIntPipe) policyId: number): Promise<PolicyDto> {
+        await this.policyReadScope.assertRead(this._loggedInUser, policyId);
         return await this.policyService.getPolicyById(policyId);
     }
 
@@ -61,7 +66,24 @@ export class PolicyController {
     async getAllPolicies(@Query('sort') sort: {field: string; direction: string; },
                          @Query('page') page: number, @Query('limit') limit: number):
         Promise<{totalCount: number, list: PolicyDto[]}> {
-        return await this.policyService.getAllPolicies(page, limit, sort);
+        // Query parameters are strings at the HTTP boundary. Validate before
+        // paging to prevent accidental unbounded queries and misleading counts.
+        const safePage = this.pageNumber(page, 0, 100000);
+        const safeLimit = this.pageNumber(limit, 10, 100);
+        if (safeLimit < 1) throw new BadRequestException('Invalid policy page size');
+        const allowed = await this.policyReadScope.visiblePolicyIds(this._loggedInUser);
+        return await this.policyService.getAllPolicies(safePage, safeLimit, sort, allowed);
+    }
+
+    private pageNumber(raw: unknown, fallback: number, max: number): number {
+        // The original Angular policy service may send the literal "undefined".
+        if (raw === undefined || raw === null || raw === 'undefined' || raw === '') return fallback;
+        const value = String(raw);
+        if (!/^(?:0|[1-9][0-9]*)$/.test(value) || !Number.isSafeInteger(Number(value)) ||
+            Number(value) > max) {
+            throw new BadRequestException('Invalid policy pagination parameter');
+        }
+        return Number(value);
     }
 
     @Post()
@@ -110,7 +132,7 @@ export class PolicyController {
         schema: CREATE_POLICY_RESPONSE_SCHEMA
     })
     @UseInterceptors(AuditLogInterceptor)
-    async updatePolicy(@Body() policyData: PolicyScannerDto, @Param('policyId') policyId: number): Promise<PolicyDto> {
+    async updatePolicy(@Body() policyData: PolicyScannerDto, @Param('policyId', ParseIntPipe) policyId: number): Promise<PolicyDto> {
         await this.policyWriteScope.assertUpdate(this._loggedInUser, Number(policyId), policyData);
         if (!this.policyService.validateActivePolicyScanners(policyData.policy, policyData.scanners)) {
             throw new HttpException({status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -160,7 +182,8 @@ export class PolicyController {
         status: 200,
         schema: POLICY_ID_BY_CLUSTER_RESPONSE_SCHEMA
     })
-    async getAllClustersByPolicyId(@Param('policyId') policyId: number): Promise<PoliciesIdByCluster[]> {
+    async getAllClustersByPolicyId(@Param('policyId', ParseIntPipe) policyId: number): Promise<PoliciesIdByCluster[]> {
+        await this.policyReadScope.assertRead(this._loggedInUser, policyId);
         return await this.policyService.getPolicyClusterMap(policyId);
     }
 
@@ -173,7 +196,7 @@ export class PolicyController {
     @Get('by-cluster/:clusterId')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.TRAWLER)
     @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
-    async getPoliciesByClusterId(@Param('clusterId') clusterId: number): Promise<PoliciesByClusterIdDto[]> {
+    async getPoliciesByClusterId(@Param('clusterId', ParseIntPipe) clusterId: number): Promise<PoliciesByClusterIdDto[]> {
         return this.policyService.getPoliciesByClusterAndGlobal(clusterId);
     }
 
@@ -185,7 +208,7 @@ export class PolicyController {
         schema: DELETE_POLICY_RESPONSE_SCHEMA
     })
     @UseInterceptors(AuditLogInterceptor)
-    async deletePolicyById(@Param('id') id: number): Promise<{ id: number, metadata: any }>{
+    async deletePolicyById(@Param('id', ParseIntPipe) id: number): Promise<{ id: number, metadata: any }>{
         await this.policyWriteScope.assertDelete(this._loggedInUser, Number(id));
         const currentPolicy = await this.policyService.getPolicyById(id);
         const deletedPolicyId =  await this.policyService.deletePolicyById(id);
