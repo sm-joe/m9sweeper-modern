@@ -37,6 +37,13 @@ jobs:
         run: |
           python3 -m pip install --user 'pika==1.3.2'
           python3 tools/integration/trivy-dlq-staging.py
+      - name: Print only sanitized Java retry and quarantine outcomes on failure
+        if: failure()
+        shell: bash
+        run: |
+          set -o pipefail
+          docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime logs --no-color --tail=150 trawler 2>/dev/null |
+            grep -E 'Queued image scan failed|Dash did not acknowledge scan quarantine|Quarantined job retained|Quarantined job|Unable to confirm retry publication' || true
       - name: Show container health without exporting credential-bearing logs
         if: always()
         run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime ps || true
