@@ -1,7 +1,19 @@
 #!/usr/bin/env bash
 # Staging-only backup and restore to temporary DB. Live source remains unchanged.\n# Quiesce disposable staging writes during backup and verification to avoid snapshot drift.
 set -euo pipefail
-[[ "$M9_STAGING_RESTORE_TEST" == YES ]] || { echo 'Explicit staging opt-in required' >&2; exit 2; }
+[[ "${M9_STAGING_RESTORE_TEST:-}" == YES ]] || { echo 'Explicit staging opt-in required' >&2; exit 2; }
+: "${M9_EXPECTED_COMPOSE_PROJECT:?Expected disposable Compose project is required}"
+[[ "$M9_EXPECTED_COMPOSE_PROJECT" == m9-runtime ||
+   "$M9_EXPECTED_COMPOSE_PROJECT" == m9-staging-* ||
+   "$M9_EXPECTED_COMPOSE_PROJECT" == m9sweeper-staging-* ]] || {
+  echo 'Refusing backup/restore against a non-disposable Compose project' >&2; exit 2
+}
+command -v docker >/dev/null || { echo 'Docker is required' >&2; exit 2; }
+actual_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' postgres)"
+[[ "$actual_project" == "$M9_EXPECTED_COMPOSE_PROJECT" ]] || {
+  echo 'Refusing backup/restore: postgres container belongs to a different Compose project' >&2
+  exit 2
+}
 umask 077
 mkdir -p private-backups
 chmod 700 private-backups
