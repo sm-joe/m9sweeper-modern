@@ -613,15 +613,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go install sigs.k8s.io/kind@v0.26.0
+          go install sigs.k8s.io/kind@v0.33.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           "$(go env GOPATH)/bin/kind" version
-      - name: Create ephemeral Kind inventory cluster
+      - name: Create ephemeral supported Kubernetes 1.35 Kind inventory cluster
         shell: bash
         run: |
           set -euo pipefail
-          kind create cluster --name m9-inventory --image kindest/node:v1.31.4 --wait 120s
+          kind create cluster --name m9-inventory --image kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0 --wait 180s
           kubectl cluster-info --context kind-m9-inventory
+          kubectl get --raw /version | python3 -c '
+          import json,sys
+          version=json.load(sys.stdin).get("gitVersion", "")
+          if not version.startswith("v1.35."):
+              raise SystemExit("Expected pinned supported Kubernetes v1.35.x node, got "+version)
+          print("PASS: supported Kubernetes",version,"API responds from disposable Kind")
+          '
       - name: Create live namespace and workload for original inventory service
         run: |
           kubectl create namespace m9-inventory

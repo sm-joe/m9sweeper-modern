@@ -40,6 +40,10 @@ The script requires a new revision for upgrade and rollback, checks the post-rol
 
 The existing disposable Linux/Compose recovery drill now compares both table counts and deterministic SHA-256 digests of canonical PostgreSQL JSONB row content in `clusters`, `image_scan_runs`, `image_scan_results`, `image_scan_results_issues`, `project_falco_logs`, and `kube_hunter`. It fails even if row counts match but one finding differs. The restored scratch DB is dropped on exit; the protected, permission-restricted backup remains available for review. **Only run when disposable staging writes are quiescent.** This compares restore correctness; it does not prove PITR or full production disaster recovery.
 
+## Supported-version Kubernetes CI target
+
+The disposable Kind inventory/Helm API test has been upgraded from obsolete Kubernetes 1.31 to a digest-pinned Kind v0.33.0/Kubernetes v1.35.8 image, with an explicit API version assertion before scanning. Kubernetes 1.35 is within upstream support in November 2026; versions 1.30-1.34 are end of life. **CI success on Kind v1.35 is a tested baseline, not a blanket support declaration for EKS/AKS/GKE, production HA, storage, Falco kernels or multiple Kubernetes minors.** Record additional 1.36 and 1.37 live acceptance before publishing a broad support matrix.
+
 ## Execution rules
 
 1. Never run destructive lifecycle checks against existing operator Kind/Compose data, production namespaces, or non-staging volumes.
