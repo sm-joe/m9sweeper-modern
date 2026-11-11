@@ -63,6 +63,7 @@ jobs:
           sh -n tools/security/test_kubehunter_live_denials.sh
           bash -n scripts/verify-trivy-e2e-linux.sh
           bash -n scripts/verify-postgres-restore-linux.sh
+          python3 -m py_compile tools/integration/verify-postgres-data-digests.py
           bash -n scripts/verify-falco-live-linux.sh
           python3 -m py_compile tools/integration/real-trivy-e2e-staging.py tools/integration/scanner-cluster-binding-runtime.py tools/integration/two-cluster-tenant-http.py
           bash -n scripts/verify-helm-rollback-staging-linux.sh
