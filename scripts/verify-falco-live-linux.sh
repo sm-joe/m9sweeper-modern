@@ -21,6 +21,12 @@ expected_rule="${M9_FALCO_EXPECTED_RULE:-Read sensitive file untrusted}"
 for tool in kubectl docker date sleep; do
   command -v "$tool" >/dev/null || { echo "Missing $tool" >&2; exit 2; }
 done
+: "${M9_EXPECTED_KUBE_CONTEXT:?Explicit disposable staging Kubernetes context required}"
+actual_context="$(kubectl config current-context)"
+[[ "$actual_context" == "$M9_EXPECTED_KUBE_CONTEXT" ]] || {
+  echo "Refusing Falco live drill: current Kubernetes context does not match approved staging context" >&2
+  exit 2
+}
 namespace="m9-falco-accept-$(date -u +%s)-$$"
 [[ "$namespace" =~ ^m9-falco-accept-[0-9]+-[0-9]+$ ]] || exit 2
 test_namespace_created=false
