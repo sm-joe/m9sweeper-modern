@@ -1,0 +1,37 @@
+name: Temporary NestJS 11 lockfile regeneration
+on:
+  push:
+    branches:
+      - modernize/nestjs11-upgrade-probe
+    paths:
+      - 'platform/dash/backend/package.json'
+      - '.github/workflows/nestjs11-lockfile-refresh.yml'
+permissions:
+  contents: write
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+      - name: Regenerate and validate dependency lockfile
+        working-directory: platform/dash/backend
+        run: |
+          npm install --package-lock-only --legacy-peer-deps --no-audit --no-fund
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          npm run build:api
+          npm test -- --runInBand
+          node -e "require.resolve('@aws-sdk/client-s3'); require.resolve('@aws-sdk/lib-storage'); console.log('S3 runtime dependency resolution passed')"
+      - name: Commit validated lockfile
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add platform/dash/backend/package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'build(nest11): lock S3 runtime dependencies'
+            git push origin HEAD:modernize/nestjs11-upgrade-probe
+          fi

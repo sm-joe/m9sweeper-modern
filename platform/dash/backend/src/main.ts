@@ -160,7 +160,7 @@ async function bootstrap() {
   const requestLimit = process.env.REQUEST_LIMIT || '30mb';
 
   const bodyParser = json({limit: requestLimit});
-  const rawParser = text({type: 'json', limit: requestLimit});
+  const rawParser = text({type: ['application/json', 'text/plain'], limit: requestLimit});
   app.use((req: any, res: any, next: any) => {
     if(req.url.includes('/api/kubehunter/hunter')) {
       rawParser(req, res, next);

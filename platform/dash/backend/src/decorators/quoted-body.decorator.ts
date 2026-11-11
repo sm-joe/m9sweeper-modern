@@ -26,5 +26,6 @@ export function parseQuotedBody(body: unknown): Record<string, unknown> {
 }
 
 export const QuotedBody = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
-    return parseQuotedBody(ctx.switchToHttp().getRequest().body);
+    // Authentication in the controller must run before reporting malformed payloads.
+    return ctx.switchToHttp().getRequest().body;
 });
