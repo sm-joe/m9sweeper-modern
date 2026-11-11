@@ -2,7 +2,7 @@
 
 **Status:** nonproduction release-candidate distribution only. This workflow never creates a GitHub release and never overrides the [production acceptance decision](modernization-2026-11-11-release-decision.md).
 
-The manually dispatched `signed-linux-candidate.yml` workflow is restricted to `main`, requires `CANDIDATE_ONLY` confirmation, and accepts only `vMAJOR.MINOR.PATCH-rcN` versions. It builds the *actual* Dockerfiles for Dash and Java trawler as linux/amd64 images, publishes OCI provenance and build-generated SBOM metadata, signs image digests keylessly using GitHub Actions OIDC, verifies those signatures, and packages the existing Helm umbrella chart with the candidate version. The Helm tarball receives a Sigstore bundle; a separate source SPDX JSON SBOM and SHA256 hashes are uploaded as retained workflow artifacts.
+The manually dispatched `signed-linux-candidate.yml` workflow is restricted to `main`, requires `CANDIDATE_ONLY` confirmation, and accepts only `vMAJOR.MINOR.PATCH-rcN` versions. It builds the *actual* Dockerfiles for Dash and Java trawler as linux/amd64 images, publishes OCI provenance and build-generated SBOM metadata, signs image digests keylessly using GitHub Actions OIDC, verifies those signatures, and packages the existing Helm umbrella chart with the candidate version **and bakes in the two signed image digests** so it cannot silently deploy the obsolete upstream image repositories. The Helm tarball receives a Sigstore bundle; a separate source SPDX JSON SBOM and SHA256 hashes are uploaded as retained workflow artifacts.
 
 ## Candidate dispatch
 
@@ -37,7 +37,7 @@ cosign verify-blob --bundle chart.sigstore.json \
   m9sweeper-0.1.0-rc6.tgz
 ```
 
-A successful candidate artifact build does **not** mean the Helm chart is production deployable; its dependency chart versions, service image references, permissions, migration ordering, ingress/TLS, Secret handling, PVC policies and rollback remain independently audited release gates. Explicitly pin the produced image digests in staging-only chart values before any live install.
+A successful candidate artifact build does **not** mean the Helm chart is production deployable; its dependency chart versions, service image references, permissions, migration ordering, ingress/TLS, Secret handling, PVC policies and rollback remain independently audited release gates. The candidate package's umbrella values embed the exact signed Dash/trawler digests as `v...-rcN@sha256:...` references. Confirm the rendered Kubernetes images match `IMAGE-DIGESTS.txt` before any staging-only install; do not override them with mutable tags.
 
 ## Initial compatibility target, not certified support
 

@@ -87,17 +87,42 @@ jobs:
       - uses: azure/setup-helm@v4
         with:
           version: v3.17.3
-      - name: Build candidate Helm distribution without publishing a release
+      - name: Package Helm values pinned to verified OCI image digests
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
+          DASH_DIGEST: ${{ steps.dash.outputs.digest }}
+          TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
         run: |
           set -euo pipefail
           version="${VERSION#v}"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path("platform/manifests/charts/m9sweeper/values.yaml")
+          content = p.read_text()
+          for component, old_name, new_name, digest_var in [
+              ("Dash", "m9sweeper/dash", "sm-joe/m9sweeper-dash", "DASH_DIGEST"),
+              ("Trawler", "m9sweeper/trawler", "sm-joe/m9sweeper-trawler", "TRAWLER_DIGEST"),
+          ]:
+              digest = os.environ[digest_var]
+              if not digest.startswith("sha256:") or len(digest) != 71:
+                  raise SystemExit("Invalid published " + component + " digest")
+              old = "    repository: " + old_name + "\n    tag: 0.0.0"
+              new = "    repository: " + new_name + "\n    tag: " + os.environ["VERSION"] + "@" + digest
+              if content.count(old) != 1:
+                  raise SystemExit("Unexpected " + component + " image values; refusing unsigned fallback")
+              content = content.replace(old, new)
+          p.write_text(content)
+          PY
+          grep -Fq "repository: sm-joe/m9sweeper-dash" platform/manifests/charts/m9sweeper/values.yaml
+          grep -Fq "repository: sm-joe/m9sweeper-trawler" platform/manifests/charts/m9sweeper/values.yaml
           helm dependency update platform/manifests/charts/m9sweeper
           helm package platform/manifests/charts/m9sweeper --version "$version" --app-version "$version" --destination dist
           chart="dist/m9sweeper-$version.tgz"
           test -s "$chart"
+          tar -xOzf "$chart" m9sweeper/values.yaml | grep -Fq "tag: "$VERSION"@$DASH_DIGEST"
+          tar -xOzf "$chart" m9sweeper/values.yaml | grep -Fq "tag: "$VERSION"@$TRAWLER_DIGEST"
           printf 'source_commit=%s\nversion=%s\nstatus=nonproduction-candidate\n' "$(git rev-parse HEAD)" "$VERSION" >dist/RELEASE-METADATA.txt
       - name: Generate source dependency SPDX SBOM
         uses: anchore/sbom-action@v0
