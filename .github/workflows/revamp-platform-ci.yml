@@ -480,7 +480,7 @@ jobs:
         run: npm test
         working-directory: tools/browser-e2e
       - name: Restore CI PostgreSQL backup into isolated scratch DB and verify evidence
-        run: M9_STAGING_RESTORE_TEST=YES bash scripts/verify-postgres-restore-linux.sh
+        run: M9_STAGING_RESTORE_TEST=YES M9_EXPECTED_COMPOSE_PROJECT=m9-runtime bash scripts/verify-postgres-restore-linux.sh
       - name: Enforce real scanner per-cluster grants in isolated Compose stack
         working-directory: platform/docker-compose
         env:
