@@ -112,7 +112,8 @@ export class KubernetesClusterService {
         try {
             // Get every running Pod
             const allPods = await coreApi.listPodForAllNamespaces();
-            const runningPods: V1Pod[] = allPods.body.items.filter(pod => pod.status.phase === 'Running');
+            const runningPods: V1Pod[] = (allPods?.body?.items ?? [])
+                .filter(pod => pod?.status?.phase === 'Running');
 
             // map structure:
             //    < imageName: string, list of Pods running that image: [V1Pod, V1Pod, V1Pod] >
@@ -120,12 +121,13 @@ export class KubernetesClusterService {
 
             // Find all unique images running in all the pods
             runningPods.forEach((pod) => {
-              const allContainers: V1Container[] = pod.spec.containers
-                .concat(pod.spec.initContainers ?? [])
-                .concat(pod.spec.ephemeralContainers ?? []);
+              const allContainers: V1Container[] = (pod.spec?.containers ?? [])
+                .concat(pod.spec?.initContainers ?? [])
+                .concat(pod.spec?.ephemeralContainers ?? []);
 
               allContainers.forEach((container) => {
-                const imageRunningInContainer: string = container.image;
+                const imageRunningInContainer: string = container?.image;
+                if (!imageRunningInContainer) return;
                 const existingPodsRunningThatImage: V1Pod[] = mapOfImagesAndThePodsRunningThem.has(imageRunningInContainer) ? mapOfImagesAndThePodsRunningThem.get(imageRunningInContainer) : [];
                 // add our current pod to the list
                 mapOfImagesAndThePodsRunningThem.set(imageRunningInContainer, existingPodsRunningThatImage.concat([pod]));
@@ -136,7 +138,9 @@ export class KubernetesClusterService {
             const saveResult = await this.k8sImageService.saveK8sImages(cluster.id, mapOfImagesAndThePodsRunningThem);
             everythingSavedSuccessfully = everythingSavedSuccessfully && saveResult.allImagesSavedSuccessfully;
             const imageIdMap = saveResult.imageIdMapRunningInCluster;
-            await this.saveK8sPods(cluster.id, runningPods, imageIdMap);
+            everythingSavedSuccessfully =
+                (await this.saveK8sPods(cluster.id, runningPods, imageIdMap)) &&
+                everythingSavedSuccessfully;
         } catch (e) {
           this.loggerService.log({label: `ERROR syncing pods for ${cluster.id}`, error: {stack: e.stack, message: e.message}}, 'KubernetesClusterService.syncPods()');
             const clusterEventData = this.clusterEventService.createClusterEventObject(
@@ -153,29 +157,42 @@ export class KubernetesClusterService {
         return everythingSavedSuccessfully;
     }
 
-    private async saveK8sPods(clusterId: number, runningPods: V1Pod[], imageIdMap: ImageIdInClusterMap) {
-      let somePodsFailed = false;
+    private async saveK8sPods(clusterId: number, runningPods: V1Pod[],
+                              imageIdMap: ImageIdInClusterMap): Promise<boolean> {
+      let failed = 0;
       for (const pod of runningPods) {
         try {
-          this.loggerService.log({label: 'Saving pod', data: { name: pod.metadata.name, namespace: pod.metadata.namespace}}, 'KubernetesClusterService.saveK8sPod');
+          this.loggerService.log({
+            label: 'Saving pod',
+            data: {name: pod.metadata?.name, namespace: pod.metadata?.namespace}
+          }, 'KubernetesClusterService.saveK8sPods');
           await this.podService.savePod(pod, clusterId, imageIdMap);
-        } catch (e) {
-          somePodsFailed = true;
-          this.loggerService.log({label: `ERROR saving pod ${pod.metadata.name}`, error: {stack: e.stack, message: e.message}}, 'KubernetesClusterService.saveK8sPods()');
+        } catch (error) {
+          failed++;
+          // Error details stay in backend logs; cluster events contain no secrets.
+          this.loggerService.log({
+            label: 'Pod synchronization failed',
+            data: {clusterId, name: pod.metadata?.name, namespace: pod.metadata?.namespace},
+            error: {message: error?.message, stack: error?.stack}
+          }, 'KubernetesClusterService.saveK8sPods()');
         }
       }
-      if (somePodsFailed) {
+      if (failed > 0) {
         const clusterEventData = this.clusterEventService.createClusterEventObject(
           0,
           'Batch Job',
           'Update',
           'Error',
-          `Error while running KubernetesClusterService.saveK8sPods for ${clusterId} - not all pods saved properly`,
+          `Error while running KubernetesClusterService.saveK8sPods for ${clusterId} - ${failed} of ${runningPods.length} running pods failed to save; inventory cleanup withheld`,
           clusterId
         );
         await this.clusterEventService.createClusterEvent(clusterEventData, clusterId);
+        // Do not delete previously known pods after a partial sync failure.
+        return false;
       }
+      // Only remove stale records after ALL observed running pods are persisted.
       await this.podService.deleteDeadPods(clusterId, runningPods.map(p => p.metadata.name));
+      return true;
     }
 
     async getK8sNodeSummary(clusterId: number, coreApi: CoreV1Api): Promise<{numNodes: number, numCPU: number, amountRAM: number}> {
