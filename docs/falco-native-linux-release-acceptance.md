@@ -17,10 +17,11 @@ export M9_FALCO_LIVE_TEST=YES
 export M9_FALCO_LINUX_HOST=YES
 export CLUSTER_ID=1  # use the real registered staging cluster ID
 export M9_FALCO_EXPECTED_RULE="Read sensitive file untrusted"
+export M9_EXPECTED_KUBE_CONTEXT="your-disposable-staging-context"
 bash scripts/verify-falco-live-linux.sh
 ```
 
-The script takes a maximum-id baseline, creates a uniquely named disposable namespace, starts a BusyBox test Pod, reads that Pod's local `/etc/shadow` to trigger the configured Falco rule, and polls actual `project_falco_logs` for a **new** event matching the exact expected Falco rule, cluster ID, namespace and Pod. A generic Pod startup event is not sufficient evidence. It deletes only its newly created namespace on exit and retains PostgreSQL evidence. No synthetic event is sent to the NestJS API. On failure, inspect Falco's kernel driver, enabled rules and Falcosidekick delivery separately. A healthy DaemonSet alone is not evidence of capture.
+The script takes a maximum-id baseline, verifies the exact approved Kubernetes context, creates a uniquely named disposable namespace, starts a BusyBox test Pod, reads that Pod's local `/etc/shadow` to trigger the configured Falco rule, and polls actual `project_falco_logs` for a **new** event matching the exact expected Falco rule, cluster ID, namespace and Pod. A generic Pod startup event is not sufficient evidence. It deletes only its newly created namespace on exit and retains PostgreSQL evidence. No synthetic event is sent to the NestJS API. On failure, inspect Falco's kernel driver, enabled rules and Falcosidekick delivery separately. A healthy DaemonSet alone is not evidence of capture.
 
 Record the emitted event ID, rule and test Pod, then verify **the same event** in the Angular Falco view using a scoped read-only user. Capture redacted Playwright/browser evidence, `uname -r`, Kubernetes version, chart/image digests and observed authentication outcome. A matching DB row and browser correlation close only this environment's Falco gate, not universal kernel compatibility.
 
