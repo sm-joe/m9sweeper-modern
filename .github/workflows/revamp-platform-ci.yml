@@ -550,6 +550,34 @@ jobs:
       - name: Stop integration stack, keep evidence in CI logs
         if: always()
         run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime down --remove-orphans
+  modern-stateful-runtime:
+    name: Real NestJS runtime on PostgreSQL 17 and RabbitMQ 4.4
+    runs-on: ubuntu-latest
+    timeout-minutes: 42
+    env:
+      COMPOSE_FILE: ${{ github.workspace }}/platform/docker-compose/docker-compose.yml:${{ github.workspace }}/tools/integration/modern-stateful.override.yml
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify supported broker and database with actual NestJS runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/integration/runtime-smoke.sh
+          docker exec postgres sh -c 'psql -qAt -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SHOW server_version;"' |
+            grep -E '^17[.]11([.]|$)'
+          docker exec rabbitmq rabbitmqctl version | grep -E '^4[.]4[.]0$'
+          echo 'PASS: complete NestJS runtime uses PostgreSQL 17.11 and RabbitMQ 4.4.0'
+      - name: Redacted disposable-stack diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          docker compose -p m9-runtime ps || true
+          docker compose -p m9-runtime logs --no-color --tail=60 postgres rabbitmq dash 2>/dev/null |
+            sed -E 's/(password|api[_-]?key|token)[=: ]+[^ ]+/[REDACTED]/Ig' || true
+      - name: Tear down isolated modern containers and volumes
+        if: always()
+        shell: bash
+        run: docker compose -p m9-runtime down --volumes --remove-orphans || true
   kubesec-live-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -755,6 +783,7 @@ jobs:
       - dash-image
       - compose-config
       - runtime-integration
+      - modern-stateful-runtime
       - kubesec-live-scan
       - trivy-live-scan
       - trawler-jvm-image

@@ -1,0 +1,8 @@
+# Disposable CI only. Never combine this override with existing operator data.
+# PostgreSQL 17 and RabbitMQ 4.4 have unsupported on-disk upgrade paths
+# from the old Helm defaults. Run only against fresh isolated volumes.
+services:
+  postgres:
+    image: postgres:17.11-alpine
+  rabbitmq:
+    image: rabbitmq:4.4.0-alpine
