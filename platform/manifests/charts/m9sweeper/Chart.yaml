@@ -1,7 +1,7 @@
 apiVersion: v2
 name: m9sweeper
 version: 0.0.0
-kubeVersion: '>=1.16.0-0'
+kubeVersion: '>=1.35.0-0 <1.38.0-0'
 description: "m9sweeper: a tool to secure your kubernetes cluster and images"
 type: application
 keywords:

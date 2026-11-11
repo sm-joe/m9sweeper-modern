@@ -44,7 +44,7 @@ A successful candidate artifact build does **not** mean the Helm chart is produc
 | Surface | Target to validate | Evidence needed before support |
 | --- | --- | --- |
 | Host OS | maintained Linux x86_64 | exact distro, kernel and container runtime |
-| Kubernetes | maintained Linux-node Kubernetes versions | exact tested minor versions, CNI/storage/ingress |
+| Kubernetes | upstream-supported 1.35, 1.36 and 1.37 only (November 2026 compatibility range) | 1.35 real Kind CI; 1.36/1.37 template/API/runtime evidence outstanding |
 | Helm | Helm 3 | install/upgrade/rollback and PVC preservation |
 | Falco | modern eBPF on supported native Linux kernel | real kernel event, Sidekick delivery, database and Angular correlation |
 | Database | PostgreSQL from actual chart/Compose | verified isolated restore and migration lifecycle |
@@ -52,3 +52,5 @@ A successful candidate artifact build does **not** mean the Helm chart is produc
 | Trivy | Java trawler image's pinned Trivy | real CVE results, failure reconciliation and no false compliance |
 
 Only versions with documented reproducible positive evidence may be listed as supported. Keep historical upstream attribution, Kubernetes node-security caveats and confidentiality of secret-bearing Helm values.
+
+The umbrella chart declares `kubeVersion: >=1.35.0-0 <1.38.0-0`; Helm rejects older and untested newer minors. Version acceptance by Helm is **not** live runtime certification. Update this window as upstream support changes, after compatible CI and staging evidence exists.
