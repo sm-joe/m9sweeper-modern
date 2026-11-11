@@ -64,7 +64,7 @@ jobs:
           bash -n scripts/verify-trivy-e2e-linux.sh
           bash -n scripts/verify-postgres-restore-linux.sh
           bash -n scripts/verify-falco-live-linux.sh
-          python3 -m py_compile tools/integration/real-trivy-e2e-staging.py tools/integration/two-cluster-tenant-http.py
+          python3 -m py_compile tools/integration/real-trivy-e2e-staging.py tools/integration/scanner-cluster-binding-runtime.py tools/integration/two-cluster-tenant-http.py
           bash -n scripts/verify-helm-rollback-staging-linux.sh
           bash -n tools/integration/helm-kind-api-lifecycle.sh
           python3 tools/security/test_helm_staging_guard.py
@@ -479,6 +479,12 @@ jobs:
         working-directory: tools/browser-e2e
       - name: Restore CI PostgreSQL backup into isolated scratch DB and verify evidence
         run: M9_STAGING_RESTORE_TEST=YES bash scripts/verify-postgres-restore-linux.sh
+      - name: Enforce real scanner per-cluster grants in isolated Compose stack
+        working-directory: platform/docker-compose
+        env:
+          M9_SCANNER_BINDINGS_TEST: "YES"
+          M9_COMPOSE_PROJECT: m9-runtime
+        run: python3 ../../tools/integration/scanner-cluster-binding-runtime.py
       - name: Upload browser regression traces on failure
         if: failure()
         uses: actions/upload-artifact@v4
