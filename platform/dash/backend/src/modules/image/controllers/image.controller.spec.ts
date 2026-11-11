@@ -13,6 +13,38 @@ describe('Trivy report ingestion security', () => {
     controller = new ImageController(imageService, {} as any, {} as any, {} as any);
   });
 
+  it('renders first-login vulnerability widget without filters or a 500', async () => {
+    imageService.getCountOfFilteredImagesVulnerabilities = jest.fn();
+    await expect(controller.getCountOfFilteredImagesVulnerabilities(
+      {group_by: 'savedAtDate'}, 'savedAtDate'
+    )).resolves.toEqual([]);
+    expect(imageService.getCountOfFilteredImagesVulnerabilities).not.toHaveBeenCalled();
+  });
+
+  it('passes normalized Angular bracketed filters into the vulnerability service', async () => {
+    const expected = [{savedAtDate: '2026-11-11', criticalIssues: 2}];
+    imageService.getCountOfFilteredImagesVulnerabilities =
+      jest.fn().mockResolvedValue(expected);
+    await expect(controller.getCountOfFilteredImagesVulnerabilities({
+      'filters[clusterId][0]': '1',
+      'filters[namespace][0]': 'default',
+      'filters[startDate]': '2026-11-01',
+      group_by: 'savedAtDate'
+    }, 'savedAtDate')).resolves.toEqual(expected);
+    expect(imageService.getCountOfFilteredImagesVulnerabilities)
+      .toHaveBeenCalledWith({
+        clusterId: [1], namespace: ['default'], startDate: '2026-11-01'
+      }, 'savedAtDate');
+  });
+
+  it('refuses a malformed cluster selection instead of scanning all clusters', async () => {
+    imageService.getCountOfFilteredImagesVulnerabilities = jest.fn();
+    await expect(controller.getCountOfFilteredImagesVulnerabilities({
+      'filters[clusterId][0]': 'not-a-cluster'
+    }, 'savedAtDate')).rejects.toBeInstanceOf(BadRequestException);
+    expect(imageService.getCountOfFilteredImagesVulnerabilities).not.toHaveBeenCalled();
+  });
+
   it('shows latest durable scan failure for authorized cluster and image', async () => {
     imageService.getLatestScanRun = jest.fn().mockResolvedValue({
       id: 'run-id', status: 'failed', failure_reason: 'Scan exhausted retries'
