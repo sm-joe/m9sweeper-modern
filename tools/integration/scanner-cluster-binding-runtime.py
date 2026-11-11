@@ -53,11 +53,19 @@ subprocess.run(
      "--no-deps", "--force-recreate", "dash"],
     env=environment, check=True, capture_output=True, text=True
 )
+effective = subprocess.run(
+    ["docker", "compose", "-p", "m9-runtime", "exec", "-T",
+     "dash", "printenv", "SCANNER_REQUIRE_CLUSTER_BINDINGS"],
+    text=True, capture_output=True, check=True
+).stdout.strip()
+if effective != "true":
+    raise AssertionError("Dash is not running enforced cluster-binding mode")
 health = "http://127.0.0.1:3000/api/health"
 for attempt in range(45):
     try:
         with urlopen(health, timeout=5) as response:
-            if response.status == 200:
+            status = json.load(response)
+            if response.status == 200 and (status.get("data") or {}).get("postgres") == "OK":
                 break
     except (HTTPError, URLError, TimeoutError, ConnectionResetError, ConnectionRefusedError, OSError):
         pass
