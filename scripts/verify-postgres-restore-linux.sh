@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Staging-only backup and restore to temporary DB. Live source remains unchanged.
+# Staging-only backup and restore to temporary DB. Live source remains unchanged.\n# Quiesce disposable staging writes during backup and verification to avoid snapshot drift.
 set -euo pipefail
 [[ "$M9_STAGING_RESTORE_TEST" == YES ]] || { echo 'Explicit staging opt-in required' >&2; exit 2; }
 umask 077
@@ -21,5 +21,9 @@ before="$(counts "$source_db")"
 after="$(counts "$scratch")"
 echo "Source: $before"
 echo "Restored: $after"
-[[ "$before" == "$after" ]] || { echo 'FAIL: backup restore does not match source' >&2; exit 1; }
+[[ "$before" == "$after" ]] || { echo 'FAIL: backup restore row counts do not match source' >&2; exit 1; }
+# Counts alone cannot detect missing/altered findings when table sizes are equal.
+# Run canonical streaming digests from the exact same PostgreSQL instance.
+root="$(cd "$(dirname "$0")/.." && pwd)"
+python3 "$root/tools/integration/verify-postgres-data-digests.py" "$source_db" "$scratch"
 echo "PASS: isolated staging restore; retained backup $dump; scratch DB removed on exit"
