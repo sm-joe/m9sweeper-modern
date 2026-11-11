@@ -12,9 +12,21 @@ set -euo pipefail
 [[ "${M9_FALCO_LINUX_HOST:-}" == YES ]] || {
   echo 'Set M9_FALCO_LINUX_HOST=YES only on tested native Linux nodes' >&2; exit 2;
 }
+# Require the exact Falco rule exercised by cat /etc/shadow. An unrelated pod
+# startup event must never satisfy the kernel detection release gate.
+expected_rule="${M9_FALCO_EXPECTED_RULE:-Read sensitive file untrusted}"
+[[ "$expected_rule" =~ ^[A-Za-z0-9_][A-Za-z0-9_[:space:]-]{2,119}$ ]] || {
+  echo 'Expected Falco rule must be 3-120 safe characters' >&2; exit 2;
+}
 for tool in kubectl docker date sleep; do
   command -v "$tool" >/dev/null || { echo "Missing $tool" >&2; exit 2; }
 done
+: "${M9_EXPECTED_KUBE_CONTEXT:?Explicit disposable staging Kubernetes context required}"
+actual_context="$(kubectl config current-context)"
+[[ "$actual_context" == "$M9_EXPECTED_KUBE_CONTEXT" ]] || {
+  echo "Refusing Falco live drill: current Kubernetes context does not match approved staging context" >&2
+  exit 2
+}
 namespace="m9-falco-accept-$(date -u +%s)-$$"
 [[ "$namespace" =~ ^m9-falco-accept-[0-9]+-[0-9]+$ ]] || exit 2
 test_namespace_created=false
@@ -45,16 +57,17 @@ for attempt in $(seq 1 40); do
       FROM project_falco_logs WHERE cluster_id=$CLUSTER_ID
       AND id > $before AND namespace='$namespace'
       AND container='live-falco-probe'
+      AND rule='$expected_rule'
       ORDER BY id DESC LIMIT 1;")"
   if [[ -n "$found" ]]; then break; fi
   sleep 3
 done
 if [[ -z "$found" ]]; then
-  echo 'FAIL: no matching native Falco event persisted for this staging pod' >&2
+  echo "FAIL: expected Falco sensitive-file rule was not captured for this staging pod" >&2
   echo 'Check Linux eBPF probe, enabled rules, Falcosidekick forwarding and X-API-Key grants' >&2
   exit 1
 fi
-echo "PASS: kernel-triggered Falco event correlated to cluster $CLUSTER_ID and staging pod"
+echo "PASS: expected Falco rule '$expected_rule' triggered and correlated to cluster $CLUSTER_ID and staging pod"
 echo "Recorded event id/rule/pod: $found"
 echo 'PASS: new event persisted in PostgreSQL; no webhook fixture was posted'
 echo 'MANUAL FINAL GATE: open the Angular Falco page and verify this same event ID and rule'
