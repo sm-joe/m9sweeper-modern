@@ -48,6 +48,29 @@ describe('Falco ingestion authentication', () => {
     expect(falco.createFalcoLog).not.toHaveBeenCalled();
   });
 
+  it('rejects missing credentials before identity lookup or malformed-event parsing', async () => {
+    await expect(controller.createFalcoLog(3, {rule: 'incomplete'} as any, undefined))
+      .rejects.toMatchObject({status: 401});
+    expect(users.loadUserByApiKey).not.toHaveBeenCalled();
+    expect(falco.checkRules).not.toHaveBeenCalled();
+    expect(falco.createFalcoLog).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid credential on malformed event before returning payload validation errors', async () => {
+    users.loadUserByApiKey.mockResolvedValue([]);
+    await expect(controller.createFalcoLog(3, {rule: 'incomplete'} as any, 'invalid-key'))
+      .rejects.toMatchObject({status: 401});
+    expect(falco.checkRules).not.toHaveBeenCalled();
+    expect(falco.createFalcoLog).not.toHaveBeenCalled();
+  });
+
+  it('rejects revoked scanner credentials before parsing malformed events', async () => {
+    users.loadUserByApiKey.mockResolvedValue([{id: 9, authorities: ['FALCO'], isActive: false}]);
+    await expect(controller.createFalcoLog(3, {rule: 'incomplete'} as any, 'revoked-key'))
+      .rejects.toMatchObject({status: 401});
+    expect(falco.createFalcoLog).not.toHaveBeenCalled();
+  });
+
   it('disables raw scanner key export by default', async () => {
     const original = process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT;
     delete process.env.SCANNER_ALLOW_LEGACY_KEY_EXPORT;
@@ -60,7 +83,7 @@ describe('Falco ingestion authentication', () => {
   });
 
   it('rejects malformed events before invoking the Falco persistence service', async () => {
-    await expect(controller.createFalcoLog(3, {rule: 'incomplete'} as any, 'token'))
+    await expect(controller.createFalcoLog(3, {rule: 'incomplete'} as any, undefined, 'token'))
       .rejects.toMatchObject({status: 400});
     expect(falco.createFalcoLog).not.toHaveBeenCalled();
   });
@@ -82,7 +105,7 @@ describe('Falco ingestion authentication', () => {
     try {
       await expect(controller.createFalcoLog(3,
         {rule: 'test', priority: 'Warning', output: 'test', outputFields: {}} as any,
-        'scanner-key')).rejects.toMatchObject({status: 401});
+        undefined, 'scanner-key')).rejects.toMatchObject({status: 401});
       expect(falco.createFalcoLog).not.toHaveBeenCalled();
       expect(users.scannerHasClusterGrant).toHaveBeenCalledWith(17, 3);
     } finally {
