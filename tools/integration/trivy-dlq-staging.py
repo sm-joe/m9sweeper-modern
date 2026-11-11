@@ -115,7 +115,7 @@ try:
                     callback = Request(
                         f"http://127.0.0.1:3000/api/clusters/{cluster_id}/images/{image_id}/trawler/scan/fail",
                         json.dumps({"scanRunId": run_id}).encode(),
-                        {"Content-Type": "application/json", "x-auth-token": env["TRAWLER_API_KEY"]},
+                        {"Content-Type": "application/json", "x-api-key": env["TRAWLER_API_KEY"]},
                         method="POST"
                     )
                     try:
