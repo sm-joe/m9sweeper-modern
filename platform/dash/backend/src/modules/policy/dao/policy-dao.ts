@@ -43,7 +43,7 @@ export class PolicyDao {
             .count('p.id', {as: 'count'}).whereNull('p.deleted_at');
         if (allowedIds !== undefined) query.whereIn('p.id', allowedIds);
         const result = await query;
-        return (result && result[0] && result[0].count) ? result[0].count : 0;
+        return result?.[0]?.count == null ? 0 : Number(result[0].count);
     }
 
     async getPolicyById(id: number): Promise<PolicyDto> {
