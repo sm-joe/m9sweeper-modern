@@ -28,6 +28,7 @@ import { Authority } from '../../user/enum/Authority';
 import {PoliciesByClusterResponse} from '../open-api-schema/policy-by-cluster.schema';
 import {POLICY_ID_BY_CLUSTER_RESPONSE_SCHEMA} from '../open-api-schema/policiesid-by-cluster.schema';
 import {AuditLogInterceptor} from "../../../interceptors/audit-log.interceptor";
+import {PolicyWriteScopeService} from '../services/policy-write-scope.service';
 
 @ApiTags('Policies')
 @ApiBearerAuth('jwt-auth')
@@ -36,7 +37,8 @@ import {AuditLogInterceptor} from "../../../interceptors/audit-log.interceptor";
 export class PolicyController {
     constructor(@Inject('LOGGED_IN_USER') private readonly _loggedInUser: UserProfileDto,
                 private readonly policyService: PolicyService, private readonly scannerService: ScannerService,
-                private readonly clusterService: ClusterService) {}
+                private readonly clusterService: ClusterService,
+                private readonly policyWriteScope: PolicyWriteScopeService) {}
 
     @Get(':policyId')
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
@@ -71,6 +73,7 @@ export class PolicyController {
     })
     @UseInterceptors(AuditLogInterceptor)
     async createPolicy(@Body() policyData: PolicyScannerDto): Promise<PolicyDto> {
+        await this.policyWriteScope.assertCreate(this._loggedInUser, policyData);
         if (!this.policyService.validateActivePolicyScanners(policyData.policy, policyData.scanners)) {
             throw new HttpException({status: HttpStatus.UNPROCESSABLE_ENTITY,
                 message: 'Active policies require at least one active scanner'},
@@ -108,6 +111,7 @@ export class PolicyController {
     })
     @UseInterceptors(AuditLogInterceptor)
     async updatePolicy(@Body() policyData: PolicyScannerDto, @Param('policyId') policyId: number): Promise<PolicyDto> {
+        await this.policyWriteScope.assertUpdate(this._loggedInUser, Number(policyId), policyData);
         if (!this.policyService.validateActivePolicyScanners(policyData.policy, policyData.scanners)) {
             throw new HttpException({status: HttpStatus.UNPROCESSABLE_ENTITY,
                 message: 'Active policies require at least one active scanner'},
@@ -182,6 +186,7 @@ export class PolicyController {
     })
     @UseInterceptors(AuditLogInterceptor)
     async deletePolicyById(@Param('id') id: number): Promise<{ id: number, metadata: any }>{
+        await this.policyWriteScope.assertDelete(this._loggedInUser, Number(id));
         const currentPolicy = await this.policyService.getPolicyById(id);
         const deletedPolicyId =  await this.policyService.deletePolicyById(id);
         const metadata = await this.policyService.calculatePolicyMetadata(currentPolicy, null);
