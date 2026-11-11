@@ -124,6 +124,27 @@ jobs:
           tar -xOzf "$chart" m9sweeper/values.yaml | grep -Fq "tag: "$VERSION"@$DASH_DIGEST"
           tar -xOzf "$chart" m9sweeper/values.yaml | grep -Fq "tag: "$VERSION"@$TRAWLER_DIGEST"
           printf 'source_commit=%s\nversion=%s\nstatus=nonproduction-candidate\n' "$(git rev-parse HEAD)" "$VERSION" >dist/RELEASE-METADATA.txt
+      - name: Verify signed immutable images in rendered candidate Kubernetes workloads
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          DASH_DIGEST: ${{ steps.dash.outputs.digest }}
+          TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
+        run: |
+          set -euo pipefail
+          python3 tools/security/test_candidate_workload_digests.py
+          chart="dist/m9sweeper-${VERSION#v}.tgz"
+          # Render the actual packaged chart, not a mutable source directory.
+          # External Secrets prevent generated bootstrap credentials in CI artifacts.
+          helm template m9-candidate "$chart" \
+            --namespace m9-staging-candidate \
+            --kube-version 1.35.0 \
+            --set-string dash.existingSecret=external-dash-env \
+            --set-string trawler.existingSecret=external-trawler-env \
+            --set-string dash.init.existingSecret=external-init-env \
+            > dist/RENDERED-CANDIDATE.yaml
+          python3 tools/security/verify_candidate_workload_digests.py \
+            dist/RENDERED-CANDIDATE.yaml "$VERSION" "$DASH_DIGEST" "$TRAWLER_DIGEST"
       - name: Generate source dependency SPDX SBOM
         uses: anchore/sbom-action@v0
         with:
