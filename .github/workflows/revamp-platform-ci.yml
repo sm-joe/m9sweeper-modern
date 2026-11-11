@@ -42,6 +42,7 @@ jobs:
           python3 tools/import-platform/verify.py
           python3 tools/import-platform/test_product.py
           python3 tools/security/check_trawler_failure_auth.py
+          python3 tools/security/test_candidate_workload_digests.py
       - name: Inventory every HTTP route and enforce P0 guard regression gates
         run: python3 tools/security/audit_http_routes.py --output p0-http-route-inventory.csv
       - name: Upload route inventory for endpoint-by-endpoint security review
