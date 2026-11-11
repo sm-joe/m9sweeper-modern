@@ -1,0 +1,59 @@
+name: Backend NestJS fast checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'platform/dash/backend/**'
+      - '.github/workflows/backend-ci.yml'
+      - 'tools/security/check_backend_startup.cjs'
+      - 'tools/security/audit_http_routes.py'
+  push:
+    branches: [main]
+    paths:
+      - 'platform/dash/backend/**'
+      - '.github/workflows/backend-ci.yml'
+      - 'tools/security/check_backend_startup.cjs'
+      - 'tools/security/audit_http_routes.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nestjs:
+    name: NestJS 11 build and Jest regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: platform/dash/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: platform/dash/backend/package-lock.json
+      - name: Install locked NestJS dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Validate backend startup and scanner contracts
+        run: node ../../../tools/security/check_backend_startup.cjs
+      - name: Build original NestJS API with SWC
+        run: npm run build:api
+      - name: Run NestJS Jest unit and regression suites
+        run: npm test -- --runInBand
+      - name: Check HTTP route authorization inventory
+        run: python3 tools/security/audit_http_routes.py --output backend-http-route-inventory.csv
+        working-directory: .
+      - name: Upload security route inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-http-route-inventory
+          path: backend-http-route-inventory.csv
+          if-no-files-found: ignore
