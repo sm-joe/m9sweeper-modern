@@ -182,7 +182,8 @@ export class PolicyController {
         status: 200,
         schema: POLICY_ID_BY_CLUSTER_RESPONSE_SCHEMA
     })
-    async getAllClustersByPolicyId(@Param('policyId') policyId: number): Promise<PoliciesIdByCluster[]> {
+    async getAllClustersByPolicyId(@Param('policyId', ParseIntPipe) policyId: number): Promise<PoliciesIdByCluster[]> {
+        await this.policyReadScope.assertRead(this._loggedInUser, policyId);
         return await this.policyService.getPolicyClusterMap(policyId);
     }
 
