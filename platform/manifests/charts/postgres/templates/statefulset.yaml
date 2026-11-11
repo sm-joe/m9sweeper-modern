@@ -1,3 +1,6 @@
+{{- if and .Release.IsUpgrade .Values.persistence.enabled (not .Values.persistence.acknowledgeDataMountMigration) -}}
+{{- fail "PostgreSQL PGDATA PVC mount is changing. Back up and test restoration before upgrading; set postgresql.persistence.acknowledgeDataMountMigration=true ONLY in verified staging." -}}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -93,7 +96,10 @@ spec:
         volumeMounts:
         {{- if .Values.persistence.enabled }}
         - name: data
-          mountPath: {{ .Values.persistence.mountPath }}/data/userdata
+          # PGDATA defaults to /var/lib/postgresql/data/pgdata. The PVC MUST
+          # mount its parent /data, not sibling /data/userdata, or rows are
+          # lost when the PostgreSQL container is recreated.
+          mountPath: {{ .Values.persistence.mountPath }}/data
           subPath: {{ .Values.persistence.subPath }}
           readOnly: false
         {{- end }}

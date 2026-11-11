@@ -105,6 +105,9 @@ securityContext:
 ##
 persistence:
   enabled: true
+  # Required for Helm upgrades after the corrected PVC/PGDATA mount layout.
+  # Explicitly acknowledge only after a tested, isolated backup/restore.
+  acknowledgeDataMountMigration: false
   mountPath: /var/lib/postgresql
   subPath: ""
   accessModes:  [ReadWriteOnce]
