@@ -112,7 +112,10 @@ export class KubernetesClusterService {
         try {
             // Get every running Pod
             const allPods = await coreApi.listPodForAllNamespaces();
-            const runningPods: V1Pod[] = (allPods?.body?.items ?? [])
+            if (!Array.isArray(allPods?.body?.items)) {
+                throw new Error('Kubernetes Pod inventory response has no items array');
+            }
+            const runningPods: V1Pod[] = allPods.body.items
                 .filter(pod => pod?.status?.phase === 'Running');
 
             // map structure:
