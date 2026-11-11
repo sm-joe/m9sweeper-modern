@@ -4,6 +4,7 @@ import { PolicyService } from "./services/policy-service";
 import { PolicyController } from "./controllers/policy.controller";
 import {PolicyComplianceCheckerService} from './services/policy-compliance-checker-service';
 import {PolicyWriteScopeService} from './services/policy-write-scope.service';
+import {PolicyReadScopeService} from './services/policy-read-scope.service';
 import { ImageComplianceFacadeService } from './services/image-compliance-facade-service';
 import { ImageComplianceService } from './services/image-compliance-service';
 
@@ -13,6 +14,7 @@ import { ImageComplianceService } from './services/image-compliance-service';
         PolicyDao,
         PolicyService,
         PolicyWriteScopeService,
+        PolicyReadScopeService,
         PolicyComplianceCheckerService,
         ImageComplianceFacadeService,
         ImageComplianceService
