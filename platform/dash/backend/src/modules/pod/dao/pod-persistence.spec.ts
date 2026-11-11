@@ -6,8 +6,11 @@ describe('PodDao atomic Kubernetes inventory persistence', () => {
         const podsQuery: any = {
             insert: jest.fn().mockImplementation(() => {
                 inserts.push('pod');
-                if (options.insertPodFails) return Promise.reject(new Error('pod constraint violation'));
-                return {returning: jest.fn().mockResolvedValue([{id: 51}])};
+                return {
+                    returning: options.insertPodFails
+                        ? jest.fn().mockRejectedValue(new Error('pod constraint violation'))
+                        : jest.fn().mockResolvedValue([{id: 51}])
+                };
             })
         };
         const linksQuery: any = {
