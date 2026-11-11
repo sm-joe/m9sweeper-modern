@@ -1,6 +1,6 @@
 # m9sweeper — Kubernetes security operations
 
-**Status:** Integration/release candidate with Angular 22, real queued Trivy CI and Linux/Kubernetes hardening merged through 2026-11-10; **not yet a supported production distribution**. See [verified modernization evidence and remaining release gates](docs/modernization-2026-11-10-evidence.md). This project modernizes the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) application, preserving upstream source and Apache-2.0 notices. This is not an official CIS-certified compliance product.
+**Status:** Integration/release candidate with Angular 22/esbuild, NestJS 11, real queued Trivy CI and Linux/Kubernetes hardening merged through 2026-11-11; **not yet a supported production distribution**. See [verified modernization evidence and remaining release gates](docs/modernization-2026-11-10-evidence.md). This project modernizes the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) application, preserving upstream source and Apache-2.0 notices. This is not an official CIS-certified compliance product.
 
 m9sweeper provides Kubernetes cluster and image inventory, Trivy vulnerability assessments, policy and exception workflows, authenticated security reports, Falco runtime-event ingestion, kube-hunter assessments, Kubesec and optional kube-bench/cluster checks. The Angular interface, NestJS API, PostgreSQL, RabbitMQ and Java trawler are real integrated components, not a standalone scanner demo.
 
@@ -146,13 +146,19 @@ A successful scan can be `Non-compliant` if actual vulnerabilities violate a pol
 
 See [RC4 integration acceptance](docs/rc4-final-acceptance.md), [security/release gates](docs/m9sweeper-new-release-gates.md), and [Linux/Kubernetes hardening backlog](docs/linux-k8s-release-readiness.md).
 
+## November 11 modernization checkpoint
+
+The NestJS 10 → 11 compatibility upgrade was merged via [PR #28](https://github.com/sm-joe/m9sweeper-modern/pull/28) into `main` as commit `45c29471200705854dc3f1972feb623809074691`, after all 14 workflow jobs passed on the final PR head (`ba7c013dc53568f17f0e3f3f0c26ea86c0f4b94b`, [run 42871767132](https://github.com/sm-joe/m9sweeper-modern/actions/runs/42871767132)). The successful PR workflow does not establish post-merge or production-environment acceptance.
+
+Release blockers still include real Linux Falco kernel detection, end-to-end failed-scanner behavior and two-cluster authorization, Helm install/upgrade/rollback with tested scratch database restoration, and independently verified signed deployable artifacts. See [November 11 release decision](docs/modernization-2026-11-11-release-decision.md). There is no supported production release yet.
+
 ## Verified results and limitations
 
 Operator-tested RC4 (November 2026): one real Trivy/Java trawler/RabbitMQ/Dash/PostgreSQL/Angular scan completed with a UUID, no duplicate policy result, and noncompliant findings; a Falco kernel event reached PostgreSQL and Angular. The operator reported successful cross-cluster RBAC, dead-letter recovery and release acceptance; detailed staged evidence for those additional claims must be retained with release records.
 
 The full platform CI passed on integration commit `b97df4f0`, and PR #9 promoted the changes into `main` via merge commit `9b77f9d`. CI checks source, Node/Angular/Java builds, selected scanner integrations, Helm render and Kind inventory; this is **not equivalent to** production multi-cluster deployment certification.
 
-**Still requires product hardening:** full route-by-route tenant authorization, scanner key retirement and lifecycle, operator-visible DLQ alerts/replay, resilient Kubernetes Helm lifecycle, production disaster recovery, admission-webhook outage/TLS behavior, supported Angular/NestJS migration, browser accessibility/E2E, scanner version/benchmark validation, signed release artifacts and dependency/license review. Do not present provisional benchmark coverage as a CIS compliance score.
+**Still requires product hardening:** full route-by-route tenant authorization, scanner key retirement and lifecycle, operator-visible DLQ alerts/replay, resilient Kubernetes Helm lifecycle, production disaster recovery, admission-webhook outage/TLS behavior, Angular/NestJS future maintenance, browser accessibility/E2E, scanner version/benchmark validation, signed release artifacts and dependency/license review. Do not present provisional benchmark coverage as a CIS compliance score.
 
 ## Licensing and attribution
 
