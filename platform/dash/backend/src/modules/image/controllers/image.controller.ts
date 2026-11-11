@@ -43,7 +43,7 @@ import {ImageScanCountDto} from '../dto/Image-scan-count.dto';
 import {ImageDto} from "../dto/image-dto";
 import { ImageComplianceFacadeService } from '../../policy/services/image-compliance-facade-service';
 import { ImageScanResultPerPolicyFacadeDto } from '../../policy/dto/image-scan-results-perpolicy-dto';
-import { EnsureArrayTyping } from '../../shared/utilities/ensure-array-typing';
+import {parseImageSummaryFilters} from '../utilities/parse-image-summary-filters';
 
 @ApiTags('Images of cluster')
 @ApiBearerAuth('jwt-auth')
@@ -513,14 +513,16 @@ export class ImageController {
     @ApiQuery({name : 'filters[runningInCluster]', style: "form", type: Number})
     @ApiQuery({name : 'filters[namespace]', style: "form", type: [String]})
     async getCountOfFilteredImagesVulnerabilities(
-        @Query('filters') filters: {
-          clusterId: number[]; namespace: string[]
-          startDate: string; endDate: string;
-          runningInCluster: number;
-        },
+        @Query() query: Record<string, unknown>,
         @Query('group_by') groupBy: string
     ): Promise<TotalVulnerabilityResultsDto[]> {
-        filters['namespace'] = EnsureArrayTyping.ensureArrayTyping(filters['namespace']);
+        const filters = parseImageSummaryFilters(query);
+        // A missing/empty cluster selection must not accidentally aggregate
+        // all clusters. The initial dashboard render may request this before
+        // the cluster inventory has loaded: return an empty chart, not HTTP 500.
+        if (filters.clusterId.length === 0) {
+            return [];
+        }
         return await this.imageService.getCountOfFilteredImagesVulnerabilities(filters, groupBy);
     }
 
