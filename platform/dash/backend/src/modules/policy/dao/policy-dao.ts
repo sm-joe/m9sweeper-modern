@@ -9,7 +9,7 @@ import { UserProfileDto } from '../../user/dto/user-profile-dto';
 export class PolicyDao {
     constructor(private databaseService: DatabaseService) {}
 
-    async getAllPolicies(page = 0, limit = 10, sort: {field: string; direction: string; } = {field: 'id', direction: 'asc'}):
+    async getAllPolicies(page = 0, limit = 10, sort: {field: string; direction: string; } = {field: 'id', direction: 'asc'}, allowedIds?: number[]):
         Promise<PolicyDto[]> {
         const knex = await this.databaseService.getConnection();
 
@@ -23,22 +23,26 @@ export class PolicyDao {
 
         sort.field = sortFieldMap[sort.field] !== undefined ? sortFieldMap[sort.field] : sortFieldMap['id'];
         sort.direction = sort.direction === 'desc' ? 'desc' : 'asc';
-        return knexnest(knex.select([
+        if (allowedIds !== undefined && allowedIds.length === 0) return [];
+        const query = knex.select([
                 'p.id as _id', 'p.name as _name', 'p.description as _description', 'p.enabled as _enabled', 'p.enforcement as _enforcement',
                 knex.raw('COALESCE(p.new_scan_grace_period, 0) as "_newScanGracePeriod"'),
                 knex.raw('COALESCE(p.rescan_grace_period, 0) as "_rescanGracePeriod"')
             ]).from('policies as p')
-            .where({'p.deleted_at': null})
-            .limit(limit).offset(page * limit)
+            .where({'p.deleted_at': null});
+        if (allowedIds !== undefined) query.whereIn('p.id', allowedIds);
+        return knexnest(query.limit(limit).offset(page * limit)
             .orderByRaw(`${sort.field} ${sort.direction}`))
             .then(policies => plainToInstance(PolicyDto, policies));
     }
 
-    async countAllPolicies(): Promise<number>{
+    async countAllPolicies(allowedIds?: number[]): Promise<number>{
         const knex = await this.databaseService.getConnection();
-        const result = await knex('policies as p')
-            .count('p.id', {as: 'count'}).where('deleted_at', null)
-            .returning('count');
+        if (allowedIds !== undefined && allowedIds.length === 0) return 0;
+        const query = knex('policies as p')
+            .count('p.id', {as: 'count'}).whereNull('p.deleted_at');
+        if (allowedIds !== undefined) query.whereIn('p.id', allowedIds);
+        const result = await query;
         return (result && result[0] && result[0].count) ? result[0].count : 0;
     }
 
