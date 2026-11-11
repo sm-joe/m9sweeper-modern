@@ -37,19 +37,19 @@ jobs:
         with:
           node-version: '22.22.3'
           cache: npm
-          cache-dependency-path: |
-            platform/dash/frontend/package-lock.json
-            platform/dash/backend/package-lock.json
-      - name: Install backend dependencies still required by legacy shared DTO compilation
-        run: npm ci --legacy-peer-deps --no-audit --no-fund
-        working-directory: platform/dash/backend
+          cache-dependency-path: platform/dash/frontend/package-lock.json
       - name: Install locked Angular dependencies
         run: npm ci --legacy-peer-deps --no-audit --no-fund
       - name: Protect frontend/backend module boundary
         run: npm run check:client-boundary
       - name: Angular ESLint including templates
         run: npm run lint
-      - name: Build production Angular SPA
+      - name: Prove frontend does not consume NestJS dependencies
+        run: |
+          test ! -d ../backend/node_modules
+          npm run check:client-boundary
+          echo 'PASS: no NestJS node_modules is installed for Angular'
+      - name: Build production Angular SPA without NestJS dependencies
         run: npm run build:prod
       - name: Assert NestJS SPA serving contract
         run: |

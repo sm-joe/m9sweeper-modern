@@ -142,9 +142,6 @@ jobs:
           node-version: '22.22.3'
           cache: npm
           cache-dependency-path: platform/dash/frontend/package-lock.json
-      - name: Install backend DTO dependencies consumed by the original Angular compiler
-        run: npm ci --legacy-peer-deps --no-audit --no-fund
-        working-directory: platform/dash/backend
       - name: Install locked Angular dependencies
         run: npm ci --legacy-peer-deps --no-audit --no-fund
       - name: Verify retired AJSF, Flex Layout, custom Webpack and TSLint
@@ -234,6 +231,11 @@ jobs:
           }
           console.log('PASS: esbuild application output points to NestJS static root');
           JS
+      - name: Assert isolated Angular compilation has no backend dependency installation
+        run: |
+          test ! -d ../backend/node_modules
+          npm run check:client-boundary
+          echo 'PASS: Angular compilation is isolated from NestJS dependencies'
       - name: Build original Angular application with modernized routes and layout
         run: npm run build:prod
       - name: Verify built SPA is served from NestJS static root (no browser subdirectory)
