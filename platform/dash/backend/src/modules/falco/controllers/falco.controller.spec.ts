@@ -83,7 +83,7 @@ describe('Falco ingestion authentication', () => {
   });
 
   it('rejects malformed events before invoking the Falco persistence service', async () => {
-    await expect(controller.createFalcoLog(3, {rule: 'incomplete'} as any, 'token'))
+    await expect(controller.createFalcoLog(3, {rule: 'incomplete'} as any, undefined, 'token'))
       .rejects.toMatchObject({status: 400});
     expect(falco.createFalcoLog).not.toHaveBeenCalled();
   });
@@ -105,7 +105,7 @@ describe('Falco ingestion authentication', () => {
     try {
       await expect(controller.createFalcoLog(3,
         {rule: 'test', priority: 'Warning', output: 'test', outputFields: {}} as any,
-        'scanner-key')).rejects.toMatchObject({status: 401});
+        undefined, 'scanner-key')).rejects.toMatchObject({status: 401});
       expect(falco.createFalcoLog).not.toHaveBeenCalled();
       expect(users.scannerHasClusterGrant).toHaveBeenCalledWith(17, 3);
     } finally {
