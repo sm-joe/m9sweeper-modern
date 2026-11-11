@@ -16,6 +16,7 @@ import {
 } from '../open-api-schema/exception.schema';
 import {ExceptionDto} from '../dto/exception-dto';
 import {AuditLogInterceptor} from '../../../interceptors/audit-log.interceptor';
+import {ExceptionScopeService} from '../services/exception-scope.service';
 
 @ApiTags('Exceptions')
 @ApiBearerAuth('jwt-auth')
@@ -24,6 +25,7 @@ import {AuditLogInterceptor} from '../../../interceptors/audit-log.interceptor';
 export class ExceptionController {
     constructor(@Inject('LOGGED_IN_USER') private readonly _loggedInUser: UserProfileDto,
                 private readonly exceptionsService: ExceptionsService,
+                private readonly exceptionScope: ExceptionScopeService,
     ) {}
     @Get()
     @AllowedAuthorityLevels(Authority.READ_ONLY, Authority.SUPER_ADMIN, Authority.ADMIN)
@@ -33,7 +35,9 @@ export class ExceptionController {
         schema: LIST_ALL_EXCEPTIONS_RESPONSE_SCHEMA
     })
     async getAllExceptions(): Promise<ExceptionListDto[]> {
-        return await this.exceptionsService.getAllExceptions();
+        const list = await this.exceptionsService.getAllExceptions();
+        const permitted = await this.exceptionScope.visibleIds(this._loggedInUser, list.map(item => item.id));
+        return list.filter(item => permitted.has(item.id));
     }
 
     @Get('/:id')
@@ -44,11 +48,12 @@ export class ExceptionController {
         schema: GET_SINGLE_EXCEPTIONS_RESPONSE_SCHEMA
     })
     async getExceptionById(@Param('id') exceptionId: number): Promise<ExceptionDto[]> {
+        await this.exceptionScope.assertExisting(this._loggedInUser, Number(exceptionId));
         return await this.exceptionsService.getExceptionById(exceptionId);
     }
 
     @Post('/create')
-    @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
+    @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN)
     @UseGuards(AuthGuard, AuthorityGuard)
     @ApiResponse({
         status: 201,
@@ -56,6 +61,7 @@ export class ExceptionController {
     })
     @UseInterceptors(AuditLogInterceptor)
     async createClusterGroup(@Body() exception: ExceptionCreateDto): Promise<{ id: number, metadata: any }> {
+        await this.exceptionScope.assertRequested(this._loggedInUser, exception?.clusters);
         const createdExceptionId = await this.exceptionsService.createException([{exception}], this._loggedInUser.id);
         const createdException = await this.exceptionsService.getExceptionById(createdExceptionId[0]);
         const metadata = await this.exceptionsService.calculateExceptionMetadata(null, createdException[0]);
@@ -71,6 +77,8 @@ export class ExceptionController {
     })
     @UseInterceptors(AuditLogInterceptor)
     async updateExceptionById(@Body() exception: ExceptionCreateDto, @Param('id') exceptionId: number): Promise<{ id: number, metadata: any }> {
+        await this.exceptionScope.assertExisting(this._loggedInUser, Number(exceptionId), true);
+        await this.exceptionScope.assertRequested(this._loggedInUser, exception?.clusters);
         const previous = (await this.exceptionsService.getExceptionById(exceptionId))[0];
         const updatedExceptionId = await this.exceptionsService.updateException(exception, exceptionId, this._loggedInUser.id);
         const updatedException = (await this.exceptionsService.getExceptionById(updatedExceptionId))[0];
@@ -87,6 +95,7 @@ export class ExceptionController {
     })
     @UseInterceptors(AuditLogInterceptor)
     async deleteExceptionById(@Param('id') exceptionId: number): Promise<{ id: number, metadata: any }> {
+        await this.exceptionScope.assertExisting(this._loggedInUser, Number(exceptionId), true);
         const previous =  await this.exceptionsService.getExceptionById(exceptionId);
         const metadata = await this.exceptionsService.calculateExceptionMetadata(previous[0], null);
         const deletedExceptionId = await this.exceptionsService.deleteExceptionById(exceptionId, this._loggedInUser.id);
