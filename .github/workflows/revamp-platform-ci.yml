@@ -14,6 +14,8 @@ on:
       - 'platform/dash/backend/src/migrations/**'
       - 'platform/dash/backend/src/modules/auth/**'
       - 'platform/dash/backend/src/modules/image/**'
+      - 'platform/dash/backend/src/modules/pod/**'
+      - 'platform/dash/backend/src/modules/command-line/**'
       - 'platform/dash/backend/src/modules/falco/**'
       - 'platform/dash/backend/src/modules/policy/**'
       - 'platform/dash/backend/src/modules/exceptions/**'
