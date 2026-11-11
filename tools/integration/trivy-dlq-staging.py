@@ -17,8 +17,8 @@ if os.getenv("M9_STAGING_DLQ_TEST") != "YES" or os.getenv("M9_COMPOSE_PROJECT") 
     sys.exit("Requires M9_STAGING_DLQ_TEST=YES and M9_COMPOSE_PROJECT=m9-runtime on disposable CI")
 try:
     import pika
-except ImportError as exc:
-    sys.exit("pika is required in disposable CI: python3 -m pip install pika") from exc
+except ImportError:
+    sys.exit("pika is required in disposable CI: python3 -m pip install pika")
 
 root = Path(__file__).resolve().parents[2]
 env_file = root / "platform/docker-compose/.env"
