@@ -1,0 +1,59 @@
+name: Frontend Angular fast checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'platform/dash/frontend/**'
+      - 'tools/browser-e2e/**'
+      - 'platform/dash/backend/src/modules/**/dto/**'
+      - '.github/workflows/frontend-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'platform/dash/frontend/**'
+      - 'tools/browser-e2e/**'
+      - '.github/workflows/frontend-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  angular:
+    name: Angular 22 lint and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: platform/dash/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+          cache: npm
+          cache-dependency-path: |
+            platform/dash/frontend/package-lock.json
+            platform/dash/backend/package-lock.json
+      - name: Install backend dependencies still required by legacy shared DTO compilation
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+        working-directory: platform/dash/backend
+      - name: Install locked Angular dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Protect frontend/backend module boundary
+        run: npm run check:client-boundary
+      - name: Angular ESLint including templates
+        run: npm run lint
+      - name: Build production Angular SPA
+        run: npm run build:prod
+      - name: Assert NestJS SPA serving contract
+        run: |
+          test -s ../backend/dist/public/index.html
+          test ! -e ../backend/dist/public/browser/index.html
+          grep -q 'app-root' ../backend/dist/public/index.html
+          echo 'PASS: Angular 22 production SPA available at NestJS static serving root'

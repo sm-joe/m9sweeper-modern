@@ -3,7 +3,23 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'platform/**'
+      # PR fast feedback is split into Angular and NestJS workflows.
+      # Keep full integration mandatory for shared runtime/security, scanners and release surfaces.
+      - 'platform/docker-compose/**'
+      - 'platform/manifests/**'
+      - 'platform/trawler/**'
+      - 'platform/Dockerfile'
+      - 'platform/dash/backend/src/guards/**'
+      - 'platform/dash/backend/src/providers/**'
+      - 'platform/dash/backend/src/migrations/**'
+      - 'platform/dash/backend/src/modules/auth/**'
+      - 'platform/dash/backend/src/modules/image/**'
+      - 'platform/dash/backend/src/modules/falco/**'
+      - 'platform/dash/backend/src/modules/policy/**'
+      - 'platform/dash/backend/src/modules/exceptions/**'
+      - 'platform/dash/backend/src/modules/user/**'
+      - 'platform/dash/backend/src/modules/scanner/**'
+      - 'platform/dash/backend/src/modules/reports/**'
       - '.github/workflows/revamp-platform-ci.yml'
       - 'tools/integration/**'
       - 'scripts/**'
