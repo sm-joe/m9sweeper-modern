@@ -257,6 +257,28 @@ jobs:
             fi
             echo "PASS: unsupported Kubernetes $version rejected"
           done
+      - name: Verify real Helm rendering pins candidate workloads to immutable OCI digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=v0.1.0-rc9
+          dash_digest="sha256:$(printf 'a%.0s' {1..64})"
+          trawler_digest="sha256:$(printf 'b%.0s' {1..64})"
+          helm template m9-image-proof platform/manifests/charts/m9sweeper \
+            --namespace m9-staging-render \
+            --kube-version 1.35.0 \
+            --set-string dash.existingSecret=external-dash-env \
+            --set-string trawler.existingSecret=external-trawler-env \
+            --set-string dash.init.existingSecret=external-init-env \
+            --set-string dash.image.registry=ghcr.io \
+            --set-string dash.image.repository=sm-joe/m9sweeper-dash \
+            --set-string "dash.image.tag=$version@$dash_digest" \
+            --set-string trawler.image.registry=ghcr.io \
+            --set-string trawler.image.repository=sm-joe/m9sweeper-trawler \
+            --set-string "trawler.image.tag=$version@$trawler_digest" \
+            >/tmp/m9-digest-pinned-render.yaml
+          python3 tools/security/verify_candidate_workload_digests.py \
+            /tmp/m9-digest-pinned-render.yaml "$version" "$dash_digest" "$trawler_digest"
       - name: Lint authenticated production values
         run: |
           JWT_SECRET="$(openssl rand -hex 32)"
