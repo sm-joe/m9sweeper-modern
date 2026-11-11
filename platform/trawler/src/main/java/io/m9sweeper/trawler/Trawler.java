@@ -119,30 +119,45 @@ public class Trawler extends AbstractCommand implements Runnable {
      */
     private static void notifyQuarantinedScan(byte[] bytes) {
         try {
-            Message job = new ObjectMapper().readValue(bytes, Message.class);
-            Object raw = job.getAdditionalProperties().get("scanRunId");
-            if (!(raw instanceof String) || !((String) raw).matches("[0-9a-fA-F-]{36}") ||
-                    job.getCluster() == null || job.getImage() == null) {
+            // Extract mandatory correlation fields directly from the original
+            // broker JSON: unknown or incomplete POJOs must never silently
+            // skip the terminal scan-ledger callback.
+            com.fasterxml.jackson.databind.JsonNode job = new ObjectMapper().readTree(bytes);
+            String raw = job.path("scanRunId").asText("");
+            long clusterId = job.path("cluster").path("id").asLong(0);
+            long imageId = job.path("image").path("id").asLong(0);
+            if (!raw.matches("(?i)[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}") ||
+                    clusterId <= 0 || imageId <= 0) {
+                System.err.println("Quarantined job missing valid scan correlation; durable evidence retained");
                 return;
             }
             String root = TrawlerConfiguration.getInstance().m9sweeperUrl().replaceAll("/+$", "");
-            String url = root + "/api/clusters/" + job.getCluster().getId() +
-                    "/images/" + job.getImage().getId() + "/trawler/scan/fail";
+            String url = root + "/api/clusters/" + clusterId +
+                    "/images/" + imageId + "/trawler/scan/fail";
             HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
             try {
                 conn.setConnectTimeout(5000);
                 conn.setReadTimeout(5000);
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
-                conn.setRequestProperty("x-auth-token", TrawlerConfiguration.getInstance().m9sweeperApiKey());
+                // LoggedInUserFactory resolves X-API-Key (not the legacy
+                // Swagger security name x-auth-token). The old header made
+                // quarantine callbacks fail authentication while the DLQ
+                // still filled, leaving image_scan_runs falsely queued.
+                conn.setRequestProperty("x-api-key", TrawlerConfiguration.getInstance().m9sweeperApiKey());
                 conn.setDoOutput(true);
                 String json = new ObjectMapper().writeValueAsString(
                         java.util.Collections.singletonMap("scanRunId", raw));
                 try (OutputStream out = conn.getOutputStream()) {
                     out.write(json.getBytes(StandardCharsets.UTF_8));
                 }
-                if (conn.getResponseCode() < 200 || conn.getResponseCode() >= 300) {
-                    System.err.println("Dash did not acknowledge scan quarantine; timed reconciliation remains active");
+                int status = conn.getResponseCode();
+                if (status >= 200 && status < 300) {
+                    System.out.println("PASS: quarantine scan-ledger callback acknowledged by Dash");
+                } else {
+                    // Never log the key, URL query or payload; status is sufficient.
+                    System.err.println("Dash did not acknowledge scan quarantine; HTTP " +
+                            status + "; timed reconciliation remains active");
                 }
             } finally {
                 conn.disconnect();
