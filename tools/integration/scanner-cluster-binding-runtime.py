@@ -59,7 +59,7 @@ for attempt in range(45):
         with urlopen(health, timeout=5) as response:
             if response.status == 200:
                 break
-    except (HTTPError, URLError, TimeoutError):
+    except (HTTPError, URLError, TimeoutError, ConnectionResetError, ConnectionRefusedError, OSError):
         pass
     time.sleep(2)
 else:
