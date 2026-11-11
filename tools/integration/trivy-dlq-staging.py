@@ -2,12 +2,13 @@
 """Staging-only, non-destructive verification of real RabbitMQ -> Java trawler DLQ.
 
 Requires disposable CI Compose project m9-runtime and a running real trawler.
-Publishes one malformed scan payload with a unique marker.  The worker must
+Publishes a malformed scan job for a disposable persisted run UUID. The worker must
 retry and quarantine it.  This script NEVER acknowledges or purges the
 quarantined delivery and NEVER touches an operator's existing Compose project.
 """
 import json
 import os
+import subprocess
 import sys
 import time
 import uuid
@@ -31,6 +32,14 @@ connection = pika.BlockingConnection(pika.ConnectionParameters(
     host="127.0.0.1", port=56729, credentials=credentials,
     heartbeat=30, blocked_connection_timeout=15, socket_timeout=10
 ))
+def sql(query):
+    proc = subprocess.run(
+        ["docker", "exec", "-i", "postgres", "sh", "-c",
+         'psql -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],
+        input=query, text=True, capture_output=True, check=True
+    )
+    return proc.stdout.strip()
+
 channel = connection.channel()
 queue = "trawler_queue"
 failed = queue + ".failed"
@@ -40,9 +49,28 @@ try:
     # Never mix a poison probe with existing queue activity or a user's failed scans.
     if ready.message_count != 0 or ready.consumer_count < 1 or quarantined.message_count != 0:
         sys.exit("Refusing DLQ probe: queues are not empty or Java trawler has no active consumer")
-    probe_id = str(uuid.uuid4())
-    payload = json.dumps({"cluster": None, "image": None, "m9DlqProbeId": probe_id},
-                         separators=(",", ":")).encode()
+    # The earlier positive staging test creates a disposable cluster/image and
+    # completes a real Trivy scan. Create a NEW run against that same isolated
+    # image to verify Java's final callback to Dash and persistent FAILED state.
+    fixture = sql("""SELECT c.id || '|' || i.id
+        FROM clusters c JOIN images i ON i.cluster_id=c.id
+        WHERE c.name LIKE 'm9-trivy-e2e-%'
+        ORDER BY c.id DESC LIMIT 1;""")
+    if not fixture or len(fixture.split("|")) != 2:
+        sys.exit("Refusing DLQ probe without real disposable staging fixture")
+    cluster_id, image_id = map(int, fixture.split("|"))
+    run_id = str(uuid.uuid4())
+    sql(f"""BEGIN;
+        INSERT INTO image_scan_runs(id,cluster_id,image_id,status,created_at,updated_at)
+        VALUES ('{run_id}',{cluster_id},{image_id},'queued',
+                CAST(EXTRACT(EPOCH FROM NOW()) * 1000 AS BIGINT),
+                CAST(EXTRACT(EPOCH FROM NOW()) * 1000 AS BIGINT));
+        UPDATE images SET scan_queued=true WHERE id={image_id} AND cluster_id={cluster_id};
+        COMMIT;""")
+    payload = json.dumps({
+        "cluster": {"id": cluster_id}, "image": {"id": image_id},
+        "dockerRegistry": None, "scanRunId": run_id
+    }, separators=(",", ":")).encode()
     channel.confirm_delivery()
     channel.basic_publish(
         exchange="", routing_key=queue, body=payload, mandatory=True,
@@ -62,6 +90,26 @@ try:
                 if properties.delivery_mode != 2:
                     raise AssertionError("Quarantined job is not marked durable")
                 print("PASS: real Java trawler retried a malformed job 3 times then quarantined it durably")
+                # Trawler final callback must update the SAME UUID and release
+                # the queued spinner. No synthetic finding or clean result.
+                ledger = ""
+                for _ in range(25):
+                    ledger = sql(f"""SELECT r.status || '|' ||
+                        COALESCE(r.compliant::text, 'null') || '|' ||
+                        COALESCE(r.failure_reason, '') || '|' ||
+                        i.scan_queued::text || '|' || COALESCE(i.scan_results, '')
+                        FROM image_scan_runs r JOIN images i
+                          ON i.id=r.image_id AND i.cluster_id=r.cluster_id
+                        WHERE r.id='{run_id}';""")
+                    if ledger.startswith("failed|"):
+                        break
+                    time.sleep(1)
+                parts = ledger.split("|")
+                if len(parts) != 5 or parts[0] != "failed" or parts[1] != "null" or \
+                        parts[2] != "Scan exhausted retries" or parts[3] != "f" or parts[4] != "Failed":
+                    raise AssertionError("Final retry did not atomically fail scan ledger and release image queue: " + ledger)
+                print("PASS: authenticated Java quarantine callback marked scan UUID failed")
+                print("PASS: image queue cleared; failed run has no compliant result")
                 print("PASS: failed queue evidence retained; never counted as a compliant scan")
             finally:
                 channel.basic_nack(method.delivery_tag, requeue=True)
