@@ -49,7 +49,7 @@ describe('Falco ingestion authentication', () => {
   });
 
   it('rejects missing credentials before identity lookup or malformed-event parsing', async () => {
-    await expect(controller.createFalcoLog(3, {rule: 'incomplete'} as any))
+    await expect(controller.createFalcoLog(3, {rule: 'incomplete'} as any, undefined))
       .rejects.toMatchObject({status: 401});
     expect(users.loadUserByApiKey).not.toHaveBeenCalled();
     expect(falco.checkRules).not.toHaveBeenCalled();
