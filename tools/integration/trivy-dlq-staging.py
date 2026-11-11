@@ -107,6 +107,24 @@ try:
                 parts = ledger.split("|")
                 if len(parts) != 5 or parts[0] != "failed" or parts[1] != "null" or \
                         parts[2] != "Scan exhausted retries" or parts[3] != "f" or parts[4] != "Failed":
+                    # Diagnostic only on failure: distinguish Java callback
+                    # delivery from NestJS auth/route validation. This probe
+                    # deliberately leaves CI red even if a direct POST works.
+                    from urllib.request import Request, urlopen
+                    from urllib.error import HTTPError
+                    callback = Request(
+                        f"http://127.0.0.1:3000/api/clusters/{cluster_id}/images/{image_id}/trawler/scan/fail",
+                        json.dumps({"scanRunId": run_id}).encode(),
+                        {"Content-Type": "application/json", "x-auth-token": env["TRAWLER_API_KEY"]},
+                        method="POST"
+                    )
+                    try:
+                        with urlopen(callback, timeout=12) as response:
+                            print("DIAGNOSTIC: direct authenticated failure callback HTTP", response.status)
+                    except HTTPError as error:
+                        print("DIAGNOSTIC: direct authenticated failure callback HTTP", error.code)
+                    except Exception as error:
+                        print("DIAGNOSTIC: direct callback connection error", type(error).__name__)
                     raise AssertionError("Final retry did not atomically fail scan ledger and release image queue: " + ledger)
                 print("PASS: authenticated Java quarantine callback marked scan UUID failed")
                 print("PASS: image queue cleared; failed run has no compliant result")
