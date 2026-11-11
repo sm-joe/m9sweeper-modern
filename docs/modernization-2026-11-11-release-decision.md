@@ -36,6 +36,10 @@ bash scripts/verify-helm-rollback-staging-linux.sh
 
 The script requires a new revision for upgrade and rollback, checks the post-rollback release is deployed and its chart identity matches the original, and confirms PVC names/bindings remain unchanged. CI tests the **fail-closed preconditions only** with isolated fake commands. A successful unit/mock test is not a real Kubernetes lifecycle sign-off.
 
+## Scratch database recovery integrity
+
+The existing disposable Linux/Compose recovery drill now compares both table counts and deterministic SHA-256 digests of canonical PostgreSQL JSONB row content in `clusters`, `image_scan_runs`, `image_scan_results`, `image_scan_results_issues`, `project_falco_logs`, and `kube_hunter`. It fails even if row counts match but one finding differs. The restored scratch DB is dropped on exit; the protected, permission-restricted backup remains available for review. **Only run when disposable staging writes are quiescent.** This compares restore correctness; it does not prove PITR or full production disaster recovery.
+
 ## Execution rules
 
 1. Never run destructive lifecycle checks against existing operator Kind/Compose data, production namespaces, or non-staging volumes.
