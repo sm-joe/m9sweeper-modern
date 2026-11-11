@@ -77,26 +77,31 @@ export class PodService {
         podDTO.generateName = pod.metadata.generateName;
         podDTO.compliant = false;
         podDTO.selfLink = pod.metadata.selfLink;
-        podDTO.creationTimestamp = String(pod.metadata.creationTimestamp.valueOf());
+        // Kubernetes may omit creationTimestamp on incomplete objects. Never throw
+        // from an optional metadata field during cluster inventory.
+        podDTO.creationTimestamp = pod.metadata?.creationTimestamp
+            ? String(pod.metadata.creationTimestamp.valueOf())
+            : null;
         podDTO.clusterId = clusterId;
         podDTO.podStatus = pod.status.phase;
 
         const checkPodExistOrNot = await this.podDao.checkPodExists(podDTO.name, clusterId, podDTO.namespace);
 
         // Combine all varieties of containers
-        const containers: V1Container[] = pod.spec.containers
-            .concat(pod.spec.initContainers ?? [])
-            .concat(pod.spec.ephemeralContainers ?? [])
-            .filter(c => c.image !== null);
-        // Combine all varieties of container statuses
-        const statuses: V1ContainerStatus[] = pod.status.containerStatuses
-          .concat(pod.status.initContainerStatuses ?? [])
-          .concat(pod.status.ephemeralContainerStatuses ?? [])
+        const containers: V1Container[] = (pod.spec?.containers ?? [])
+            .concat(pod.spec?.initContainers ?? [])
+            .concat(pod.spec?.ephemeralContainers ?? [])
+            .filter(c => !!c?.image);
+        // A Running pod is not guaranteed to have containerStatuses yet.
+        // Missing statuses must not break cluster synchronization.
+        const statuses: V1ContainerStatus[] = (pod.status?.containerStatuses ?? [])
+          .concat(pod.status?.initContainerStatuses ?? [])
+          .concat(pod.status?.ephemeralContainerStatuses ?? [])
 
         // Find the image IDS for the images in the containers
         const imageIds = Array.from(new Set<number>(containers.map(c => {
             const status = statuses.find(s => s.name === c.name);
-            const hash = this.utilities.extractImageHash(status?.imageID);
+            const hash = status?.imageID ? this.utilities.extractImageHash(status.imageID) : undefined;
             return imageIdMap.getIdForImage(c.image, hash);
         })))
           // clear out null/undefined values

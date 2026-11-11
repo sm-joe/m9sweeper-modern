@@ -321,48 +321,50 @@ export class PodDao {
 
     async savePod(pod: PodDto, imageIds: Array<number>): Promise<number> {
         const knex = await this.databaseService.getConnection();
-        const dtoToPlain = instanceToPlain(pod);
-        const id = await knex.insert(dtoToPlain)
-            .into('kubernetes_pods')
-            .returning('id')
-            .then(results => !!results ? results[0]?.id : null)
-            .catch(e => {
-                this.logger.error({label: 'Error saving pod', data: { pod }}, e, 'PodDao.savePod');
-                Promise.reject(0);
-            });
-        if (id) {
-          await this.linkImagesToPod(id, imageIds);
-        }
-        return id;
+        // The pod row and all its image associations must commit together.
+        // Do not swallow a failed insert: a failed Pod is NOT synchronized.
+        return knex.transaction(async trx => {
+            const rows = await trx('kubernetes_pods')
+                .insert(instanceToPlain(pod))
+                .returning('id');
+            const id = Number(rows?.[0]?.id);
+            if (!Number.isSafeInteger(id) || id <= 0) {
+                throw new Error('Pod insert did not return a valid identifier');
+            }
+            const uniqueImages = [...new Set(imageIds.filter(imageId =>
+                Number.isSafeInteger(imageId) && imageId > 0))];
+            if (uniqueImages.length) {
+                await trx('pod_images').insert(uniqueImages.map(imageId => ({
+                    pod_id: id, image_id: imageId
+                })));
+            }
+            return id;
+        });
     }
 
     async linkExistingPodImages(podId: number, imageIds: Array<number>): Promise<void> {
-      const knex = await this.databaseService.getConnection();
-
-      const links = imageIds.map(id => ({pod_id: podId, image_id: id}));
-
-      await knex.transaction(async function(trx){
-        try {
-          // Clear all existing links to the pod
-          await knex.delete()
-            .from('pod_images')
-            .where({ pod_id: podId });
-          // Add the currently existing links to the pod
-          await knex('pod_images').insert(links);
-
-          await trx.commit();
-        }
-        catch (e) {
-          await trx.rollback();
-          throw e;
-        }
-      });
+        const knex = await this.databaseService.getConnection();
+        const uniqueImages = [...new Set(imageIds.filter(imageId =>
+            Number.isSafeInteger(imageId) && imageId > 0))];
+        await knex.transaction(async trx => {
+            await trx('pod_images').where({pod_id: podId}).delete();
+            if (uniqueImages.length) {
+                await trx('pod_images').insert(uniqueImages.map(imageId => ({
+                    pod_id: podId, image_id: imageId
+                })));
+            }
+        });
     }
 
     async linkImagesToPod(podId: number, imageIds: Array<number>): Promise<void> {
-      const knex = await this.databaseService.getConnection()
-      const links = imageIds.map(id => ({pod_id: podId, image_id: id}));
-      await knex('pod_images').insert(links);
+        const knex = await this.databaseService.getConnection();
+        const uniqueImages = [...new Set(imageIds.filter(imageId =>
+            Number.isSafeInteger(imageId) && imageId > 0))];
+        if (uniqueImages.length) {
+            await knex('pod_images').insert(uniqueImages.map(imageId => ({
+                pod_id: podId, image_id: imageId
+            })));
+        }
     }
 
     async updatePod(pod: PodDto, id: number): Promise<number> {
