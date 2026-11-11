@@ -141,8 +141,11 @@ public class Trawler extends AbstractCommand implements Runnable {
                 try (OutputStream out = conn.getOutputStream()) {
                     out.write(json.getBytes(StandardCharsets.UTF_8));
                 }
-                if (conn.getResponseCode() < 200 || conn.getResponseCode() >= 300) {
-                    System.err.println("Dash did not acknowledge scan quarantine; timed reconciliation remains active");
+                int status = conn.getResponseCode();
+                if (status < 200 || status >= 300) {
+                    // Never log the key, URL query or payload; status is sufficient.
+                    System.err.println("Dash did not acknowledge scan quarantine; HTTP " +
+                            status + "; timed reconciliation remains active");
                 }
             } finally {
                 conn.disconnect();
