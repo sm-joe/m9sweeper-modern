@@ -528,265 +528,30 @@ jobs:
         if: always()
         run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime down --remove-orphans
   modern-stateful-runtime:
-    name: Real NestJS runtime on PostgreSQL 17 + RabbitMQ 4.4
+    name: Real NestJS runtime on PostgreSQL 17 and RabbitMQ 4.4
     runs-on: ubuntu-latest
     timeout-minutes: 42
     env:
       COMPOSE_FILE: ${{ github.workspace }}/platform/docker-compose/docker-compose.yml:${{ github.workspace }}/tools/integration/modern-stateful.override.yml
     steps:
       - uses: actions/checkout@v4
-      - name: Verify supported broker/database and real NestJS security integration
+      - name: Verify supported broker and database with actual NestJS runtime
         shell: bash
         run: |
           set -euo pipefail
-          # Same real admin login, PostgreSQL persistence and scanner HTTP smoke,
-          # but with *fresh* CI volumes running supported stateful services.
           bash tools/integration/runtime-smoke.sh
           docker exec postgres sh -c 'psql -qAt -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SHOW server_version;"' |
             grep -E '^17[.]11([.]|$)'
-          docker exec rabbitmq rabbitmqctl version | grep -E '^4[.]4[.]0
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Start real upstream Kubesec scanner
-        run: docker run --name m9-kubesec -d -p 127.0.0.1:6116:6116 kubesec/kubesec:v2.13.0 http 6116
-      - name: Scan secure and insecure Kubernetes manifests and assert evidence differs
-        run: |
-          cat > /tmp/secure-pod.yaml <<'YAML'
-          apiVersion: v1
-          kind: Pod
-          metadata:
-            name: m9-secure
-          spec:
-            securityContext:
-              runAsNonRoot: true
-            containers:
-              - name: app
-                image: registry.k8s.io/pause:3.10
-                securityContext:
-                  readOnlyRootFilesystem: true
-                  allowPrivilegeEscalation: false
-                  capabilities:
-                    drop: ["ALL"]
-          YAML
-          cat > /tmp/insecure-pod.yaml <<'YAML'
-          apiVersion: v1
-          kind: Pod
-          metadata:
-            name: m9-insecure
-          spec:
-            containers:
-              - name: app
-                image: registry.k8s.io/pause:3.10
-                securityContext:
-                  privileged: true
-          YAML
-          ready=0
-          for i in $(seq 1 30); do
-            if curl -fsS --max-time 3 -X POST --data-binary @/tmp/secure-pod.yaml http://127.0.0.1:6116/scan > /tmp/secure.json; then ready=1; break; fi
-            sleep 2
-          done
-          test "$ready" = 1
-          curl -fsS --max-time 15 -X POST --data-binary @/tmp/insecure-pod.yaml http://127.0.0.1:6116/scan >/tmp/insecure.json
-          python3 - <<'PY'
-          import json
-          good=json.load(open('/tmp/secure.json'))
-          bad=json.load(open('/tmp/insecure.json'))
-          assert isinstance(good,list) and isinstance(bad,list) and good and bad
-          assert good[0].get("valid") and bad[0].get("valid"), (good,bad)
-          assert good[0]["score"] > bad[0]["score"], (good[0]["score"],bad[0]["score"])
-          print("PASS: real Kubesec HTTP scanner scores secure Pod above privileged Pod",good[0]["score"],bad[0]["score"])
-          PY
-      - name: Scanner logs on failure
-        if: failure()
-        run: docker logs m9-kubesec
-      - name: Remove scanner container
-        if: always()
-        run: docker rm -f m9-kubesec || true
-  trivy-live-scan:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Execute pinned Trivy v0.76.2 against a real container image
-        run: |
-          set -euo pipefail
-          # The public Docker CDN intermittently resets GitHub runner downloads.
-          # Retry image transport only; keep the real scan and its assertions strict.
-          pulled=false
-          for attempt in 1 2 3; do
-            if docker pull aquasec/trivy:0.76.2; then pulled=true; break; fi
-            echo "Trivy image transport failed (attempt $attempt/3)"
-            sleep $((attempt * 10))
-          done
-          [[ "$pulled" == true ]] || { echo 'Unable to pull pinned scanner image' >&2; exit 1; }
-          docker run --rm --pull=never aquasec/trivy:0.76.2 --version
-          docker run --rm --pull=never -v "$PWD:/result" aquasec/trivy:0.76.2 image \
-            --scanners vuln --format json --output /result/trivy-report.json alpine:3.21
-          python3 - <<'PY'
-          import json
-          x=json.load(open('trivy-report.json'))
-          assert x.get('ArtifactName')=='alpine:3.21',x.get('ArtifactName')
-          assert isinstance(x.get('Results'),list)
-          for result in x['Results']:
-            for item in result.get('Vulnerabilities',[]) or []:
-              assert item.get('VulnerabilityID') and item.get('Severity')
-          print('PASS: Trivy produced structured real-image findings with CVE IDs and severities')
-          PY
-          rm -f trivy-report.json
-  trawler-jvm-image:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build actual Java trawler image with patched Trivy
-        run: docker build --progress plain -f platform/trawler/Dockerfile.jvm -t m9-trawler:ci platform/trawler
-      - name: Verify Trivy binary and executable Java worker
-        run: |
-          docker run --rm --entrypoint trivy m9-trawler:ci --version
-          docker run --rm --entrypoint java m9-trawler:ci -version
-  kind-inventory:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - kubernetes: '1.35.8'
-            node_image: 'kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0'
-          - kubernetes: '1.36.4'
-            node_image: 'kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed'
-          - kubernetes: '1.37.0'
-            node_image: 'kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5'
-    steps:
-      - uses: actions/checkout@v4
-      # Install Kind from its pinned Go module instead of the legacy kind-action
-      # release-checksum download, which can return malformed checksum content.
-      - name: Install pinned Kind from Go module
-        shell: bash
-        run: |
-          set -euo pipefail
-          go install sigs.k8s.io/kind@v0.33.0
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-          "$(go env GOPATH)/bin/kind" version
-      - name: Create ephemeral supported Kubernetes Kind inventory cluster
-        shell: bash
-        run: |
-          set -euo pipefail
-          kind create cluster --name m9-inventory --image "${{ matrix.node_image }}" --wait 180s
-          kubectl cluster-info --context kind-m9-inventory
-          kubectl get --raw /version | EXPECTED_K8S_VERSION="${{ matrix.kubernetes }}" python3 -c '
-          import json,os,sys
-          version=json.load(sys.stdin).get("gitVersion", "")
-          expected="v"+os.environ["EXPECTED_K8S_VERSION"]
-          if version != expected:
-              raise SystemExit("Expected pinned Kubernetes "+expected+", got "+version)
-          print("PASS: supported Kubernetes",version,"API responds from disposable Kind")
-          '
-      - name: Create live namespace and workload for original inventory service
-        run: |
-          kubectl create namespace m9-inventory
-          cat <<'YAML' | kubectl apply -f -
-          apiVersion: v1
-          kind: Pod
-          metadata:
-            name: m9-inventory-pod
-            namespace: m9-inventory
-          spec:
-            containers:
-              - name: test-container
-                image: registry.k8s.io/pause:3.10
-          YAML
-          kind get kubeconfig --name m9-inventory > /tmp/m9-kind-kubeconfig
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: platform/dash/backend/package-lock.json
-      - name: Install real original Kubernetes client dependencies
-        working-directory: platform/dash/backend
-        run: npm ci --legacy-peer-deps --no-audit --no-fund
-      - name: Verify original KubernetesApiService discovers actual Kind resources
-        working-directory: platform/dash/backend
-        env:
-          KUBECONFIG: /tmp/m9-kind-kubeconfig
-        run: npx ts-node -r tsconfig-paths/register test/kind-inventory.ts
-      - name: Run real kube-bench CIS node assessment inside ephemeral Kind
-        run: |
-          kubectl apply -f tools/integration/kube-bench-job.yaml
-          kubectl wait --for=condition=complete job/m9-kube-bench-smoke -n m9-inventory --timeout=240s
-          kubectl logs -n m9-inventory job/m9-kube-bench-smoke >/tmp/m9-cis.json
-          python3 - <<'PY'
-          import json
-          report=json.load(open('/tmp/m9-cis.json'))
-          assert report, 'kube-bench report empty'
-          assert isinstance(report,(dict,list)), type(report)
-          assert 'Controls' in report or (isinstance(report,list) and report), 'No CIS controls present'
-          print('PASS: real kube-bench completed a CIS node run against ephemeral Kind')
-          PY
-      - uses: azure/setup-helm@v4.3.0
-        with:
-          version: v3.17.3
-      - name: Verify real Helm install upgrade rollback against disposable Kind API
-        env:
-          M9_KIND_HELM_API_TEST: "YES"
-        run: bash tools/integration/helm-kind-api-lifecycle.sh
-      - name: Show kube-bench diagnostics on failure
-        if: failure()
-        run: |
-          kubectl get pods,jobs -n m9-inventory -o wide || true
-          kubectl logs -n m9-inventory job/m9-kube-bench-smoke --tail=100 || true
-
-  rc-source-package:
-    name: m9sweeper-new validated source candidate (all CI gates required)
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-    needs:
-      - source-parity
-      - original-backend
-      - original-frontend
-      - helm-charts
-      - original-trawler
-      - dash-image
-      - compose-config
-      - runtime-integration
-      - modern-stateful-runtime
-      - kubesec-live-scan
-      - trivy-live-scan
-      - trawler-jvm-image
-      - kind-inventory
-      - linux-operator-scripts
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Verify source attribution and build a traceable developer-preview archive
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -s platform/LICENSE
-          test -s platform/.upstream-source-revision
-          test -s ATTRIBUTION.md
-          test -s docs/m9sweeper-new-release-gates.md
-          mkdir -p dist
-          commit="$(git rev-parse HEAD)"
-          printf 'product=m9sweeper-new\nstatus=developer-preview-not-production\ncommit=%s\nupstream=%s\n'             "$commit" "$(cat platform/.upstream-source-revision)" > dist/BUILD-IDENTITY.txt
-          tar --exclude='node_modules' --exclude='.git' -czf dist/m9sweeper-new-0.1.0-rc-source.tar.gz             platform docs tools README.md ATTRIBUTION.md
-          (cd dist && sha256sum m9sweeper-new-0.1.0-rc-source.tar.gz > SHA256SUMS)
-      - uses: actions/upload-artifact@v4
-        with:
-          name: m9sweeper-new-0.1.0-rc-source-${{ github.sha }}
-          path: dist/
-          if-no-files-found: error
-          retention-days: 30
-
-          echo 'PASS: real original NestJS application/scan ingestion runs against PostgreSQL 17.11 and RabbitMQ 4.4.0'
-      - name: Safe diagnostics on unsupported-service test failure
+          docker exec rabbitmq rabbitmqctl version | grep -E '^4[.]4[.]0$'
+          echo 'PASS: complete NestJS runtime uses PostgreSQL 17.11 and RabbitMQ 4.4.0'
+      - name: Redacted disposable-stack diagnostics
         if: failure()
         shell: bash
         run: |
           docker compose -p m9-runtime ps || true
-          docker compose -p m9-runtime logs --no-color --tail=80 postgres rabbitmq dash 2>/dev/null |
-            sed -E 's/(password|api[_-]?key|token)[=: ]+[^ ]+/\\1=[REDACTED]/Ig' || true
-      - name: Remove ephemeral modern-stack containers AND volumes
+          docker compose -p m9-runtime logs --no-color --tail=60 postgres rabbitmq dash 2>/dev/null |
+            sed -E 's/(password|api[_-]?key|token)[=: ]+[^ ]+/[REDACTED]/Ig' || true
+      - name: Tear down isolated modern containers and volumes
         if: always()
         shell: bash
         run: docker compose -p m9-runtime down --volumes --remove-orphans || true
@@ -995,6 +760,7 @@ jobs:
       - dash-image
       - compose-config
       - runtime-integration
+      - modern-stateful-runtime
       - kubesec-live-scan
       - trivy-live-scan
       - trawler-jvm-image
