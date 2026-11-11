@@ -39,7 +39,8 @@ r1="$(revision)"
 pvc_before="$(kubectl get pvc -n "$ns" -o json |
   python3 -c 'import json,sys; print(sorted(x["metadata"]["name"] for x in json.load(sys.stdin)["items"]))')"
 helm upgrade "$release" "$chart" -n "$ns" --no-hooks --wait=false "${values[@]}" \
-  --set-string "dash.email.senderEmail=staging-change@example.invalid" >/dev/null
+  --set-string "dash.email.senderEmail=staging-change@example.invalid" \
+  --set postgresql.persistence.acknowledgeDataMountMigration=true >/dev/null
 r2="$(revision)"
 [[ "$r2" == 2 ]] || { echo 'FAIL: expected Helm upgrade revision 2' >&2; exit 1; }
 helm rollback "$release" 1 -n "$ns" --no-hooks --wait=false >/dev/null
