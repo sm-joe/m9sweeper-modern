@@ -38,6 +38,17 @@ r1="$(revision)"
 [[ "$r1" == 1 ]] || { echo 'FAIL: expected Helm install revision 1' >&2; exit 1; }
 pvc_before="$(kubectl get pvc -n "$ns" -o json |
   python3 -c 'import json,sys; print(sorted(x["metadata"]["name"] for x in json.load(sys.stdin)["items"]))')"
+# A real Helm upgrade must fail closed until the database mount migration is
+# explicitly acknowledged. Do not touch operator data or bypass this in prod.
+if helm upgrade "$release" "$chart" -n "$ns" --no-hooks --wait=false "${values[@]}" >/dev/null 2>&1; then
+  echo 'FAIL: PostgreSQL mount layout was changed without backup acknowledgement' >&2
+  exit 1
+fi
+[[ "$(revision)" == 1 ]] || {
+  echo 'FAIL: rejected PostgreSQL upgrade nevertheless changed Helm release revision' >&2
+  exit 1
+}
+echo 'PASS: unacknowledged PostgreSQL mount migration rejected before upgrade'
 helm upgrade "$release" "$chart" -n "$ns" --no-hooks --wait=false "${values[@]}" \
   --set-string "dash.email.senderEmail=staging-change@example.invalid" \
   --set postgresql.persistence.acknowledgeDataMountMigration=true >/dev/null
