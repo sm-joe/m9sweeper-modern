@@ -22,6 +22,7 @@ import { POLICY_RESPONSE_SCHEMA,
 import { UserProfileDto } from '../../user/dto/user-profile-dto';
 import { AllowedAuthorityLevels } from '../../../decorators/allowed-authority-levels.decorator'
 import { AuthorityGuard } from '../../../guards/authority.guard';
+import { ClusterAccessGuard } from '../../../guards/cluster-access.guard';
 import { AuthGuard } from '../../../guards/auth.guard';
 import { Authority } from '../../user/enum/Authority';
 import {PoliciesByClusterResponse} from '../open-api-schema/policy-by-cluster.schema';
@@ -167,7 +168,7 @@ export class PolicyController {
     })
     @Get('by-cluster/:clusterId')
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.TRAWLER)
-    @UseGuards(AuthGuard, AuthorityGuard)
+    @UseGuards(AuthGuard, AuthorityGuard, ClusterAccessGuard)
     async getPoliciesByClusterId(@Param('clusterId') clusterId: number): Promise<PoliciesByClusterIdDto[]> {
         return this.policyService.getPoliciesByClusterAndGlobal(clusterId);
     }

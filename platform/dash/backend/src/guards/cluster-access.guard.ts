@@ -31,6 +31,7 @@ export class ClusterAccessGuard implements CanActivate {
         const path = String(req.originalUrl || req.url || '').split('?')[0];
         const legacyTrawlerEndpoint =
             path.includes('/trawler/') ||
+            (req.method === 'GET' && /^\/api\/policies\/by-cluster\/[1-9][0-9]*\/?$/.test(path)) ||
             (req.method === 'GET' && /^\/api\/clusters\/[1-9][0-9]*\/?$/.test(path)) ||
             (req.method === 'POST' && /^\/api\/clusters\/[1-9][0-9]*\/images\/?$/.test(path)) ||
             (req.method === 'GET' && /\/image-by-docker-url\/?$/.test(path));
