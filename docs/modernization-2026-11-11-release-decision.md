@@ -44,6 +44,10 @@ The existing disposable Linux/Compose recovery drill now compares both table cou
 
 The disposable Kind inventory/Helm API test now uses a three-minor digest-pinned matrix: Kind v0.33.0 with Kubernetes v1.35.8, v1.36.4 and v1.37.0 images, asserting the actual API version before scanning. Kubernetes 1.35 is within upstream support in November 2026; versions 1.30-1.34 are end of life. **Successful Kind CI across the matrix verifies cluster API compatibility, inventory, kube-bench and Helm API lifecycle only. It does not certify production EKS/AKS/GKE, application readiness, HA, storage migrations, Falco kernels or end-user deployment support.**
 
+## Staging-only PostgreSQL container ownership
+
+The scratch PostgreSQL restore drill requires `M9_STAGING_RESTORE_TEST=YES` and `M9_EXPECTED_COMPOSE_PROJECT=m9-runtime` (or a dedicated `m9-staging-*` / `m9sweeper-staging-*` project). It validates the actual `postgres` container's Compose project label **before** `pg_dump`, `createdb`, `pg_restore` or `dropdb`. The project must be explicitly approved and disposable; CI uses `m9-runtime`. Never target production, and quiesce staging writes during the digest comparison.
+
 ## Execution rules
 
 1. Never run destructive lifecycle checks against existing operator Kind/Compose data, production namespaces, or non-staging volumes.
