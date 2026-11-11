@@ -42,7 +42,7 @@ The existing disposable Linux/Compose recovery drill now compares both table cou
 
 ## Supported-version Kubernetes CI target
 
-The disposable Kind inventory/Helm API test has been upgraded from obsolete Kubernetes 1.31 to a digest-pinned Kind v0.33.0/Kubernetes v1.35.8 image, with an explicit API version assertion before scanning. Kubernetes 1.35 is within upstream support in November 2026; versions 1.30-1.34 are end of life. **CI success on Kind v1.35 is a tested baseline, not a blanket support declaration for EKS/AKS/GKE, production HA, storage, Falco kernels or multiple Kubernetes minors.** Record additional 1.36 and 1.37 live acceptance before publishing a broad support matrix.
+The disposable Kind inventory/Helm API test now uses a three-minor digest-pinned matrix: Kind v0.33.0 with Kubernetes v1.35.8, v1.36.4 and v1.37.0 images, asserting the actual API version before scanning. Kubernetes 1.35 is within upstream support in November 2026; versions 1.30-1.34 are end of life. **Successful Kind CI across the matrix verifies cluster API compatibility, inventory, kube-bench and Helm API lifecycle only. It does not certify production EKS/AKS/GKE, application readiness, HA, storage migrations, Falco kernels or end-user deployment support.**
 
 ## Execution rules
 
