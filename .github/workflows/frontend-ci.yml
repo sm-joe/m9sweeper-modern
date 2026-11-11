@@ -6,6 +6,7 @@ on:
     paths:
       - 'platform/dash/frontend/**'
       - 'tools/browser-e2e/**'
+      - 'platform/dash/backend/src/modules/**/dto/**'
       - '.github/workflows/frontend-ci.yml'
   push:
     branches: [main]
