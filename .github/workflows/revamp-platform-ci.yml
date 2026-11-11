@@ -70,6 +70,7 @@ jobs:
           bash -n scripts/verify-helm-rollback-staging-linux.sh
           bash -n tools/integration/helm-kind-api-lifecycle.sh
           python3 tools/security/test_helm_staging_guard.py
+          python3 tools/security/test_restore_compose_guard.py
           bash -n scripts/check-broker-health-linux.sh
           test -s docs/linux-k8s-release-readiness.md
           grep -q 'Linux' README.md
@@ -480,7 +481,7 @@ jobs:
         run: npm test
         working-directory: tools/browser-e2e
       - name: Restore CI PostgreSQL backup into isolated scratch DB and verify evidence
-        run: M9_STAGING_RESTORE_TEST=YES bash scripts/verify-postgres-restore-linux.sh
+        run: M9_STAGING_RESTORE_TEST=YES M9_EXPECTED_COMPOSE_PROJECT=m9-runtime bash scripts/verify-postgres-restore-linux.sh
       - name: Enforce real scanner per-cluster grants in isolated Compose stack
         working-directory: platform/docker-compose
         env:
