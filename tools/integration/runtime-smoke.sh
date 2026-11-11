@@ -211,6 +211,67 @@ falco_records="$(docker compose -p m9-runtime exec -T postgres sh -c \
 }
 echo 'PASS: real kube-hunter and Falco webhook reports persisted to Postgres under the selected cluster'
 
+# The disposable CI database must enforce immediate API-key revocation.
+# Rotate/revoke the existing CI Falco identity without printing its token.
+# The key is restored in finally so subsequent CI assertions remain independent.
+python3 - "$ci_cluster_id" <<'PY'
+import json
+import subprocess
+import sys
+from pathlib import Path
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+
+cluster_id = int(sys.argv[1])
+env = dict(line.split("=", 1) for line in Path(".env").read_text().splitlines() if "=" in line)
+key = env["FALCO_API_KEY"]
+assert len(key) >= 32 and all(c in "0123456789abcdef" for c in key.lower()), "CI test key must be generated hex"
+
+def query(sql):
+    proc = subprocess.run(
+        ["docker", "compose", "-p", "m9-runtime", "exec", "-T", "postgres",
+         "sh", "-c", 'psql -v ON_ERROR_STOP=1 -qAt -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],
+        input=sql, text=True, capture_output=True, check=True
+    )
+    return proc.stdout.strip()
+
+def count():
+    return int(query(f"SELECT COUNT(*) FROM project_falco_logs WHERE cluster_id={cluster_id};"))
+
+# This generated key exists only in the disposable CI stack, never a real operator deployment.
+before = count()
+changed = query(f"UPDATE api_keys SET is_active=false WHERE api='{key}' AND is_active=true RETURNING id;")
+if len([x for x in changed.splitlines() if x.strip()]) != 1:
+    raise AssertionError("Expected exactly one active generated CI Falco key to revoke")
+try:
+    event = {
+        "hostname": "ci-host.invalid", "output": "revoked-key-negative-test",
+        "priority": "Warning", "rule": "m9-revoked-key-probe",
+        "source": "syscall", "tags": [], "time": "2026-11-11T00:00:00Z",
+        "output_fields": {}
+    }
+    request = Request(
+        f"http://127.0.0.1:3000/api/falco/{cluster_id}/create",
+        json.dumps(event).encode(), {
+            "Content-Type": "application/json", "X-API-Key": key
+        }, method="POST"
+    )
+    try:
+        with urlopen(request, timeout=15) as response:
+            raise AssertionError("Revoked scanner key accepted: HTTP " + str(response.status))
+    except HTTPError as error:
+        if error.code != 401:
+            raise AssertionError("Revoked scanner key returned HTTP " + str(error.code) + ", expected 401")
+    if count() != before:
+        raise AssertionError("Revoked scanner identity inserted a Falco event")
+    print("PASS: revoked scanner API key rejected with 401; PostgreSQL event count unchanged")
+finally:
+    restored = query(f"UPDATE api_keys SET is_active=true WHERE api='{key}' AND is_active=false RETURNING id;")
+    if len([x for x in restored.splitlines() if x.strip()]) != 1:
+        raise AssertionError("Failed to restore disposable CI scanner identity")
+PY
+
+
 
 
 echo 'PASS: original full app, Postgres, RabbitMQ, admin seed and authentication'

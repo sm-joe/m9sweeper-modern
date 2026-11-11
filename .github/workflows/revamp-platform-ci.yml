@@ -5,6 +5,8 @@ on:
     paths:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
+      - 'tools/integration/**'
+      - 'scripts/**'
       - 'tools/security/**'
       - 'tools/browser-e2e/**'
       - 'deploy/kind/**'
@@ -15,6 +17,8 @@ on:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
       - 'tools/import-platform/**'
+      - 'tools/integration/**'
+      - 'scripts/**'
       - 'tools/security/**'
       - 'tools/browser-e2e/**'
       - 'deploy/kind/**'
@@ -458,7 +462,10 @@ jobs:
         run: npm install --no-audit --no-fund
         working-directory: tools/browser-e2e
       - name: Install supported Chromium browser in CI
-        run: npx playwright install --with-deps chromium
+        # GitHub ubuntu-latest already includes browser runtime libraries.
+        # --with-deps invokes apt and can fail on transient Ubuntu mirror DNS;
+        # download the pinned Chromium version without mutating runner packages.
+        run: npx playwright install chromium
         working-directory: tools/browser-e2e
       - name: Verify Angular login, protected routes and authenticated security dashboard in Chromium
         run: npm test
