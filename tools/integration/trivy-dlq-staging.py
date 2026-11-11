@@ -106,7 +106,7 @@ try:
                     time.sleep(1)
                 parts = ledger.split("|")
                 if len(parts) != 5 or parts[0] != "failed" or parts[1] != "null" or \
-                        parts[2] != "Scan exhausted retries" or parts[3] != "f" or parts[4] != "Failed":
+                        parts[2] != "Scan exhausted retries" or parts[3] != "false" or parts[4] != "Failed":
                     # Diagnostic only on failure: distinguish Java callback
                     # delivery from NestJS auth/route validation. This probe
                     # deliberately leaves CI red even if a direct POST works.
