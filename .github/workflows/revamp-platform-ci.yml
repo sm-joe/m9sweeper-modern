@@ -5,6 +5,8 @@ on:
     paths:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
+      - 'tools/integration/**'
+      - 'scripts/**'
       - 'tools/security/**'
       - 'tools/browser-e2e/**'
       - 'deploy/kind/**'
@@ -15,6 +17,8 @@ on:
       - 'platform/**'
       - '.github/workflows/revamp-platform-ci.yml'
       - 'tools/import-platform/**'
+      - 'tools/integration/**'
+      - 'scripts/**'
       - 'tools/security/**'
       - 'tools/browser-e2e/**'
       - 'deploy/kind/**'
