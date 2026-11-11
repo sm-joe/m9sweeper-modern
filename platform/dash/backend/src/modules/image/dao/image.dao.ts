@@ -857,8 +857,18 @@ export class ImageDao {
 
     async getCountOfTotalImagesRunningCount(filters: any): Promise<any>{
         const knex = await this.databaseService.getConnection();
-        const query = knex('images').count('id as count')
-          .where(filters);
+        // Multiple Angular-selected clusters must use SQL IN, not equality
+        // against an array literal. Never let an empty selection count every
+        // cluster's images.
+        if (!Array.isArray(filters?.cluster_id) || filters.cluster_id.length === 0) {
+            return [{count: 0}];
+        }
+        const query = knex('images')
+            .count('id as count')
+            .whereIn('cluster_id', filters.cluster_id);
+        if (filters.running_in_cluster !== undefined) {
+            query.where('running_in_cluster', filters.running_in_cluster);
+        }
         return query;
     }
 
