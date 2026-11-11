@@ -15,11 +15,10 @@ export default {
   ) => {
     const authorization = request.get('Authorization')?.split(' ')[1] || '';
 
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    const bearerToken = type === 'Bearer' ? token : undefined;
-
-    // allows us to retrieve API Keys as Bearer tokens, from headers, and from query strings
-    const apiKey = bearerToken || request.get('x-api-key') || request.query['x-api-key'];
+    // Never use URL query parameters as credentials: links, reverse-proxy
+    // access logs, referrers and browser history expose them. Browser JWTs
+    // remain Authorization: Bearer, scanner/service API keys use X-API-Key.
+    const apiKey = request.get('x-api-key');
 
     try {
       let userInfo: any;
