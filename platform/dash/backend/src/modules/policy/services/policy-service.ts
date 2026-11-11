@@ -37,10 +37,11 @@ export class PolicyService {
 
     async getAllPolicies( page  = 0,
                           limit  = 10,
-                          sort: {field: string; direction: string; } = {field: 'id', direction: 'asc'}):
+                          sort: {field: string; direction: string; } = {field: 'id', direction: 'asc'},
+                          allowedIds?: number[]):
         Promise<{totalCount: number, list: PolicyDto[]}> {
-        const totalCount = await this.policyDao.countAllPolicies();
-        const list = await this.policyDao.getAllPolicies(page, limit, sort);
+        const totalCount = await this.policyDao.countAllPolicies(allowedIds);
+        const list = await this.policyDao.getAllPolicies(page, limit, sort, allowedIds);
         return {
             totalCount: +totalCount,
             list: list
