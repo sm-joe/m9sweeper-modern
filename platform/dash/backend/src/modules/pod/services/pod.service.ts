@@ -80,7 +80,7 @@ export class PodService {
         // Kubernetes may omit creationTimestamp on incomplete objects. Never throw
         // from an optional metadata field during cluster inventory.
         podDTO.creationTimestamp = pod.metadata?.creationTimestamp
-            ? String(new Date(pod.metadata.creationTimestamp).getTime())
+            ? String(pod.metadata.creationTimestamp.valueOf())
             : null;
         podDTO.clusterId = clusterId;
         podDTO.podStatus = pod.status.phase;
