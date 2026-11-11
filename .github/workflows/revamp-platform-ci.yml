@@ -66,6 +66,7 @@ jobs:
           bash -n scripts/verify-falco-live-linux.sh
           python3 -m py_compile tools/integration/real-trivy-e2e-staging.py
           bash -n scripts/verify-helm-rollback-staging-linux.sh
+          python3 tools/security/test_helm_staging_guard.py
           bash -n scripts/check-broker-health-linux.sh
           test -s docs/linux-k8s-release-readiness.md
           grep -q 'Linux' README.md
@@ -553,8 +554,18 @@ jobs:
     steps:
       - name: Execute pinned Trivy v0.76.2 against a real container image
         run: |
-          docker run --rm aquasec/trivy:0.76.2 --version
-          docker run --rm -v "$PWD:/result" aquasec/trivy:0.76.2 image \
+          set -euo pipefail
+          # The public Docker CDN intermittently resets GitHub runner downloads.
+          # Retry image transport only; keep the real scan and its assertions strict.
+          pulled=false
+          for attempt in 1 2 3; do
+            if docker pull aquasec/trivy:0.76.2; then pulled=true; break; fi
+            echo "Trivy image transport failed (attempt $attempt/3)"
+            sleep $((attempt * 10))
+          done
+          [[ "$pulled" == true ]] || { echo 'Unable to pull pinned scanner image' >&2; exit 1; }
+          docker run --rm --pull=never aquasec/trivy:0.76.2 --version
+          docker run --rm --pull=never -v "$PWD:/result" aquasec/trivy:0.76.2 image \
             --scanners vuln --format json --output /result/trivy-report.json alpine:3.21
           python3 - <<'PY'
           import json
