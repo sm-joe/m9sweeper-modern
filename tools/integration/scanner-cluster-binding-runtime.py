@@ -77,7 +77,7 @@ def count(cluster_id):
     return int(execute_sql(
         f"SELECT COUNT(*) FROM project_falco_logs WHERE cluster_id={cluster_id};"
     ))
-def report(cluster_id):
+def report(cluster_id, authorized=True):
     data = {
         "hostname": "ci-scanner.invalid",
         "output": "two-cluster scanner authorization probe",
@@ -91,7 +91,8 @@ def report(cluster_id):
     request = Request(
         f"http://127.0.0.1:3000/api/falco/{cluster_id}/create",
         json.dumps(data).encode(),
-        {"Content-Type": "application/json", "X-API-Key": key}, method="POST"
+        ({"Content-Type": "application/json", "X-API-Key": key} if authorized else
+         {"Content-Type": "application/json"}), method="POST"
     )
     try:
         with urlopen(request, timeout=15) as response:
@@ -104,8 +105,11 @@ if report(cluster_a) not in (200, 201):
     raise AssertionError("Granted scanner refused cluster A")
 if report(cluster_b) != 401:
     raise AssertionError("Scanner accepted or misclassified unauthorized cluster B")
+if report(cluster_a, authorized=False) != 401:
+    raise AssertionError("Anonymous scanner request to granted cluster was not rejected")
 if count(cluster_a) != before_a + 1 or count(cluster_b) != before_b:
     raise AssertionError("Scanner grant isolation failed to preserve database boundaries")
 print("PASS: scanner X-API-Key with explicit write grant ingested cluster A")
 print("PASS: same scanner X-API-Key denied for cluster B with HTTP 401 and no database write")
+print("PASS: anonymous scanner rejected even on allowed cluster")
 print("PASS: real NestJS enforced SCANNER_REQUIRE_CLUSTER_BINDINGS=true")
