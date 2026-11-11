@@ -30,27 +30,27 @@ RUN rm -f node_modules/@nestjs-modules/mailer && rm -f node_modules/knexnest && 
   cp -r vendor/nestjs-mailer node_modules/@nestjs-modules/mailer && \
   cp -r vendor/knexnest node_modules/knexnest
 
-# BUILD FRONT END
-WORKDIR /usr/src/app/frontend
-COPY ./dash/frontend/package.json /usr/src/app/frontend
-COPY ./dash/frontend/package-lock.json /usr/src/app/frontend
-COPY ./dash/frontend/vendor /usr/src/app/frontend/vendor
-# Legacy AJSF and Flex Layout still require a temporary peer-resolution policy.
-# Remove it only after replacement forms and responsive layouts pass regression.
-RUN npm ci --legacy-peer-deps --no-audit --no-fund && \
-    chown -R root:root node_modules
-
-WORKDIR /usr/src/app
-COPY ./dash/frontend /usr/src/app/frontend
+############################
+## STAGE 2 - ANGULAR SPA ##
+############################
+# Independent build stage: Angular cannot resolve imports from NestJS node_modules.
+FROM node:22.22.3-bookworm-slim AS frontend-builder
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 make g++ && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app/frontend
-RUN npm run build:prod
-# Use the same legacy peer-resolution policy as npm ci. npm prune
-# re-resolves the AJSF/Flex Layout peer graph otherwise and fails the image.
-RUN npm prune --omit=dev --legacy-peer-deps --no-audit --no-fund
+COPY ./dash/frontend/package.json ./dash/frontend/package-lock.json ./
+COPY ./dash/frontend/vendor ./vendor
+RUN npm ci --legacy-peer-deps --no-audit --no-fund
+COPY ./dash/frontend ./
+RUN test ! -d /usr/src/app/backend/node_modules && \
+    npm run check:client-boundary && \
+    npm run build:prod && \
+    test -s /usr/src/app/backend/dist/public/index.html
 
 #########################
-## Stage 2: Build Docs ##
+## Stage 3: Build Docs ##
 #########################
 FROM klakegg/hugo:0.111.3-ext-ubuntu as docs-builder
 RUN git config --global --add safe.directory /src
@@ -64,7 +64,7 @@ RUN hugo --config config-local.toml
 
 
 ######################
-## Stage 3: DELIVER ##
+## Stage 4: DELIVER ##
 ######################
 FROM node:22-alpine
 
@@ -74,6 +74,9 @@ RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
 
 COPY --from=builder /usr/src/app/backend/dist /usr/src/app
+# Angular static assets come from the isolated frontend build stage. The
+# backend retains dist/public/index.html as its existing SPA-serving contract.
+COPY --from=frontend-builder /usr/src/app/backend/dist/public /usr/src/app/public
 COPY --from=builder /usr/src/app/backend/node_modules /usr/src/app/node_modules
 COPY --from=builder /usr/src/app/backend/vendor /usr/src/app/vendor
 COPY --from=docs-builder /usr/src/public /usr/src/app/public/docs
