@@ -231,3 +231,44 @@ describe('P0 multi-cluster PDF export authorization', () => {
         }
     });
 });
+
+describe('P0 trawler policy lookup transitional compatibility', () => {
+    const original = process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS;
+    afterEach(() => {
+        if (original === undefined) delete process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS;
+        else process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS = original;
+    });
+    const ctx: any = {
+        switchToHttp: () => ({getRequest: () => ({
+            params: {clusterId: '12'}, query: {}, method: 'GET',
+            originalUrl: '/api/policies/by-cluster/12'
+        })})
+    };
+    const trawler: any = {id: 17, authorities: [{type: 'TRAWLER'}]};
+    it('preserves scanner policy resolution only during explicit migration mode', async () => {
+        process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS = 'false';
+        const database: any = {getConnection: jest.fn()};
+        await expect(new ClusterAccessGuard(trawler, database).canActivate(ctx))
+            .resolves.toBe(true);
+        expect(database.getConnection).not.toHaveBeenCalled();
+    });
+    it('denies scanner policy reads without a cluster grant in enforced mode', async () => {
+        process.env.SCANNER_REQUIRE_CLUSTER_BINDINGS = 'true';
+        const owner: any = {
+            join: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            whereNull: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue(undefined)
+        };
+        const grant: any = {
+            where: jest.fn().mockReturnThis(),
+            first: jest.fn().mockResolvedValue(undefined)
+        };
+        const database: any = {getConnection: jest.fn().mockResolvedValue(
+            jest.fn((table: string) =>
+                table === 'cluster_user_access' ? grant : owner)
+        )};
+        await expect(new ClusterAccessGuard(trawler, database).canActivate(ctx))
+            .rejects.toBeInstanceOf(ForbiddenException);
+    });
+});
