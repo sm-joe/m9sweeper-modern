@@ -279,6 +279,18 @@ jobs:
             >/tmp/m9-digest-pinned-render.yaml
           python3 tools/security/verify_candidate_workload_digests.py \
             /tmp/m9-digest-pinned-render.yaml "$version" "$dash_digest" "$trawler_digest"
+      - name: Verify real PostgreSQL StatefulSet persists PGDATA on its PVC
+        shell: bash
+        run: |
+          set -euo pipefail
+          helm template m9-pgdata-proof platform/manifests/charts/m9sweeper \
+            --namespace m9-staging-proof \
+            --kube-version 1.35.0 \
+            --set-string dash.existingSecret=external-dash-env \
+            --set-string trawler.existingSecret=external-trawler-env \
+            --set-string dash.init.existingSecret=external-init-env \
+            > /tmp/m9-postgresql-pvc-render.yaml
+          python3 tools/security/check_postgres_persistence_layout.py /tmp/m9-postgresql-pvc-render.yaml
       - name: Lint authenticated production values
         run: |
           JWT_SECRET="$(openssl rand -hex 32)"
