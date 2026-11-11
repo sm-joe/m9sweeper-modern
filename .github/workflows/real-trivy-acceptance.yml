@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verify the real staging scanner launcher syntax
-        run: python3 -m py_compile tools/integration/real-trivy-e2e-staging.py
+        run: python3 -m py_compile tools/integration/real-trivy-e2e-staging.py tools/integration/trivy-dlq-staging.py
       - name: Bootstrap real disposable NestJS, Angular, PostgreSQL and RabbitMQ
         run: bash tools/integration/runtime-smoke.sh
       - name: Run actual Java Trivy worker and verify durable scan evidence
