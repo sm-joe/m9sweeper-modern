@@ -86,6 +86,17 @@ if [[ "$status" != '401' ]]; then
 fi
 echo 'PASS: unauthenticated kube-bench upload rejected with 401'
 
+# Authentication guard runs before global DTO ValidationPipe: a malformed
+# unauthenticated Falcosidekick webhook must receive 401, not a schema 400.
+malformed_unauth_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 -X POST \
+  -H 'Content-Type: application/json' --data '{"rule":"incomplete"}' \
+  http://127.0.0.1:3000/api/falco/1/create)"
+[[ "$malformed_unauth_code" == '401' ]] || {
+  echo "FAIL: malformed anonymous Falco webhook returned HTTP $malformed_unauth_code, expected 401" >&2
+  exit 1
+}
+echo 'PASS: Falco authentication rejects anonymous malformed webhook before validation'
+
 # Exercise actual scanner controllers against running NestJS + PostgreSQL.
 # Empty/invalid credentials must not create any report row, even when the
 # original Compose install is running in transitional compatibility mode.
