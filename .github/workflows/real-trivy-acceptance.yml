@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'tools/integration/real-trivy-e2e-staging.py'
+      - 'tools/integration/trivy-dlq-staging.py'
       - '.github/workflows/real-trivy-acceptance.yml'
   workflow_dispatch:
 
@@ -21,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verify the real staging scanner launcher syntax
-        run: python3 -m py_compile tools/integration/real-trivy-e2e-staging.py
+        run: python3 -m py_compile tools/integration/real-trivy-e2e-staging.py tools/integration/trivy-dlq-staging.py
       - name: Bootstrap real disposable NestJS, Angular, PostgreSQL and RabbitMQ
         run: bash tools/integration/runtime-smoke.sh
       - name: Run actual Java Trivy worker and verify durable scan evidence
@@ -29,6 +30,13 @@ jobs:
           M9_STAGING_E2E_TEST: "YES"
           M9_COMPOSE_PROJECT: m9-runtime
         run: python3 tools/integration/real-trivy-e2e-staging.py
+      - name: Assert real bounded retries and durable DLQ quarantine
+        env:
+          M9_STAGING_DLQ_TEST: "YES"
+          M9_COMPOSE_PROJECT: m9-runtime
+        run: |
+          python3 -m pip install --user 'pika==1.3.2'
+          python3 tools/integration/trivy-dlq-staging.py
       - name: Show container health without exporting credential-bearing logs
         if: always()
         run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime ps || true
