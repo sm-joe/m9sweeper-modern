@@ -62,22 +62,43 @@ export class KubernetesClusterService {
             }
         }
     }
+    /**
+     * Namespace listing is required for inventory sync. Node listing is only
+     * required for the optional node summary; don't block pod inventory if the
+     * stored service account lacks node RBAC permissions.
+     */
     private async testCoreAPI(cluster: ClusterDto, coreApi: CoreV1Api): Promise<boolean> {
       try {
-        await coreApi.listNode();
-      } catch (e) {
-        this.loggerService.log(`Could not use the coreApi to retrieve information from cluster ${cluster.id}`);
+        if (!coreApi) throw new Error('Kubernetes API client unavailable');
+        await coreApi.listNamespace();
+        return true;
+      } catch (error) {
+        // Never log request headers, bearer tokens, or raw kubeconfig.
+        const status = Number(error?.statusCode ?? error?.response?.statusCode ??
+          error?.response?.status ?? error?.status);
+        const networkCode = String(error?.code ?? error?.cause?.code ?? '').toUpperCase();
+        let category = 'Kubernetes API request failed; check backend connectivity and kubeconfig';
+        if (status === 401) category = 'Kubernetes authentication failed (401); refresh the stored service-account token';
+        else if (status === 403) category = 'Kubernetes authorization denied (403); grant list namespaces to the stored service account';
+        else if (['ENOTFOUND', 'EAI_AGAIN'].includes(networkCode))
+          category = 'Kubernetes API DNS failed; check the API hostname from the Dash container';
+        else if (['ECONNREFUSED', 'ETIMEDOUT', 'EHOSTUNREACH', 'ENETUNREACH'].includes(networkCode))
+          category = 'Kubernetes API unreachable from Dash; check Docker/Kind network and kubeconfig server';
+        else if (/CERT_|UNABLE_TO_VERIFY|SELF_SIGNED|DEPTH_ZERO_SELF_SIGNED/i.test(networkCode))
+          category = 'Kubernetes API TLS certificate failed; check trusted kubeconfig certificate-authority-data';
+        this.loggerService.log({
+          label: 'Kubernetes API readiness check failed',
+          data: {clusterId: cluster.id, category,
+            httpStatus: Number.isFinite(status) ? status : undefined,
+            networkCode: /^[A-Z_]+$/.test(networkCode) ? networkCode : undefined}
+        }, 'KubernetesClusterService.testCoreAPI()');
         const clusterEventData = this.clusterEventService.createClusterEventObject(
-          0,
-          'Batch Job',
-          'Get',
-          'Error',
-          `Could not use the coreApi to retrieve information from cluster ${cluster.id}`,
+          0, 'Batch Job', 'Get', 'Error',
+          `Cluster ${cluster.id} inventory sync blocked: ${category}`,
           'KubernetesClusterService.testCoreAPI()');
         await this.clusterEventService.createClusterEvent(clusterEventData, cluster.id);
         return false;
       }
-      return true;
     }
 
     private async syncNamespaces(cluster: ClusterDto, coreApi: CoreV1Api): Promise<boolean> {
