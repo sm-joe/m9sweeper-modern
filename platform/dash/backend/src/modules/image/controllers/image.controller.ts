@@ -497,7 +497,7 @@ export class ImageController {
     @ApiQuery({name : 'filters[clusterId]', style: "form", type: [Number]})
     @ApiQuery({name : 'filters[runningInCluster]', style: "form", type: Number})
     async getCountOfFilteredImages(@Query('filters') filters: {clusterId: number[]; runningInCluster: number;}): Promise<number> {
-        return await this.imageService.getCountOfTotalImagesRunningCount(filters);
+        return await this.imageService.getCountOfTotalImagesRunningCount(filters ?? {});
     }
 
     @Get('images/summary/vulnerabilities')
@@ -520,8 +520,9 @@ export class ImageController {
         },
         @Query('group_by') groupBy: string
     ): Promise<TotalVulnerabilityResultsDto[]> {
-        filters['namespace'] = EnsureArrayTyping.ensureArrayTyping(filters['namespace']);
-        return await this.imageService.getCountOfFilteredImagesVulnerabilities(filters, groupBy);
+        const normalizedFilters = filters ?? {} as typeof filters;
+        normalizedFilters['namespace'] = EnsureArrayTyping.ensureArrayTyping(normalizedFilters['namespace']);
+        return await this.imageService.getCountOfFilteredImagesVulnerabilities(normalizedFilters, groupBy);
     }
 
     @Get(':clusterId/summary/vulnerabilities')
