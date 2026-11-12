@@ -13,6 +13,21 @@ describe('Trivy report ingestion security', () => {
     controller = new ImageController(imageService, {} as any, {} as any, {} as any);
   });
 
+  it('defaults missing summary filters rather than throwing an internal server error', async () => {
+    imageService.getCountOfTotalImagesRunningCount = jest.fn().mockResolvedValue(0);
+    await expect(controller.getCountOfFilteredImages(undefined as any)).resolves.toBe(0);
+    expect(imageService.getCountOfTotalImagesRunningCount).toHaveBeenCalledWith({});
+  });
+
+  it('defaults missing vulnerability filters rather than accessing undefined namespace', async () => {
+    imageService.getCountOfFilteredImagesVulnerabilities = jest.fn().mockResolvedValue([]);
+    await expect(controller.getCountOfFilteredImagesVulnerabilities(undefined as any, 'savedAtDate'))
+      .resolves.toEqual([]);
+    expect(imageService.getCountOfFilteredImagesVulnerabilities).toHaveBeenCalledWith(
+      expect.objectContaining({namespace: expect.any(Array)}), 'savedAtDate'
+    );
+  });
+
   it('shows latest durable scan failure for authorized cluster and image', async () => {
     imageService.getLatestScanRun = jest.fn().mockResolvedValue({
       id: 'run-id', status: 'failed', failure_reason: 'Scan exhausted retries'
