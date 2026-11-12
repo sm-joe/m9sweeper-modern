@@ -22,6 +22,36 @@ describe('KubernetesClusterService: fail-closed pod synchronization', () => {
         return {service, podService, eventService, logger, pods};
     }
 
+    it('checks required namespace access, not optional node permissions', async () => {
+        const {service, eventService} = subject();
+        const coreApi: any = {
+            listNamespace: jest.fn().mockResolvedValue({body: {items: []}}),
+            listNode: jest.fn().mockRejectedValue({statusCode: 403})
+        };
+        await expect((service as any).testCoreAPI({id: 2}, coreApi)).resolves.toBe(true);
+        expect(coreApi.listNamespace).toHaveBeenCalledTimes(1);
+        expect(coreApi.listNode).not.toHaveBeenCalled();
+        expect(eventService.createClusterEvent).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [{statusCode: 403}, 'authorization denied (403)'],
+      [{statusCode: 401}, 'authentication failed (401)'],
+      [{code: 'ECONNREFUSED'}, 'unreachable from Dash']
+    ])('reports sanitized actionable failure for %p', async (failure, message) => {
+        const {service, eventService, logger} = subject();
+        const coreApi: any = {listNamespace: jest.fn().mockRejectedValue(failure)};
+        await expect((service as any).testCoreAPI({id: 2}, coreApi)).resolves.toBe(false);
+        expect(eventService.createClusterEventObject).toHaveBeenCalledWith(
+            0, 'Batch Job', 'Get', 'Error', expect.stringContaining(message),
+            'KubernetesClusterService.testCoreAPI()'
+        );
+        expect(logger.log).toHaveBeenCalledWith(
+            expect.objectContaining({label: 'Kubernetes API readiness check failed'}),
+            'KubernetesClusterService.testCoreAPI()'
+        );
+    });
+
     it('does not delete existing inventory after a partial DB write failure', async () => {
         const {service, podService, eventService, pods} = subject();
         podService.savePod.mockResolvedValueOnce(undefined)
