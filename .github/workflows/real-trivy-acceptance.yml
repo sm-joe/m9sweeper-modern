@@ -31,16 +31,30 @@ jobs:
           M9_STAGING_E2E_TEST: "YES"
           M9_COMPOSE_PROJECT: m9-runtime
         run: python3 tools/integration/real-trivy-e2e-staging.py
+      - name: Set up supported Node.js for standalone Playwright acceptance
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Install Chromium for real Angular scan acceptance
         working-directory: tools/browser-e2e
+        env:
+          NODE_ENV: development
         run: |
-          # The standalone browser test package currently has no package-lock.json.\n          # Install its exact pinned Playwright version without manufacturing a lock.\n          npm install --no-save --package-lock=false --no-audit --no-fund
-          npx playwright install --with-deps chromium
+          set -euo pipefail
+          # Force devDependencies even if runner npm configuration omits them.
+          npm install --include=dev --no-save --package-lock=false --no-audit --no-fund
+          node -e "console.log('Resolved @playwright/test:', require.resolve('@playwright/test'))"
+          test -x ./node_modules/.bin/playwright
+          ./node_modules/.bin/playwright install --with-deps chromium
       - name: Verify same real Trivy scan is visible in Angular
         working-directory: tools/browser-e2e
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
-        run: npx playwright test tests/trivy-staging.spec.cjs --project=chromium
+          NODE_ENV: development
+        run: |
+          set -euo pipefail
+          node -e "require.resolve('@playwright/test')"
+          ./node_modules/.bin/playwright test tests/trivy-staging.spec.cjs --project=chromium
       - name: Upload Trivy UI traces on failure
         if: failure()
         uses: actions/upload-artifact@v4
