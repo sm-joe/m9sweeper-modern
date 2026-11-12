@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { ClusterService } from '../../../../../core/services/cluster.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -110,6 +110,7 @@ export class ClusterListComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   constructor(
+    private readonly changeDetector: ChangeDetectorRef,
     private clusterService: ClusterService,
     private clusterGroupService: ClusterGroupService,
     private podService: PodService,
@@ -125,7 +126,6 @@ export class ClusterListComponent implements OnInit, OnDestroy, AfterViewInit {
       tabItem: ['Recent', 'All', 'Runs'],
       title: 'Cluster List',
     };
-    this.getSearchResult();
   }
 
   ngOnInit(): void {
@@ -143,6 +143,7 @@ export class ClusterListComponent implements OnInit, OnDestroy, AfterViewInit {
             this.clusterGroupName = result.data.name;
             this.subNavigationData.title = this.clusterGroupName;
             this.clusterGroupNameLoaded = true;
+            this.changeDetector.markForCheck();
           },
           error: err => {
             if (err?.status === 404) {
@@ -158,7 +159,10 @@ export class ClusterListComponent implements OnInit, OnDestroy, AfterViewInit {
       .pipe(takeUntil(this.unsubscribe$))
       .subscribe({
         next: updatedClusterGroup => {
-          this.clusterGroupName = updatedClusterGroup?.name || '';
+          if (updatedClusterGroup?.name) {
+            this.clusterGroupName = updatedClusterGroup.name;
+            this.changeDetector.markForCheck();
+          }
         }
       });
   }
@@ -198,6 +202,7 @@ export class ClusterListComponent implements OnInit, OnDestroy, AfterViewInit {
     );
     this.barChartAttributes.view = this.lineChartAttributes.view;
     this.complianceSummaryLineChartAttributes.view = this.lineChartAttributes.view;
+    this.changeDetector.markForCheck();
   }
 
   getClustersByClusterGroupId(groupId: number) {
@@ -218,6 +223,11 @@ export class ClusterListComponent implements OnInit, OnDestroy, AfterViewInit {
       this.getCountOfImageScan(clusterIds);
       this.getCountOfVulnerabilities(clusterIds);
       this.getPodComplianceSummaryForAllClusters();
+      this.changeDetector.markForCheck();
+    }, error => {
+      this.clustersList = [];
+      this.alertService.danger(error?.error?.message || 'Unable to load clusters');
+      this.changeDetector.markForCheck();
     });
   }
 
@@ -342,6 +352,7 @@ export class ClusterListComponent implements OnInit, OnDestroy, AfterViewInit {
           })
         }
       ];
+      this.changeDetector.markForCheck();
     }, error => {
       this.alertService.danger(error.error.message);
     });
@@ -366,6 +377,7 @@ export class ClusterListComponent implements OnInit, OnDestroy, AfterViewInit {
           })
         }
       ];
+      this.changeDetector.markForCheck();
     }, error => {
         if (!environment.production) {
           console.log(`Error in Get Count Of Deployment By Compliant Status`, error);
@@ -414,6 +426,7 @@ export class ClusterListComponent implements OnInit, OnDestroy, AfterViewInit {
           ]
         };
       }) : defaultDataToDisplay;
+      this.changeDetector.markForCheck();
     },
       error => {
         this.alertService.danger(error.error.message);
