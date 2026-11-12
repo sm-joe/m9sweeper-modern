@@ -1,34 +1,13 @@
 name: Full m9sweeper platform source validation
+# Expensive full-stack validation is opt-in during PR iteration. Automatic
+# frontend/backend fast checks still run via their own workflows.
+# Before merging, add the ci/full label (remove/re-add to rerun after new commits)
+# or run workflow_dispatch against the PR head. The full matrix also runs on main.
 on:
   pull_request:
     branches: [main]
-    paths:
-      # PR fast feedback is split into Angular and NestJS workflows.
-      # Keep full integration mandatory for shared runtime/security, scanners and release surfaces.
-      - 'platform/docker-compose/**'
-      - 'platform/manifests/**'
-      - 'platform/trawler/**'
-      - 'platform/Dockerfile'
-      - 'platform/dash/backend/src/guards/**'
-      - 'platform/dash/backend/src/providers/**'
-      - 'platform/dash/backend/src/migrations/**'
-      - 'platform/dash/backend/src/modules/auth/**'
-      - 'platform/dash/backend/src/modules/image/**'
-      - 'platform/dash/backend/src/modules/pod/**'
-      - 'platform/dash/backend/src/modules/command-line/**'
-      - 'platform/dash/backend/src/modules/falco/**'
-      - 'platform/dash/backend/src/modules/policy/**'
-      - 'platform/dash/backend/src/modules/exceptions/**'
-      - 'platform/dash/backend/src/modules/user/**'
-      - 'platform/dash/backend/src/modules/scanner/**'
-      - 'platform/dash/backend/src/modules/reports/**'
-      - '.github/workflows/revamp-platform-ci.yml'
-      - 'tools/integration/**'
-      - 'scripts/**'
-      - 'tools/security/**'
-      - 'tools/browser-e2e/**'
-      - 'deploy/kind/**'
-      - 'docs/**'
+    types: [labeled, ready_for_review]
+  workflow_dispatch:
   push:
     branches: [main, revamp/original-platform, product/m9sweeper-new-foundation, 'fix/rc3-trivy-queue-fail-closed', 'release/m9sweeper-new-rc4-security-reliability', 'release/linux-k8s-hardening-rc5', 'security/p0-retire-query-key-default']
     paths:
@@ -52,6 +31,7 @@ permissions:
   contents: read
 jobs:
   source-parity:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,6 +52,7 @@ jobs:
           path: p0-http-route-inventory.csv
           if-no-files-found: ignore
   linux-operator-scripts:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -112,6 +93,7 @@ jobs:
           echo 'PASS: reproducible complete Linux source candidate'
 
   original-backend:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -133,6 +115,7 @@ jobs:
       - name: Regression test original policy compliance and exception behavior
         run: npm test -- --runInBand
   original-frontend:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -248,6 +231,7 @@ jobs:
           grep -q 'app-root' ../backend/dist/public/index.html
           echo 'PASS: NestJS expects the SPA at dist/public/index.html'
   helm-charts:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -472,6 +456,7 @@ jobs:
           done
           echo 'PASS: Dash, init and trawler enforce non-root execution and runtime restrictions'
   original-trawler:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -499,6 +484,7 @@ jobs:
           print(f"PASS: {len(classes)} scanner classes target Java 21")
           PY
   dash-image:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -512,6 +498,7 @@ jobs:
           push: false
           tags: m9sweeper-modern/dash:ci
   compose-config:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -534,6 +521,7 @@ jobs:
           echo "$rendered" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["services"]["dash"]["environment"]["SCANNER_ALLOW_LEGACY_QUERY_KEYS"] == "false", "Compose must disable URL API keys by default"; print("PASS: scanner API keys are header-only by default")'
           echo "$rendered" | python3 -c 'import json,sys; d=json.load(sys.stdin); expected={"dash":"3000","postgres":"5432","rabbitmq":"5672","kubesec":"6116"}; [(lambda p: (_ for _ in ()).throw(AssertionError(s)) if any(x.get("host_ip") != "127.0.0.1" for x in p) else None)(d["services"][s].get("ports",[])) for s in expected]; print("Compose public bindings: none")'
   runtime-integration:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -584,6 +572,7 @@ jobs:
         if: always()
         run: docker compose -f platform/docker-compose/docker-compose.yml -p m9-runtime down --remove-orphans
   modern-stateful-runtime:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     name: Real NestJS runtime on PostgreSQL 17 and RabbitMQ 4.4
     runs-on: ubuntu-latest
     timeout-minutes: 42
@@ -612,6 +601,7 @@ jobs:
         shell: bash
         run: docker compose -p m9-runtime down --volumes --remove-orphans || true
   kubesec-live-scan:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -671,6 +661,7 @@ jobs:
         if: always()
         run: docker rm -f m9-kubesec || true
   trivy-live-scan:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -701,6 +692,7 @@ jobs:
           PY
           rm -f trivy-report.json
   trawler-jvm-image:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -713,6 +705,7 @@ jobs:
           docker run --rm --entrypoint trivy m9-trawler:ci --version
           docker run --rm --entrypoint java m9-trawler:ci -version
   kind-inventory:
+    if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -806,7 +799,7 @@ jobs:
 
   rc-source-package:
     name: m9sweeper-new validated source candidate (all CI gates required)
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    if: (github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full') && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
     needs:
       - source-parity
       - original-backend
