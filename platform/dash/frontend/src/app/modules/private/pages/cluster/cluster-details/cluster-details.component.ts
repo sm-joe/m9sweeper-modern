@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ActivatedRoute } from '@angular/router';
 import { ClusterService } from '../../../../../core/services/cluster.service';
 
