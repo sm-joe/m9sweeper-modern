@@ -770,7 +770,7 @@ export class ImageDao {
         const searchParams = {};
 
         Object.keys(fields).forEach(key => {
-            if (filters && filters.hasOwnProperty(key)) {
+            if (filters && Object.prototype.hasOwnProperty.call(filters, key)) {
                 searchParams[fields[key]] = filters[key];
             }
         });
@@ -788,16 +788,16 @@ export class ImageDao {
             ])
             .from('history_kubernetes_images')
             .leftJoin('images as i', 'i.id', 'history_kubernetes_images.image_id');
-        if (filters['namespace']?.length > 0) {
-            subQuery = subQuery.whereIn('history_kubernetes_images.namespace', filters['namespace']);
+        if ((filters ?? {})['namespace']?.length > 0) {
+            subQuery = subQuery.whereIn('history_kubernetes_images.namespace', (filters ?? {})['namespace']);
         }
 
 
-        if (filters.hasOwnProperty('startDate')) {
+        if (Object.prototype.hasOwnProperty.call(filters ?? {}, 'startDate')) {
           subQuery = subQuery.andWhere('history_kubernetes_images.saved_date', '>=', filters['startDate']);
         }
 
-        if (filters.hasOwnProperty('endDate')) {
+        if (Object.prototype.hasOwnProperty.call(filters ?? {}, 'endDate')) {
           subQuery = subQuery.andWhere('history_kubernetes_images.saved_date', '<=', filters['endDate']);
         }
         subQuery = subQuery.groupBy([
@@ -838,11 +838,11 @@ export class ImageDao {
             }
         });
 
-        if (filters.hasOwnProperty('startDate')) {
+        if (Object.prototype.hasOwnProperty.call(filters ?? {}, 'startDate')) {
             query = query.andWhere('hki.saved_date', '>=', filters['startDate']);
         }
 
-        if (filters.hasOwnProperty('endDate')) {
+        if (Object.prototype.hasOwnProperty.call(filters ?? {}, 'endDate')) {
             query = query.andWhere('hki.saved_date', '<=', filters['endDate']);
         }
 
