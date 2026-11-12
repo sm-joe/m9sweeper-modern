@@ -39,7 +39,7 @@ export class KubernetesClusterService {
             kubeConfig.setCurrentContext(cluster.context);
             const coreApi = this.k8sApiService.makeCoreV1ApiFromConfig(kubeConfig);
 
-            if (!await this.testCoreAPI(cluster, coreApi)) {
+            if (!await this.testCoreAPI(cluster, coreApi, kubeConfig?.getCurrentCluster()?.server)) {
               return {
                 everythingSuccessfullySynced: false,
                 nodeSummary: {numNodes: null, numCPU: null, amountRAM: null}
@@ -62,31 +62,61 @@ export class KubernetesClusterService {
             }
         }
     }
-    private async testCoreAPI(cluster: ClusterDto, coreApi: CoreV1Api): Promise<boolean> {
+    /**
+     * Namespace listing is required for inventory sync. Node listing is only
+     * required for the optional node summary; don't block pod inventory if the
+     * stored service account lacks node RBAC permissions.
+     */
+    private async testCoreAPI(cluster: ClusterDto, coreApi: CoreV1Api, server?: string): Promise<boolean> {
       try {
-        await coreApi.listNode();
-      } catch (e) {
-        this.loggerService.log(`Could not use the coreApi to retrieve information from cluster ${cluster.id}`);
+        if (!coreApi) throw new Error('Kubernetes API client unavailable');
+        // In Compose, localhost is the Dash container, not the Kind control plane.
+        if (server) {
+          const host = new URL(server).hostname.toLowerCase();
+          if (['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)) {
+            throw Object.assign(new Error('Kubernetes API uses container loopback'), {code: 'ELOOPBACK'});
+          }
+        }
+        await coreApi.listNamespace();
+        return true;
+      } catch (error) {
+        // Never log request headers, bearer tokens, or raw kubeconfig.
+        const status = Number(error?.statusCode ?? error?.response?.statusCode ??
+          error?.response?.status ?? error?.status);
+        const networkCode = String(error?.code ?? error?.cause?.code ?? '').toUpperCase();
+        let category = 'Kubernetes API request failed; check backend connectivity and kubeconfig';
+        if (networkCode === 'ELOOPBACK')
+          category = 'Stored Kubernetes API endpoint is localhost/127.0.0.1; use a Docker-reachable API address with a matching trusted CA';
+        else if (status === 401) category = 'Kubernetes authentication failed (401); refresh the stored service-account token';
+        else if (status === 403) category = 'Kubernetes authorization denied (403); grant list namespaces to the stored service account';
+        else if (['ENOTFOUND', 'EAI_AGAIN'].includes(networkCode))
+          category = 'Kubernetes API DNS failed; check the API hostname from the Dash container';
+        else if (['ECONNREFUSED', 'ETIMEDOUT', 'EHOSTUNREACH', 'ENETUNREACH'].includes(networkCode))
+          category = 'Kubernetes API unreachable from Dash; check Docker/Kind network and kubeconfig server';
+        else if (/CERT_|UNABLE_TO_VERIFY|SELF_SIGNED|DEPTH_ZERO_SELF_SIGNED/i.test(networkCode))
+          category = 'Kubernetes API TLS certificate failed; check trusted kubeconfig certificate-authority-data';
+        this.loggerService.log({
+          label: 'Kubernetes API readiness check failed',
+          data: {clusterId: cluster.id, category,
+            httpStatus: Number.isFinite(status) ? status : undefined,
+            networkCode: /^[A-Z_]+$/.test(networkCode) ? networkCode : undefined}
+        }, 'KubernetesClusterService.testCoreAPI()');
         const clusterEventData = this.clusterEventService.createClusterEventObject(
-          0,
-          'Batch Job',
-          'Get',
-          'Error',
-          `Could not use the coreApi to retrieve information from cluster ${cluster.id}`,
+          0, 'Batch Job', 'Get', 'Error',
+          `Cluster ${cluster.id} inventory sync blocked: ${category}`,
           'KubernetesClusterService.testCoreAPI()');
         await this.clusterEventService.createClusterEvent(clusterEventData, cluster.id);
         return false;
       }
-      return true;
     }
 
     private async syncNamespaces(cluster: ClusterDto, coreApi: CoreV1Api): Promise<boolean> {
         try {
             const namespaceListRes = await coreApi.listNamespace();
             const namespaces: NamespaceDto[] = await this.namespaceService.setNamespacesContents(namespaceListRes, cluster.id);
-            await Promise.all(namespaces.map(n => {
-              this.namespaceService.saveK8sNamespaces(n, cluster.id);
-            }));
+            await Promise.all(namespaces.map(n =>
+              this.namespaceService.saveK8sNamespaces(n, cluster.id)
+            ));
 
             const currentNamespaces = await this.namespaceService.getNamespacesByClusterId(cluster.id);
             const getNames = currentNamespaces.map( n => n.name);

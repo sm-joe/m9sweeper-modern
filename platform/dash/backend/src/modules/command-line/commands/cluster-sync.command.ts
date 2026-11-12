@@ -44,16 +44,23 @@ export class ClusterSyncCommand {
       return true;
     }
 
+    let successfullySynced = true;
     try {
       // run sync
       const clusterSummaries: ClusterSummaryDto[] = await this._getClusterSummaries(clusters);
       this.log('cluster summaries retrieved', {clusterSummaries}, 'syncCluster');
     } catch (e) {
+      successfullySynced = false;
       this.log('Error syncing cluster(s)', {error: {stack: e.stack, message: e.message}}, 'syncCluster');
       const clusterEventObject = this.clusterEventService.createClusterEventObject(0,
         'License Validation', 'Create', 'Error',
         `Scraping was canceled: An error occurred`, e.message);
       await this._saveClusterEventForAllClusters(clusters, clusterEventObject);
+    }
+
+    if (!successfullySynced) {
+      // An incomplete inventory must not be treated as fresh compliance evidence.
+      return false;
     }
 
     await this.namespaceComplianceService
@@ -66,12 +73,13 @@ export class ClusterSyncCommand {
         const clusterEventObject = this.clusterEventService.createClusterEventObject(0,
           'Cluster Pod Compliance', 'Update', 'Error',
           `Cluster pods compliance check failed: An error occurred`, e.message);
-        this._saveClusterEventForAllClusters(clusters, clusterEventObject);
+        successfullySynced = false;
+        void this._saveClusterEventForAllClusters(clusters, clusterEventObject);
         return e;
       });
 
     this.log('Job finished - Syncing cluster',  {}, 'syncCluster');
-    return true;
+    return successfullySynced;
   }
 
   private async _saveClusterEventForAllClusters(clusters: ClusterDto[], clusterEventObject: ClusterEventCreateDto) {
@@ -102,6 +110,7 @@ export class ClusterSyncCommand {
 
   private async _getClusterSummaries(clusters: ClusterDto[]): Promise<ClusterSummaryDto[]> {
     const clusterSummaries: ClusterSummaryDto[] = [];
+    let failedClusters = 0;
     for (const cluster of clusters) {
       try {
         this.log('Syncing cluster', {clusterId: cluster?.id}, '_getClusterSummaries');
@@ -110,10 +119,17 @@ export class ClusterSyncCommand {
         clusterSummaries.push({clusterId: cluster?.id, clusterName: cluster?.name, ...syncResults.nodeSummary});
         if (syncResults.everythingSuccessfullySynced) {
           await this.clusterDao.updateClusterLastScanned(cluster?.id);
+        } else {
+          failedClusters++;
+          this.log('Cluster inventory sync incomplete', {clusterId: cluster?.id}, '_getClusterSummaries');
         }
       } catch (e) {
+        failedClusters++;
         this.log('Error syncing cluster', {name: cluster?.name, id: cluster?.id, error: {stack: e.stack, message: e.message}}, '_getClusterSummaries');
       }
+    }
+    if (failedClusters) {
+      throw new Error(`Kubernetes inventory synchronization failed for ${failedClusters} cluster(s)`);
     }
     return clusterSummaries;
   }

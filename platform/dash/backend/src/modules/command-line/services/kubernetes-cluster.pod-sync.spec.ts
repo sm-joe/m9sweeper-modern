@@ -11,16 +11,74 @@ describe('KubernetesClusterService: fail-closed pod synchronization', () => {
             createClusterEvent: jest.fn().mockResolvedValue(undefined)
         };
         const logger: any = {log: jest.fn()};
+        const namespaceService: any = {
+            setNamespacesContents: jest.fn().mockResolvedValue([{name: 'default'}]),
+            saveK8sNamespaces: jest.fn().mockResolvedValue(undefined),
+            getNamespacesByClusterId: jest.fn().mockResolvedValue([{name: 'default'}]),
+            deleteDeadNamespaces: jest.fn()
+        };
         const service = new KubernetesClusterService(
-            logger, {} as any, {} as any, {} as any, {} as any,
+            logger, {} as any, namespaceService, {} as any, {} as any,
             podService, {} as any, {} as any, eventService
         );
         const pods = [
             {metadata: {name: 'a', namespace: 'ns-a'}},
             {metadata: {name: 'b', namespace: 'ns-b'}}
         ] as any;
-        return {service, podService, eventService, logger, pods};
+        return {service, podService, eventService, logger, namespaceService, pods};
     }
+
+    it('checks required namespace access, not optional node permissions', async () => {
+        const {service, eventService} = subject();
+        const coreApi: any = {
+            listNamespace: jest.fn().mockResolvedValue({body: {items: []}}),
+            listNode: jest.fn().mockRejectedValue({statusCode: 403})
+        };
+        await expect((service as any).testCoreAPI({id: 2}, coreApi)).resolves.toBe(true);
+        expect(coreApi.listNamespace).toHaveBeenCalledTimes(1);
+        expect(coreApi.listNode).not.toHaveBeenCalled();
+        expect(eventService.createClusterEvent).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [{statusCode: 403}, 'authorization denied (403)'],
+      [{statusCode: 401}, 'authentication failed (401)'],
+      [{code: 'ECONNREFUSED'}, 'unreachable from Dash']
+    ])('reports sanitized actionable failure for %p', async (failure, message) => {
+        const {service, eventService, logger} = subject();
+        const coreApi: any = {listNamespace: jest.fn().mockRejectedValue(failure)};
+        await expect((service as any).testCoreAPI({id: 2}, coreApi)).resolves.toBe(false);
+        expect(eventService.createClusterEventObject).toHaveBeenCalledWith(
+            0, 'Batch Job', 'Get', 'Error', expect.stringContaining(message),
+            'KubernetesClusterService.testCoreAPI()'
+        );
+        expect(logger.log).toHaveBeenCalledWith(
+            expect.objectContaining({label: 'Kubernetes API readiness check failed'}),
+            'KubernetesClusterService.testCoreAPI()'
+        );
+    });
+
+    it('explains why a host-local Kind API endpoint cannot work from Compose', async () => {
+        const {service, eventService} = subject();
+        const coreApi: any = {listNamespace: jest.fn()};
+        await expect((service as any).testCoreAPI({id: 2}, coreApi, 'https://127.0.0.1:57363'))
+          .resolves.toBe(false);
+        expect(coreApi.listNamespace).not.toHaveBeenCalled();
+        expect(eventService.createClusterEventObject).toHaveBeenCalledWith(
+          0, 'Batch Job', 'Get', 'Error',
+          expect.stringContaining('Stored Kubernetes API endpoint is localhost/127.0.0.1'),
+          'KubernetesClusterService.testCoreAPI()'
+        );
+    });
+
+    it('does not report successful namespace sync before asynchronous writes finish', async () => {
+        const {service, namespaceService, eventService} = subject();
+        namespaceService.saveK8sNamespaces.mockRejectedValue(new Error('database down'));
+        const coreApi: any = {listNamespace: jest.fn().mockResolvedValue({body: {items: []}})};
+        await expect((service as any).syncNamespaces({id: 2}, coreApi)).resolves.toBe(false);
+        expect(eventService.createClusterEvent).toHaveBeenCalledTimes(1);
+        expect(namespaceService.getNamespacesByClusterId).not.toHaveBeenCalled();
+    });
 
     it('does not delete existing inventory after a partial DB write failure', async () => {
         const {service, podService, eventService, pods} = subject();
