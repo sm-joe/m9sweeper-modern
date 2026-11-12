@@ -34,7 +34,7 @@ jobs:
       - name: Install Chromium for real Angular scan acceptance
         working-directory: tools/browser-e2e
         run: |
-          npm ci --no-audit --no-fund
+          # The standalone browser test package currently has no package-lock.json.\n          # Install its exact pinned Playwright version without manufacturing a lock.\n          npm install --no-save --package-lock=false --no-audit --no-fund
           npx playwright install --with-deps chromium
       - name: Verify same real Trivy scan is visible in Angular
         working-directory: tools/browser-e2e
