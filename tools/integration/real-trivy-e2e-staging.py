@@ -107,5 +107,54 @@ else:
 test_env = dict(os.environ, CLUSTER_ID=str(cluster_id), IMAGE_ID=str(image_id))
 subprocess.run(["bash", str(root / "scripts/verify-trivy-e2e-linux.sh")],
                env=test_env, check=True, cwd=root)
+# A real broker can redeliver an already-acknowledged result. Re-submit its
+# scan UUID with deliberately different benign report values and prove that the
+# authenticated API returns the ORIGINAL decision without rewriting evidence.
+# This test runs only against the disposable staging fixture created above.
+run_id = run["id"]
+def scan_evidence():
+    return query(f"""SELECT
+      r.status || '|' || COALESCE(r.compliant::text, 'null') || '|' ||
+      r.updated_at::text || '|' ||
+      i.scan_queued::text || '|' || COALESCE(i.scan_results, '') || '|' ||
+      (SELECT COUNT(*) FROM image_scan_results s WHERE s.scan_run_id=r.id)::text || '|' ||
+      (SELECT COUNT(*) FROM image_scan_results_issues issue
+       JOIN image_scan_results s ON s.id=issue.image_results_id
+       WHERE s.scan_run_id=r.id)::text
+    FROM image_scan_runs r JOIN images i
+      ON i.id=r.image_id AND i.cluster_id=r.cluster_id
+    WHERE r.id='{run_id}' AND r.cluster_id={cluster_id}
+      AND r.image_id={image_id};""")
+
+before_replay = scan_evidence()
+if not before_replay.startswith("completed|"):
+    sys.exit("FAIL: staging image scan is no longer completed before duplicate replay")
+# A valid-shaped payload is intentionally NOT the original scan report. If
+# duplicate protection regresses, it could replace the actual findings.
+replay_payload = {"data": [{
+    "policyId": policy_id, "issues": [],
+    "criticalIssues": 0, "majorIssues": 0, "mediumIssues": 0,
+    "lowIssues": 0, "negligibleIssues": 0, "encounterError": False
+}]}
+replay_request = Request(
+    f"http://127.0.0.1:3000/api/clusters/{cluster_id}/images/{image_id}/trawler/scan/results",
+    json.dumps(replay_payload).encode(),
+    {"Content-Type": "application/json",
+     "X-API-Key": env["TRAWLER_API_KEY"],
+     "X-Scan-Run-Id": run_id},
+    method="POST"
+)
+with urlopen(replay_request, timeout=25) as response:
+    if response.status not in (200, 201):
+        sys.exit("FAIL: completed scan replay did not receive an idempotent success")
+    replay_response = json.load(response)
+original_compliant = before_replay.split("|")[1] == "true"
+returned = replay_response.get("data", replay_response)
+if not isinstance(returned, dict) or returned.get("complaint") is not original_compliant:
+    sys.exit("FAIL: duplicate replay did not return original compliance decision")
+after_replay = scan_evidence()
+if after_replay != before_replay:
+    sys.exit("FAIL: duplicate replay mutated completed scan metadata, policy rows or issues")
+print("PASS: duplicate completed Trivy callback returns original decision without DB writes")
 print(f"PASS: real queued Java Trivy -> NestJS -> PostgreSQL scan for {name}")
 print("Review the same image in Angular for the final browser acceptance gate.")
