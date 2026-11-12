@@ -426,7 +426,7 @@ export class ImageService implements OnModuleInit, OnModuleDestroy {
             }
         });
         const images = await this.imageDao.getCountOfTotalImagesRunningCount(searchParams);
-        return images?.[0]?.count ?? 0;
+        return Number(images?.[0]?.count ?? 0);
     }
 
     async getCountOfFilteredImagesVulnerabilities(filters: any, groupBy: string): Promise<any> {
