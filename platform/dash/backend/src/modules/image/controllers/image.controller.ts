@@ -43,7 +43,7 @@ import {ImageScanCountDto} from '../dto/Image-scan-count.dto';
 import {ImageDto} from "../dto/image-dto";
 import { ImageComplianceFacadeService } from '../../policy/services/image-compliance-facade-service';
 import { ImageScanResultPerPolicyFacadeDto } from '../../policy/dto/image-scan-results-perpolicy-dto';
-import { EnsureArrayTyping } from '../../shared/utilities/ensure-array-typing';
+import {parseImageSummaryFilters} from '../utilities/parse-image-summary-filters';
 
 @ApiTags('Images of cluster')
 @ApiBearerAuth('jwt-auth')
@@ -496,8 +496,10 @@ export class ImageController {
     })
     @ApiQuery({name : 'filters[clusterId]', style: "form", type: [Number]})
     @ApiQuery({name : 'filters[runningInCluster]', style: "form", type: Number})
-    async getCountOfFilteredImages(@Query('filters') filters: {clusterId: number[]; runningInCluster: number;}): Promise<number> {
-        return await this.imageService.getCountOfTotalImagesRunningCount(filters ?? {});
+    async getCountOfFilteredImages(@Query() query: Record<string, unknown>): Promise<number> {
+        const filters = parseImageSummaryFilters(query);
+        if (filters.clusterId.length === 0) return 0;
+        return this.imageService.getCountOfTotalImagesRunningCount(filters);
     }
 
     @Get('images/summary/vulnerabilities')
@@ -513,16 +515,13 @@ export class ImageController {
     @ApiQuery({name : 'filters[runningInCluster]', style: "form", type: Number})
     @ApiQuery({name : 'filters[namespace]', style: "form", type: [String]})
     async getCountOfFilteredImagesVulnerabilities(
-        @Query('filters') filters: {
-          clusterId: number[]; namespace: string[]
-          startDate: string; endDate: string;
-          runningInCluster: number;
-        },
+        @Query() query: Record<string, unknown>,
         @Query('group_by') groupBy: string
     ): Promise<TotalVulnerabilityResultsDto[]> {
-        const normalizedFilters = filters ?? {} as typeof filters;
-        normalizedFilters['namespace'] = EnsureArrayTyping.ensureArrayTyping(normalizedFilters['namespace']) ?? [];
-        return await this.imageService.getCountOfFilteredImagesVulnerabilities(normalizedFilters, groupBy);
+        const filters = parseImageSummaryFilters(query);
+        // No selected clusters must never expose all-cluster vulnerability history.
+        if (filters.clusterId.length === 0) return [];
+        return this.imageService.getCountOfFilteredImagesVulnerabilities(filters, groupBy);
     }
 
     @Get(':clusterId/summary/vulnerabilities')
