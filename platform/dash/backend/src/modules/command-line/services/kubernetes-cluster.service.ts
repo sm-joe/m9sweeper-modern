@@ -114,9 +114,9 @@ export class KubernetesClusterService {
         try {
             const namespaceListRes = await coreApi.listNamespace();
             const namespaces: NamespaceDto[] = await this.namespaceService.setNamespacesContents(namespaceListRes, cluster.id);
-            await Promise.all(namespaces.map(n => {
-              this.namespaceService.saveK8sNamespaces(n, cluster.id);
-            }));
+            await Promise.all(namespaces.map(n =>
+              this.namespaceService.saveK8sNamespaces(n, cluster.id)
+            ));
 
             const currentNamespaces = await this.namespaceService.getNamespacesByClusterId(cluster.id);
             const getNames = currentNamespaces.map( n => n.name);
