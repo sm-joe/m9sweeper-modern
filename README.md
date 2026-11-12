@@ -123,6 +123,21 @@ helm template m9sweeper platform/manifests/charts/m9sweeper \
 
 **Do not apply** rendered production manifests or use `--set` with real credentials until the chart's Secret handling, actual images, migration ordering, TLS and lifecycle are audited. Rendering to a file can expose credentials: protect and remove temporary manifest files. Use tested cluster-specific values and a staging install/upgrade/rollback before production rollout.
 
+## Native Linux release acceptance and production sign-off
+
+The complete staging sequence for **real Trivy, kube-bench, kube-hunter,
+Kubesec, and native Falco**, plus Helm install/upgrade/rollback, isolated
+PostgreSQL restore, security and signed candidate verification is documented
+in [final native Linux acceptance](docs/native-linux-final-acceptance.md).
+
+The read-only `scripts/verify-native-scanner-evidence-linux.sh` can corroborate
+fresh scanner report records under an explicitly approved staging cluster and
+time window; it does not generate findings, validate Kubesec UI evidence or
+certify native Falco provenance. Do not label a production release complete
+based only on green GitHub Actions; retain independent signed evidence against
+the exact source SHA and follow
+[release sign-off](docs/release-evidence-signoff.md).
+
 ## Diagnostics on Linux
 
 ```bash
