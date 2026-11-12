@@ -856,9 +856,16 @@ export class ImageDao {
     }
 
     async getCountOfTotalImagesRunningCount(filters: any): Promise<any>{
+        // An empty cluster scope must never become an unfiltered global count.
+        if (!Array.isArray(filters?.cluster_id) || filters.cluster_id.length === 0) {
+            return [{count: 0}];
+        }
         const knex = await this.databaseService.getConnection();
         const query = knex('images').count('id as count')
-          .where(filters);
+            .whereIn('cluster_id', filters.cluster_id);
+        if (filters.running_in_cluster !== undefined) {
+            query.where('running_in_cluster', filters.running_in_cluster);
+        }
         return query;
     }
 
