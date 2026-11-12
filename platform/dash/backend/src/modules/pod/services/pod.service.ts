@@ -64,15 +64,15 @@ export class PodService {
         return await this.podDao.getAllPodsBySelectedDate(clusterId, namespace, startTime, endTime);
     }
 
-    async deleteDeadPods(clusterId: number, runningPodNames: Array<string>) {
-        return await this.podDao.deleteDeadPods(clusterId, runningPodNames);
+    async deleteDeadPods(clusterId: number, runningPods: Array<{name: string, namespace: string}>) {
+        return await this.podDao.deleteDeadPods(clusterId, runningPods);
     }
 
     async savePod(pod: V1Pod, clusterId: number, imageIdMap: ImageIdInClusterMap): Promise<any> {
         const podDTO = new PodDto();
         podDTO.uid = pod.metadata.uid;
         podDTO.name = pod.metadata.name;
-        podDTO.namespace = pod.metadata.namespace;
+        podDTO.namespace = pod.metadata.namespace ?? 'default';
         podDTO.resourceVersion = pod.metadata.resourceVersion;
         podDTO.generateName = pod.metadata.generateName;
         podDTO.compliant = false;
@@ -83,7 +83,7 @@ export class PodService {
             ? String(pod.metadata.creationTimestamp.valueOf())
             : null;
         podDTO.clusterId = clusterId;
-        podDTO.podStatus = pod.status.phase;
+        podDTO.podStatus = pod.status?.phase ?? 'Unknown';
 
         const checkPodExistOrNot = await this.podDao.checkPodExists(podDTO.name, clusterId, podDTO.namespace);
 
@@ -107,11 +107,12 @@ export class PodService {
           // clear out null/undefined values
           .filter(x => !!x);
 
-        // pods can't change, so no reason to update. Just create.
-        if (checkPodExistOrNot.length == 0) {
+        // Pod names can be reused after deletion. Refresh the UID and metadata
+        // together with image associations, rather than preserving a stale pod.
+        if (checkPodExistOrNot.length === 0) {
             await this.podDao.savePod(podDTO, imageIds);
         } else {
-            await this.podDao.linkExistingPodImages(checkPodExistOrNot[0].id, imageIds);
+            await this.podDao.refreshExistingPod(checkPodExistOrNot[0].id, podDTO, imageIds, checkPodExistOrNot[0].uid);
         }
     }
 

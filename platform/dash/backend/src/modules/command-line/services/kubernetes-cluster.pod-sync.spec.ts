@@ -39,7 +39,9 @@ describe('KubernetesClusterService: fail-closed pod synchronization', () => {
     it('deletes stale pod rows only after all live Pod saves succeed', async () => {
         const {service, podService, eventService, pods} = subject();
         await expect((service as any).saveK8sPods(2, pods, {})).resolves.toBe(true);
-        expect(podService.deleteDeadPods).toHaveBeenCalledWith(2, ['a', 'b']);
+        expect(podService.deleteDeadPods).toHaveBeenCalledWith(2, [
+            {name: 'a', namespace: 'ns-a'}, {name: 'b', namespace: 'ns-b'}
+        ]);
         expect(eventService.createClusterEvent).not.toHaveBeenCalled();
     });
 

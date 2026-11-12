@@ -44,6 +44,72 @@ describe('PodDao atomic Kubernetes inventory persistence', () => {
         ]);
     });
 
+    it('refreshes pod metadata and associations in one transaction', async () => {
+        const {dao, connection, podsQuery, linksQuery} = db();
+        podsQuery.where = jest.fn().mockReturnThis();
+        podsQuery.update = jest.fn().mockResolvedValue(1);
+        await dao.refreshExistingPod(51, {clusterId: 2, name: 'demo', uid: 'new-uid'} as any, [11, 11, 12], 'old-uid');
+        expect(connection.transaction).toHaveBeenCalledTimes(1);
+        expect(podsQuery.where).toHaveBeenCalledWith({id: 51, cluster_id: 2});
+        expect(podsQuery.update).toHaveBeenCalledWith(expect.objectContaining({uid: 'new-uid'}));
+        expect(linksQuery.delete).toHaveBeenCalledTimes(1);
+        expect(linksQuery.insert).toHaveBeenCalledWith([
+            {pod_id: 51, image_id: 11}, {pod_id: 51, image_id: 12}
+        ]);
+    });
+
+    it('preserves compliance for the same pod UID', async () => {
+        const {dao, podsQuery} = db();
+        podsQuery.where = jest.fn().mockReturnThis();
+        podsQuery.update = jest.fn().mockResolvedValue(1);
+        await dao.refreshExistingPod(51, {clusterId: 2, uid: 'same', compliant: false} as any, [], 'same');
+        const update = podsQuery.update.mock.calls[0][0];
+        expect(update).not.toHaveProperty('compliant');
+    });
+
+    it('fails closed if an existing pod vanishes before refresh', async () => {
+        const {dao, podsQuery, linksQuery} = db();
+        podsQuery.where = jest.fn().mockReturnThis();
+        podsQuery.update = jest.fn().mockResolvedValue(0);
+        await expect(dao.refreshExistingPod(51, {clusterId: 2} as any, [11]))
+            .rejects.toThrow('disappeared');
+        expect(linksQuery.delete).not.toHaveBeenCalled();
+    });
+
+    it('removes only stale cluster/namespace/name identities', async () => {
+        const removed: number[][] = [];
+        const inventory = [
+            {id: 1, name: 'api', namespace: 'team-a'},
+            {id: 2, name: 'api', namespace: 'team-b'},
+            {id: 3, name: 'old', namespace: 'team-a'}
+        ];
+        const trx: any = jest.fn((table: string) => {
+            if (table === 'kubernetes_pods') {
+                return {
+                    select: jest.fn().mockReturnValue({
+                        where: jest.fn().mockResolvedValue(inventory)
+                    }),
+                    whereIn: jest.fn((_field: string, ids: number[]) => ({
+                        delete: jest.fn().mockImplementation(async () => { removed.push(ids); })
+                    }))
+                };
+            }
+            if (table === 'pod_images') {
+                return {whereIn: jest.fn((_field: string, ids: number[]) => ({
+                    delete: jest.fn().mockImplementation(async () => { removed.push(ids); })
+                }))};
+            }
+            throw new Error('Unexpected table');
+        });
+        const connection: any = {
+            transaction: jest.fn(async (callback: any) => callback(trx))
+        };
+        const dao = new PodDao({getConnection: jest.fn().mockResolvedValue(connection)} as any,
+            {log: jest.fn()} as any);
+        await dao.deleteDeadPods(2, [{name: 'api', namespace: 'team-a'}]);
+        expect(removed).toEqual([[2, 3], [2, 3]]);
+    });
+
     it('does not swallow PostgreSQL insert errors', async () => {
         const {dao, connection, linksQuery} = db({insertPodFails: true});
         await expect(dao.savePod({name: 'failed', clusterId: 2} as any, [11]))
