@@ -312,7 +312,7 @@ export class PodDao {
 
     async checkPodExists(podName:string, clusterId: number, namespace: string): Promise<any> {
         const knex = await this.databaseService.getConnection();
-        return knex.select(['name', 'id'])
+        return knex.select(['name', 'id', 'uid'])
             .from('kubernetes_pods')
             .where('name', podName)
             .andWhere('namespace', namespace)
@@ -339,6 +339,27 @@ export class PodDao {
                 })));
             }
             return id;
+        });
+    }
+
+    /** Refresh reused pod identity and image links atomically. */
+    async refreshExistingPod(podId: number, pod: PodDto, imageIds: Array<number>): Promise<void> {
+        const knex = await this.databaseService.getConnection();
+        const uniqueImages = [...new Set(imageIds.filter(imageId =>
+            Number.isSafeInteger(imageId) && imageId > 0))];
+        await knex.transaction(async trx => {
+            const updated = await trx('kubernetes_pods')
+                .where({id: podId, cluster_id: pod.clusterId})
+                .update(instanceToPlain(pod));
+            if (!updated) {
+                throw new Error('Existing Kubernetes pod disappeared during inventory refresh');
+            }
+            await trx('pod_images').where({pod_id: podId}).delete();
+            if (uniqueImages.length) {
+                await trx('pod_images').insert(uniqueImages.map(imageId => ({
+                    pod_id: podId, image_id: imageId
+                })));
+            }
         });
     }
 
@@ -405,29 +426,25 @@ export class PodDao {
 
   }
 
-    async deleteDeadPods(clusterId: number, runningPodNames: Array<string>) {
+    async deleteDeadPods(clusterId: number, runningPods: Array<{name: string, namespace: string}>) {
       const knex = await this.databaseService.getConnection();
-      const toDelete = await knex
-        .select()
-        .from('kubernetes_pods')
-        .where({ 'cluster_id': clusterId })
-        .whereNotIn('name', runningPodNames)
-        .select('id')
-        .returning(['id']);
-      const idsToDelete = toDelete.map(obj => obj.id);
-
-      if (!idsToDelete.length) {
-        return;
-      }
-      this.logger.log({label: 'Deleting dead pods', data: { clusterId, runningPodNames, idsToDelete, numPodsToDelete: idsToDelete.length }}, 'PodDao.deleteDeadPods');
-
-      // delete pods and their image associations
-      await knex.from('pod_images')
-        .whereIn('pod_id', idsToDelete)
-        .delete();
-      await knex.from('kubernetes_pods')
-        .whereIn('id', idsToDelete)
-        .delete();
+      // Names are unique only within a namespace. Never retain a stale pod
+      // because an unrelated namespace contains a pod with the same name.
+      const livePods = runningPods.map(p => ({name: p.name, namespace: p.namespace ?? 'default'}));
+      await knex.transaction(async trx => {
+        const candidates = trx('kubernetes_pods')
+          .select('id', 'name', 'namespace')
+          .where({'cluster_id': clusterId});
+        const existing = await candidates;
+        const liveKeys = new Set(livePods.map(p => JSON.stringify([p.namespace, p.name])));
+        const idsToDelete = existing
+          .filter(p => !liveKeys.has(JSON.stringify([p.namespace ?? 'default', p.name])))
+          .map(p => p.id);
+        if (!idsToDelete.length) return;
+        this.logger.log({label: 'Deleting dead pods', data: {clusterId, numPodsToDelete: idsToDelete.length}}, 'PodDao.deleteDeadPods');
+        await trx('pod_images').whereIn('pod_id', idsToDelete).delete();
+        await trx('kubernetes_pods').whereIn('id', idsToDelete).delete();
+      });
     }
 
     async deletePod(condition: {cluster_id?:  number; namespace?: string; pod_status?: string;}): Promise<number[]> {
