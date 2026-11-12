@@ -39,7 +39,7 @@ export class KubernetesClusterService {
             kubeConfig.setCurrentContext(cluster.context);
             const coreApi = this.k8sApiService.makeCoreV1ApiFromConfig(kubeConfig);
 
-            if (!await this.testCoreAPI(cluster, coreApi)) {
+            if (!await this.testCoreAPI(cluster, coreApi, kubeConfig?.getCurrentCluster()?.server)) {
               return {
                 everythingSuccessfullySynced: false,
                 nodeSummary: {numNodes: null, numCPU: null, amountRAM: null}
@@ -67,9 +67,16 @@ export class KubernetesClusterService {
      * required for the optional node summary; don't block pod inventory if the
      * stored service account lacks node RBAC permissions.
      */
-    private async testCoreAPI(cluster: ClusterDto, coreApi: CoreV1Api): Promise<boolean> {
+    private async testCoreAPI(cluster: ClusterDto, coreApi: CoreV1Api, server?: string): Promise<boolean> {
       try {
         if (!coreApi) throw new Error('Kubernetes API client unavailable');
+        // In Compose, localhost is the Dash container, not the Kind control plane.
+        if (server) {
+          const host = new URL(server).hostname.toLowerCase();
+          if (['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)) {
+            throw Object.assign(new Error('Kubernetes API uses container loopback'), {code: 'ELOOPBACK'});
+          }
+        }
         await coreApi.listNamespace();
         return true;
       } catch (error) {
@@ -78,7 +85,9 @@ export class KubernetesClusterService {
           error?.response?.status ?? error?.status);
         const networkCode = String(error?.code ?? error?.cause?.code ?? '').toUpperCase();
         let category = 'Kubernetes API request failed; check backend connectivity and kubeconfig';
-        if (status === 401) category = 'Kubernetes authentication failed (401); refresh the stored service-account token';
+        if (networkCode === 'ELOOPBACK')
+          category = 'Stored Kubernetes API endpoint is localhost/127.0.0.1; use a Docker-reachable API address with a matching trusted CA';
+        else if (status === 401) category = 'Kubernetes authentication failed (401); refresh the stored service-account token';
         else if (status === 403) category = 'Kubernetes authorization denied (403); grant list namespaces to the stored service account';
         else if (['ENOTFOUND', 'EAI_AGAIN'].includes(networkCode))
           category = 'Kubernetes API DNS failed; check the API hostname from the Dash container';
