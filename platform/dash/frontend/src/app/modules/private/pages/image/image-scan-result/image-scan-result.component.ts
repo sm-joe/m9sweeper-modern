@@ -1,4 +1,4 @@
-import {AfterViewInit, Component, OnInit, ViewChild, OnDestroy} from '@angular/core';
+import {AfterViewInit, ChangeDetectorRef, Component, OnInit, ViewChild, OnDestroy} from '@angular/core';
 import {ActivatedRoute, Router} from '@angular/router';
 import {AlertService} from 'src/app/core/services/alert.service';
 import {ImageService} from '../../../../../core/services/image.service';
@@ -101,7 +101,8 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
     public dialog: MatDialog,
     protected loader: NgxUiLoaderService,
     protected csvService: CsvService,
-    private router: Router) {
+    private router: Router,
+    private readonly changeDetector: ChangeDetectorRef) {
     this.imageId = +this.route.snapshot.paramMap.get('imageId');
   }
 
@@ -121,8 +122,12 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
         next: result => {
           this.latestScanRun = result.data || null;
           if (this.latestScanRun?.status === 'failed') this.scanResultTextColor = 'red';
+          this.changeDetector.markForCheck();
         },
-        error: () => { this.latestScanRun = null; }
+        error: () => {
+          this.latestScanRun = null;
+          this.changeDetector.markForCheck();
+        }
       });
   }
 
@@ -140,8 +145,10 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
         const hasBeenScanned = +result.data !== 0;
         this.scanButtonText = hasBeenScanned ? 'Rescan Image' : 'Scan Image';
         this.displayComplianceAndIssueTable = hasBeenScanned;
+        this.changeDetector.markForCheck();
       }, () => {
         this.scanButtonText = 'Scan Image';
+        this.changeDetector.markForCheck();
       });
   }
 
@@ -154,6 +161,9 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
           this.scanResultTextColor = ['unscanned', 'non-compliant', 'failed'].includes(this.scanResultText.toLowerCase()) ? 'red' : 'green';
           this.pageBrowserTitle = this.dataSource.name + ':' + this.dataSource.tag;
           this.titleService.setTitle(this.pageBrowserTitle);
+          // Async HTTP callbacks can update this component outside the next
+          // view pass. Ensure Angular renders the *ngIf image and status cards.
+          this.changeDetector.markForCheck();
           if (response.data.scanQueued) {
             this.setImageScanQueueStatus();
           } else {
@@ -167,9 +177,11 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
         take(1),
       )
       .subscribe((namespaces) => {
-          this.imageNamespaces = namespaces.data.map(namespace => namespace.namespace);
+          this.imageNamespaces = (namespaces?.data || []).map(namespace => namespace.namespace);
+          this.changeDetector.markForCheck();
     }, error => {
         console.error(error);
+        this.changeDetector.markForCheck();
         if (error?.error) {
           this.alertService.danger(error.error.message || error.error);
         }
@@ -239,6 +251,7 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
     this.scannerComplianceReport = new MatTableDataSource(response.data.list);
     this.totalCount = response.data.totalCount;
     this.scannerComplianceReport.sort = this.sort;
+    this.changeDetector.markForCheck();
     this.policyIds = response.data.list.map(scan => String(scan.policyId));
     // Do not mutate the rows backing the compliance table or select an old
     // report by popping the last element.
@@ -292,6 +305,7 @@ export class ImageScanResultComponent implements OnInit, AfterViewInit, OnDestro
     }) : [];
     this.imageScanResultIssueData = new MatTableDataSource(modifiedData);
     this.totalImageScanResultData = response.data.totalCount;
+    this.changeDetector.markForCheck();
     this.sortIssueTitles();
   }
 
