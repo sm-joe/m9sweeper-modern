@@ -274,4 +274,5 @@ PY
 
 
 
+python3 ../../tools/integration/check-dashboard-summary-http.py
 echo 'PASS: original full app, Postgres, RabbitMQ, admin seed and authentication'
