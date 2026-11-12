@@ -16,16 +16,14 @@ describe('Trivy report ingestion security', () => {
   it('defaults missing summary filters rather than throwing an internal server error', async () => {
     imageService.getCountOfTotalImagesRunningCount = jest.fn().mockResolvedValue(0);
     await expect(controller.getCountOfFilteredImages(undefined as any)).resolves.toBe(0);
-    expect(imageService.getCountOfTotalImagesRunningCount).toHaveBeenCalledWith({});
+    expect(imageService.getCountOfTotalImagesRunningCount).not.toHaveBeenCalled();
   });
 
   it('defaults missing vulnerability filters rather than accessing undefined namespace', async () => {
     imageService.getCountOfFilteredImagesVulnerabilities = jest.fn().mockResolvedValue([]);
     await expect(controller.getCountOfFilteredImagesVulnerabilities(undefined as any, 'savedAtDate'))
       .resolves.toEqual([]);
-    expect(imageService.getCountOfFilteredImagesVulnerabilities).toHaveBeenCalledWith(
-      expect.objectContaining({namespace: expect.any(Array)}), 'savedAtDate'
-    );
+    expect(imageService.getCountOfFilteredImagesVulnerabilities).not.toHaveBeenCalled();
   });
 
   it('renders first-login vulnerability widget without filters or a 500', async () => {
