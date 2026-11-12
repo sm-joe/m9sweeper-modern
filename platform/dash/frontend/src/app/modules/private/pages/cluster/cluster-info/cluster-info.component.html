@@ -8,7 +8,7 @@
           Cluster Info
         </div>
       </div>
-      <div class="cluster-info-button-item" *ngIf="isAdmin">
+      <div class="cluster-info-button-item" *ngIf="isAdmin && isClusterLoaded && cluster">
 
         <button [allowedRoles]="['ADMIN', 'SUPER_ADMIN']"
                 mat-raised-button
@@ -46,11 +46,11 @@
             <div class="page-card-title">{{cluster.name}} Details</div>
           </div>
         </mat-card-header>
-        <mat-card-content [ngClass]="{'mat-card-content-in-small-device': isMobileDevice}" *ngIf="buildDate">
+        <mat-card-content [ngClass]="{'mat-card-content-in-small-device': isMobileDevice}">
           <p>Host Name: {{cluster.ipAddress}}</p>
           <p>Port: {{cluster.port}}</p>
           <p>Context: {{cluster.context}}</p>
-          <p>Running m9sweeper version {{m9ver}} ({{commitSHA}} from {{buildDate}})</p>
+          <p *ngIf="buildDate">Running m9sweeper version {{m9ver}} ({{commitSHA}} from {{buildDate}})</p>
           <!-- <p>Grace Period Days: {{cluster.gracePeriodDays}}</p> -->
           <mat-chip-listbox aria-label="Cluster Tags" style="display:none!important">
             <p>Tags: </p><mat-chip-row *ngFor="let tag of cluster['tags']; index as i " [ngStyle]="{'background': calculateMenuColor(i), 'color': '#ffffff'}">{{tag.name}}</mat-chip-row>
