@@ -10,7 +10,8 @@ describe('PodService Kubernetes inventory compatibility', () => {
         podDao = {
             checkPodExists: jest.fn().mockResolvedValue([]),
             savePod: jest.fn().mockResolvedValue(91),
-            linkExistingPodImages: jest.fn().mockResolvedValue(undefined)
+            linkExistingPodImages: jest.fn().mockResolvedValue(undefined),
+            refreshExistingPod: jest.fn().mockResolvedValue(undefined)
         };
         utility = {extractImageHash: jest.fn().mockReturnValue('hash')};
         service = new PodService(podDao, utility, {} as any);
@@ -47,6 +48,20 @@ describe('PodService Kubernetes inventory compatibility', () => {
             status: {containerStatuses: undefined}
         }) as any, clusterId, images)).resolves.toBeUndefined();
         expect(podDao.savePod).toHaveBeenCalledWith(expect.anything(), []);
+    });
+
+    it('refreshes an existing pod identity when the Kubernetes UID changes', async () => {
+        podDao.checkPodExists.mockResolvedValue([{id: 51, uid: 'old-uid'}]);
+        await service.savePod(pod({metadata: {uid: 'new-uid'}}) as any, clusterId, images);
+        expect(podDao.refreshExistingPod).toHaveBeenCalledWith(
+            51, expect.objectContaining({uid: 'new-uid', namespace: 'default'}), [11]
+        );
+        expect(podDao.savePod).not.toHaveBeenCalled();
+    });
+
+    it('defaults an omitted namespace to Kubernetes default', async () => {
+        await service.savePod(pod({metadata: {namespace: undefined}}) as any, clusterId, images);
+        expect(podDao.checkPodExists).toHaveBeenCalledWith('demo', 2, 'default');
     });
 
     it('propagates database failures rather than claiming the Pod was saved', async () => {
