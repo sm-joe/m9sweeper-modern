@@ -11,10 +11,13 @@ const available = fs.existsSync(fixturePath);
 const fixture = available ? JSON.parse(fs.readFileSync(fixturePath, 'utf8')) : null;
 const envPath = path.join(root, 'platform/docker-compose/.env');
 const env = available ? Object.fromEntries(fs.readFileSync(envPath, 'utf8')
-  .split(/\\r?\\n/).filter(x => /^[A-Z][A-Z0-9_]*=/.test(x)).map(x => {
+  .split(/\r?\n/).filter(x => /^[A-Z][A-Z0-9_]*=/.test(x)).map(x => {
     const index = x.indexOf('=');
     return [x.slice(0, index), x.slice(index + 1)];
   })) : {};
+if (available && (!env.SUPER_ADMIN_EMAIL || !env.SUPER_ADMIN_PASSWORD)) {
+  throw new Error('Disposable Trivy browser test requires seeded admin credentials in Compose .env');
+}
 test.skip(!available, 'Only run with a real disposable Trivy staging scan fixture');
 
 test('real queued Trivy run persists and renders on Angular image-detail page', async ({page}) => {
