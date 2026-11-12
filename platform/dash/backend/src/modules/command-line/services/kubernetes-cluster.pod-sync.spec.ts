@@ -11,15 +11,21 @@ describe('KubernetesClusterService: fail-closed pod synchronization', () => {
             createClusterEvent: jest.fn().mockResolvedValue(undefined)
         };
         const logger: any = {log: jest.fn()};
+        const namespaceService: any = {
+            setNamespacesContents: jest.fn().mockResolvedValue([{name: 'default'}]),
+            saveK8sNamespaces: jest.fn().mockResolvedValue(undefined),
+            getNamespacesByClusterId: jest.fn().mockResolvedValue([{name: 'default'}]),
+            deleteDeadNamespaces: jest.fn()
+        };
         const service = new KubernetesClusterService(
-            logger, {} as any, {} as any, {} as any, {} as any,
+            logger, {} as any, namespaceService, {} as any, {} as any,
             podService, {} as any, {} as any, eventService
         );
         const pods = [
             {metadata: {name: 'a', namespace: 'ns-a'}},
             {metadata: {name: 'b', namespace: 'ns-b'}}
         ] as any;
-        return {service, podService, eventService, logger, pods};
+        return {service, podService, eventService, logger, namespaceService, pods};
     }
 
     it('checks required namespace access, not optional node permissions', async () => {
@@ -63,6 +69,15 @@ describe('KubernetesClusterService: fail-closed pod synchronization', () => {
           expect.stringContaining('Stored Kubernetes API endpoint is localhost/127.0.0.1'),
           'KubernetesClusterService.testCoreAPI()'
         );
+    });
+
+    it('does not report successful namespace sync before asynchronous writes finish', async () => {
+        const {service, namespaceService, eventService} = subject();
+        namespaceService.saveK8sNamespaces.mockRejectedValue(new Error('database down'));
+        const coreApi: any = {listNamespace: jest.fn().mockResolvedValue({body: {items: []}})};
+        await expect((service as any).syncNamespaces({id: 2}, coreApi)).resolves.toBe(false);
+        expect(eventService.createClusterEvent).toHaveBeenCalledTimes(1);
+        expect(namespaceService.getNamespacesByClusterId).not.toHaveBeenCalled();
     });
 
     it('does not delete existing inventory after a partial DB write failure', async () => {
