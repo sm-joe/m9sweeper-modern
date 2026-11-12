@@ -31,9 +31,26 @@ test('real queued Trivy run persists and renders on Angular image-detail page', 
   await expect(page).toHaveURL(/\/private(?:\/|$)/, {timeout: 20_000});
 
   const location = `/private/clusters/${fixture.clusterId}/images/image-scan/${fixture.imageId}`;
-  await page.goto(location);
+  const imageApi = `/api/clusters/${fixture.clusterId}/images/${fixture.imageId}`;
+  const runApi = `${imageApi}/scan-run/latest`;
+  const [imageResponse, runResponse] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === imageApi &&
+      response.request().method() === 'GET', {timeout: 20_000}),
+    page.waitForResponse(response => new URL(response.url()).pathname === runApi &&
+      response.request().method() === 'GET', {timeout: 20_000}),
+    page.goto(location)
+  ]).then(([imageResponse, runResponse]) => [imageResponse, runResponse]);
   await expect(page).toHaveURL(new RegExp(`/private/clusters/${fixture.clusterId}/images/image-scan/${fixture.imageId}`));
-  await expect(page.locator('#scanInformation #image-name')).toContainText('alpine:3.21');
+  expect(imageResponse.status(), 'Angular image-detail API must succeed').toBe(200);
+  expect(runResponse.status(), 'Angular latest scan-run API must succeed').toBe(200);
+  const imageResult = await imageResponse.json();
+  const runResult = await runResponse.json();
+  expect(imageResult?.data?.id).toBe(fixture.imageId);
+  expect(imageResult?.data?.clusterId).toBe(fixture.clusterId);
+  expect(runResult?.data?.id).toBe(fixture.runId);
+  expect(runResult?.data?.status).toBe('completed');
+  expect(runResult?.data?.compliant).toBe(fixture.compliant);
+  await expect(page.locator('#scanInformation #image-name')).toContainText('alpine:3.21', {timeout: 20_000});
   await expect(page.locator('#scanRunState')).toContainText('Latest Trivy scan: completed', {timeout: 20_000});
   await expect(page.locator('#scanRunState')).toContainText(
     fixture.compliant ? 'Result: Compliant' : 'Result: Non-compliant'
