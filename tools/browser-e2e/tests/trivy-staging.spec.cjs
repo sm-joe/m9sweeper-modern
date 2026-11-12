@@ -6,15 +6,16 @@ const path = require('node:path');
 // No secrets are written to the fixture; credentials remain in the disposable
 // Compose environment file used by other browser regression tests.
 const root = path.resolve(__dirname, '../../..');
-const fixture = JSON.parse(fs.readFileSync(
-  path.join(root, 'tools/browser-e2e/.ci-trivy-fixture.json'), 'utf8'
-));
-const env = Object.fromEntries(fs.readFileSync(
-  path.join(root, 'platform/docker-compose/.env'), 'utf8'
-).split(/\r?\n/).filter(x => /^[A-Z][A-Z0-9_]*=/.test(x)).map(x => {
-  const index = x.indexOf('=');
-  return [x.slice(0, index), x.slice(index + 1)];
-}));
+const fixturePath = path.join(root, 'tools/browser-e2e/.ci-trivy-fixture.json');
+const available = fs.existsSync(fixturePath);
+const fixture = available ? JSON.parse(fs.readFileSync(fixturePath, 'utf8')) : null;
+const envPath = path.join(root, 'platform/docker-compose/.env');
+const env = available ? Object.fromEntries(fs.readFileSync(envPath, 'utf8')
+  .split(/\\r?\\n/).filter(x => /^[A-Z][A-Z0-9_]*=/.test(x)).map(x => {
+    const index = x.indexOf('=');
+    return [x.slice(0, index), x.slice(index + 1)];
+  })) : {};
+test.skip(!available, 'Only run with a real disposable Trivy staging scan fixture');
 
 test('real queued Trivy run persists and renders on Angular image-detail page', async ({page}) => {
   expect(Number.isSafeInteger(fixture.clusterId) && fixture.clusterId > 0).toBeTruthy();
