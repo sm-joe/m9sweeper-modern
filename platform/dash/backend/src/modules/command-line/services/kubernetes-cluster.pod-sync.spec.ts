@@ -52,6 +52,19 @@ describe('KubernetesClusterService: fail-closed pod synchronization', () => {
         );
     });
 
+    it('explains why a host-local Kind API endpoint cannot work from Compose', async () => {
+        const {service, eventService} = subject();
+        const coreApi: any = {listNamespace: jest.fn()};
+        await expect((service as any).testCoreAPI({id: 2}, coreApi, 'https://127.0.0.1:57363'))
+          .resolves.toBe(false);
+        expect(coreApi.listNamespace).not.toHaveBeenCalled();
+        expect(eventService.createClusterEventObject).toHaveBeenCalledWith(
+          0, 'Batch Job', 'Get', 'Error',
+          expect.stringContaining('Stored Kubernetes API endpoint is localhost/127.0.0.1'),
+          'KubernetesClusterService.testCoreAPI()'
+        );
+    });
+
     it('does not delete existing inventory after a partial DB write failure', async () => {
         const {service, podService, eventService, pods} = subject();
         podService.savePod.mockResolvedValueOnce(undefined)
