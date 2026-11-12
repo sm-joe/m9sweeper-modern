@@ -1,4 +1,4 @@
-import {Component, OnInit, ViewChild, OnDestroy} from '@angular/core';
+import {ChangeDetectorRef, Component, OnInit, ViewChild, OnDestroy} from '@angular/core';
 import {Router, ActivatedRoute} from '@angular/router';
 import {ClusterService} from '../../../../../core/services/cluster.service';
 import {ICluster} from '../../../../../core/entities/ICluster';
@@ -43,6 +43,7 @@ export class ClusterInfoComponent implements OnInit, OnDestroy {
   awaitingImageScanningEnforcementResponse = false;
 
   constructor(
+    private readonly changeDetector: ChangeDetectorRef,
     private alertService: AlertService,
     private breakpointObserver: BreakpointObserver,
     private clusterService: ClusterService,
@@ -69,11 +70,13 @@ export class ClusterInfoComponent implements OnInit, OnDestroy {
         this.cluster = response.data;
         this.isEnforcementEnabled = this.cluster.isEnforcementEnabled;
         this.isImageScanningEnforcementEnabled = this.cluster.isImageScanningEnforcementEnabled;
+        this.changeDetector.markForCheck();
 
         this.infoService.getDatabaseStatus().pipe(take(1)).subscribe(res => {
           this.m9ver = res.data.git_tag;
           this.commitSHA = res.data.git_sha;
           this.buildDate = res.data.build_date;
+          this.changeDetector.markForCheck();
         });
       });
     });
@@ -87,6 +90,7 @@ export class ClusterInfoComponent implements OnInit, OnDestroy {
   getClusterById(clusterId: number) {
     this.clusterService.getClusterById(clusterId).subscribe(response => {
       this.cluster = response.data;
+      this.changeDetector.markForCheck();
     });
   }
 

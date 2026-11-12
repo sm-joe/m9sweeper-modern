@@ -421,12 +421,12 @@ export class ImageService implements OnModuleInit, OnModuleDestroy {
         const searchParams = {};
 
         Object.keys(fields).forEach(key => {
-            if (filters.hasOwnProperty(key)) {
+            if (filters && Object.prototype.hasOwnProperty.call(filters, key)) {
                 searchParams[fields[key]] = filters[key];
             }
         });
         const images = await this.imageDao.getCountOfTotalImagesRunningCount(searchParams);
-        return images[0].count;
+        return images?.[0]?.count ?? 0;
     }
 
     async getCountOfFilteredImagesVulnerabilities(filters: any, groupBy: string): Promise<any> {
