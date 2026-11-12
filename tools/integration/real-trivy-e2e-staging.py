@@ -13,6 +13,7 @@ import sys
 import time
 from pathlib import Path
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 if os.getenv("M9_STAGING_E2E_TEST") != "YES":
     sys.exit("Set M9_STAGING_E2E_TEST=YES only on an isolated staging host")
@@ -132,7 +133,7 @@ if not before_replay.startswith("completed|"):
 # A valid-shaped payload is intentionally NOT the original scan report. If
 # duplicate protection regresses, it could replace the actual findings.
 replay_payload = {"data": [{
-    "policyId": policy_id, "issues": [],
+    "policyId": policy_id, "summary": "duplicate delivery acceptance probe", "issues": [],
     "criticalIssues": 0, "majorIssues": 0, "mediumIssues": 0,
     "lowIssues": 0, "negligibleIssues": 0, "encounterError": False
 }]}
@@ -144,10 +145,15 @@ replay_request = Request(
      "X-Scan-Run-Id": run_id},
     method="POST"
 )
-with urlopen(replay_request, timeout=25) as response:
-    if response.status not in (200, 201):
-        sys.exit("FAIL: completed scan replay did not receive an idempotent success")
-    replay_response = json.load(response)
+try:
+    with urlopen(replay_request, timeout=25) as response:
+        if response.status not in (200, 201):
+            sys.exit("FAIL: completed scan replay did not receive an idempotent success")
+        replay_response = json.load(response)
+except HTTPError as exc:
+    # API can return validation errors with request-derived data. Never echo raw
+    # HTTP response bodies, headers, scanner keys or credentials into CI logs.
+    sys.exit(f"FAIL: completed scan replay returned HTTP {exc.code}; check DTO validation and scanner grants")
 original_compliant = before_replay.split("|")[1] == "true"
 returned = replay_response.get("data", replay_response)
 if not isinstance(returned, dict) or returned.get("complaint") is not original_compliant:
