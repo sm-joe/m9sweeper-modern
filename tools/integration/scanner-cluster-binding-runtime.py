@@ -112,4 +112,48 @@ if count(cluster_a) != before_a + 1 or count(cluster_b) != before_b:
 print("PASS: scanner X-API-Key with explicit write grant ingested cluster A")
 print("PASS: same scanner X-API-Key denied for cluster B with HTTP 401 and no database write")
 print("PASS: anonymous scanner rejected even on allowed cluster")
+# Independently exercise the kube-hunter collector identity using the same
+# explicitly granted cluster A and denied cluster B. This proves the separate
+# scanner route does not bypass runtime cluster-binding enforcement.
+kubehunter_identity = int(execute_sql(
+    "SELECT id FROM users WHERE lower(email)=lower('Kubehunter') AND is_active=true LIMIT 1;"
+))
+execute_sql(
+    "INSERT INTO cluster_user_access(cluster_id,user_id,can_write,created_at) "
+    f"VALUES ({cluster_a},{kubehunter_identity},true,"
+    "CAST(EXTRACT(EPOCH FROM NOW()) * 1000 AS BIGINT)) "
+    "ON CONFLICT (cluster_id,user_id) DO UPDATE SET can_write=true;"
+)
+
+def kubehunter_count(cluster_id):
+    return int(execute_sql(
+        f"SELECT COUNT(*) FROM kube_hunter WHERE cluster_id={cluster_id};"
+    ))
+
+def kubehunter_report(cluster_id, authenticated=True):
+    body = {"nodes": {}, "services": {}, "vulnerabilities": {"value": []}}
+    headers = {"Content-Type": "application/json"}
+    if authenticated:
+        headers["X-API-Key"] = values["KUBE_HUNTER_API_KEY"]
+    request = Request(
+        f"http://127.0.0.1:3000/api/kubehunter/hunter/{cluster_id}",
+        json.dumps(body).encode(), headers, method="POST"
+    )
+    try:
+        with urlopen(request, timeout=15) as response:
+            return response.status
+    except HTTPError as error:
+        return error.code
+
+kh_before_a, kh_before_b = kubehunter_count(cluster_a), kubehunter_count(cluster_b)
+if kubehunter_report(cluster_a) not in (200, 201):
+    raise AssertionError("Granted kube-hunter scanner refused cluster A")
+if kubehunter_report(cluster_b) != 401:
+    raise AssertionError("Kube-hunter scanner accepted unauthorized cluster B")
+if kubehunter_report(cluster_a, authenticated=False) != 401:
+    raise AssertionError("Anonymous kube-hunter scanner request was accepted")
+if kubehunter_count(cluster_a) != kh_before_a + 1 or kubehunter_count(cluster_b) != kh_before_b:
+    raise AssertionError("Kube-hunter grant isolation failed to protect persisted reports")
+print("PASS: kube-hunter granted cluster A, denied cluster B and anonymous calls")
+print("PASS: unauthorized kube-hunter requests did not persist reports")
 print("PASS: real NestJS enforced SCANNER_REQUIRE_CLUSTER_BINDINGS=true")
