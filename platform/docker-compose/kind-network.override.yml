@@ -1,0 +1,13 @@
+# Optional local development override when Dash monitors a Kubernetes-in-Docker (Kind) cluster.
+# Use alongside docker-compose.yml only when a Docker network named "kind" exists.
+# Do NOT apply this override to ordinary Linux/Kubernetes deployments.
+services:
+  dash:
+    networks:
+      - default
+      - kind
+
+networks:
+  kind:
+    external: true
+    name: kind
