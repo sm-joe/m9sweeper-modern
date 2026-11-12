@@ -54,7 +54,7 @@ describe('PodService Kubernetes inventory compatibility', () => {
         podDao.checkPodExists.mockResolvedValue([{id: 51, uid: 'old-uid'}]);
         await service.savePod(pod({metadata: {uid: 'new-uid'}}) as any, clusterId, images);
         expect(podDao.refreshExistingPod).toHaveBeenCalledWith(
-            51, expect.objectContaining({uid: 'new-uid', namespace: 'default'}), [11]
+            51, expect.objectContaining({uid: 'new-uid', namespace: 'default'}), [11], 'old-uid'
         );
         expect(podDao.savePod).not.toHaveBeenCalled();
     });
