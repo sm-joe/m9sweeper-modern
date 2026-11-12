@@ -194,7 +194,9 @@ export class KubernetesClusterService {
         return false;
       }
       // Only remove stale records after ALL observed running pods are persisted.
-      await this.podService.deleteDeadPods(clusterId, runningPods.map(p => p.metadata.name));
+      await this.podService.deleteDeadPods(clusterId, runningPods.map(p => ({
+        name: p.metadata.name, namespace: p.metadata.namespace ?? 'default'
+      })));
       return true;
     }
 
