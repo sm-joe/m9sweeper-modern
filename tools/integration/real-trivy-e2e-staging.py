@@ -157,4 +157,11 @@ if after_replay != before_replay:
     sys.exit("FAIL: duplicate replay mutated completed scan metadata, policy rows or issues")
 print("PASS: duplicate completed Trivy callback returns original decision without DB writes")
 print(f"PASS: real queued Java Trivy -> NestJS -> PostgreSQL scan for {name}")
-print("Review the same image in Angular for the final browser acceptance gate.")
+# Publish only nonsecret fixture identifiers for the independent Playwright UI
+# check in the same disposable CI checkout. Never publish access tokens.
+fixture_path = root / "tools/browser-e2e/.ci-trivy-fixture.json"
+fixture_path.write_text(json.dumps({
+    "clusterId": cluster_id, "imageId": image_id, "runId": run_id,
+    "compliant": original_compliant
+}))
+print("PASS: nonsecret real-scan identifiers ready for Angular Playwright acceptance")
