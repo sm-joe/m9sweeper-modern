@@ -1,4 +1,5 @@
 <div class="main-container">
+  <p *ngIf="clusterLoadError" role="alert">Unable to load cluster details. Check your access and retry the page.</p>
 
   <div id="cluster-dashboard" class="cluster-dashboard w-100">
     <router-outlet></router-outlet>
