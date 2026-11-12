@@ -44,6 +44,29 @@ describe('PodDao atomic Kubernetes inventory persistence', () => {
         ]);
     });
 
+    it('refreshes pod metadata and associations in one transaction', async () => {
+        const {dao, connection, podsQuery, linksQuery} = db();
+        podsQuery.where = jest.fn().mockReturnThis();
+        podsQuery.update = jest.fn().mockResolvedValue(1);
+        await dao.refreshExistingPod(51, {clusterId: 2, name: 'demo', uid: 'new-uid'} as any, [11, 11, 12]);
+        expect(connection.transaction).toHaveBeenCalledTimes(1);
+        expect(podsQuery.where).toHaveBeenCalledWith({id: 51, cluster_id: 2});
+        expect(podsQuery.update).toHaveBeenCalledWith(expect.objectContaining({uid: 'new-uid'}));
+        expect(linksQuery.delete).toHaveBeenCalledTimes(1);
+        expect(linksQuery.insert).toHaveBeenCalledWith([
+            {pod_id: 51, image_id: 11}, {pod_id: 51, image_id: 12}
+        ]);
+    });
+
+    it('fails closed if an existing pod vanishes before refresh', async () => {
+        const {dao, podsQuery, linksQuery} = db();
+        podsQuery.where = jest.fn().mockReturnThis();
+        podsQuery.update = jest.fn().mockResolvedValue(0);
+        await expect(dao.refreshExistingPod(51, {clusterId: 2} as any, [11]))
+            .rejects.toThrow('disappeared');
+        expect(linksQuery.delete).not.toHaveBeenCalled();
+    });
+
     it('does not swallow PostgreSQL insert errors', async () => {
         const {dao, connection, linksQuery} = db({insertPodFails: true});
         await expect(dao.savePod({name: 'failed', clusterId: 2} as any, [11]))
