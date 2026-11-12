@@ -343,14 +343,20 @@ export class PodDao {
     }
 
     /** Refresh reused pod identity and image links atomically. */
-    async refreshExistingPod(podId: number, pod: PodDto, imageIds: Array<number>): Promise<void> {
+    async refreshExistingPod(podId: number, pod: PodDto, imageIds: Array<number>, previousUid?: string): Promise<void> {
         const knex = await this.databaseService.getConnection();
         const uniqueImages = [...new Set(imageIds.filter(imageId =>
             Number.isSafeInteger(imageId) && imageId > 0))];
+        const metadata = instanceToPlain(pod);
+        // A stable pod retains its previously calculated compliance status.
+        // A recreated pod (new UID) must be assessed afresh.
+        if (previousUid && previousUid === pod.uid) {
+            delete metadata.compliant;
+        }
         await knex.transaction(async trx => {
             const updated = await trx('kubernetes_pods')
                 .where({id: podId, cluster_id: pod.clusterId})
-                .update(instanceToPlain(pod));
+                .update(metadata);
             if (!updated) {
                 throw new Error('Existing Kubernetes pod disappeared during inventory refresh');
             }
