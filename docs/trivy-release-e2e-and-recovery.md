@@ -32,3 +32,22 @@ The script refuses the `m9sweeper-system` namespace; it upgrades the existing re
 ## External bootstrap Secret support
 
 The umbrella Helm chart now accepts dash.init.existingSecret, in addition to dash.existingSecret and trawler.existingSecret. With all three set, Helm no longer requires the bootstrap account/password or JWT/trawler API key to be placed in release values and the init Job reads secrets through envFrom. Create a restricted Kubernetes Secret containing CLUSTER_API_KEY, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD, TRAWLER_API_KEY, KUBE_HUNTER_API_KEY, KUBE_BENCH_API_KEY and FALCO_API_KEY. The Dash and trawler external Secrets must include their normal complete runtime environment variables. Verify Secret creation, controlled key rotation, init sequencing and full Helm staging lifecycle before production. Existing inline values remain supported for legacy test environments only.
+
+## Duplicate completed-run callback acceptance (automated staging)
+
+The real Trivy staging launcher also replays its completed scan UUID through the
+**authenticated NestJS ingestion endpoint**, using a valid-shaped report with
+deliberately different counts. Before and after that replay, it compares the
+run status, compliance, updated timestamp, image queue state, image summary,
+policy-row count and vulnerability-issue count. The response must return the
+original compliance decision and all persisted fields must remain unchanged.
+
+This proves terminal completion is idempotent **for the tested live API path**;
+it is not proof of exactly-once broker delivery or of general replay protection
+for pre-RC4 messages without scan UUIDs. The test uses a disposable staging
+cluster/image and must never target an operator's existing scan history.
+
+The current disposable CI also covers three retries and durable DLQ retention
+for a poison message plus the failed-run callback. Full release acceptance
+still needs browser examination of the exact scan/image and runtime evidence
+for the supported Linux/Kubernetes environment.
