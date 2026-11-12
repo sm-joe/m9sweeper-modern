@@ -48,7 +48,7 @@ describe('PodDao atomic Kubernetes inventory persistence', () => {
         const {dao, connection, podsQuery, linksQuery} = db();
         podsQuery.where = jest.fn().mockReturnThis();
         podsQuery.update = jest.fn().mockResolvedValue(1);
-        await dao.refreshExistingPod(51, {clusterId: 2, name: 'demo', uid: 'new-uid'} as any, [11, 11, 12]);
+        await dao.refreshExistingPod(51, {clusterId: 2, name: 'demo', uid: 'new-uid'} as any, [11, 11, 12], 'old-uid');
         expect(connection.transaction).toHaveBeenCalledTimes(1);
         expect(podsQuery.where).toHaveBeenCalledWith({id: 51, cluster_id: 2});
         expect(podsQuery.update).toHaveBeenCalledWith(expect.objectContaining({uid: 'new-uid'}));
@@ -56,6 +56,15 @@ describe('PodDao atomic Kubernetes inventory persistence', () => {
         expect(linksQuery.insert).toHaveBeenCalledWith([
             {pod_id: 51, image_id: 11}, {pod_id: 51, image_id: 12}
         ]);
+    });
+
+    it('preserves compliance for the same pod UID', async () => {
+        const {dao, podsQuery} = db();
+        podsQuery.where = jest.fn().mockReturnThis();
+        podsQuery.update = jest.fn().mockResolvedValue(1);
+        await dao.refreshExistingPod(51, {clusterId: 2, uid: 'same', compliant: false} as any, [], 'same');
+        const update = podsQuery.update.mock.calls[0][0];
+        expect(update).not.toHaveProperty('compliant');
     });
 
     it('fails closed if an existing pod vanishes before refresh', async () => {
