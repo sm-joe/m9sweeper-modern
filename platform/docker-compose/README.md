@@ -102,3 +102,37 @@ podman compose ps
 These commands are local integration only; a successful Compose start is not
 proof that kube-bench/Falco/Gatekeeper/admission are deployed or integrated.
 Never use `podman compose down -v` to troubleshoot: it removes database volumes.
+
+## Optional Kind networking for local integration
+
+A registered Kind cluster can have an API server hostname (such as
+`kind-control-plane`) that resolves **only** on Docker's `kind` network.
+The normal Compose project does not automatically share this network.
+If the cluster inventory job reports `ENOTFOUND`, check DNS/network access
+before modifying credentials or RBAC.
+
+Use `kind-network.override.yml` only if `docker network inspect kind`
+confirms that the network exists. The override adds the `kind` network to
+the Dash service without removing its default Compose network.
+
+```sh
+docker compose -f docker-compose.yml -f kind-network.override.yml config --quiet
+docker compose -f docker-compose.yml -f kind-network.override.yml up -d --no-deps dash
+docker compose -f docker-compose.yml -f kind-network.override.yml exec -T dash node /usr/src/app/cli.js cluster:sync 2
+```
+
+The `2` above is an example cluster ID. Use the registered cluster ID.
+Set Compose environment variables or use the local `.env` as normal.
+
+The saved kubeconfig must specify an API server reachable **from Dash**.
+For Kind, an appropriate container-network hostname may be
+`https://kind-control-plane:6443`, but verify the actual control-plane
+container name and the server certificate's Subject Alternative Names
+before using it. Do **not** disable Kubernetes TLS verification, export
+bearer tokens to logs, or blindly replace the stored URL. The Kind API server
+hostname must resolve from Dash, the service account needs permission to
+list namespaces and pods, and the stored trusted CA must validate the server.
+
+The default Compose file remains independent of Kind. The optional override
+is for local development only and is not part of the Linux/Kubernetes Helm
+installation.
