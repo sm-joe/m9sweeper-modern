@@ -521,7 +521,7 @@ export class ImageController {
         @Query('group_by') groupBy: string
     ): Promise<TotalVulnerabilityResultsDto[]> {
         const normalizedFilters = filters ?? {} as typeof filters;
-        normalizedFilters['namespace'] = EnsureArrayTyping.ensureArrayTyping(normalizedFilters['namespace']);
+        normalizedFilters['namespace'] = EnsureArrayTyping.ensureArrayTyping(normalizedFilters['namespace']) ?? [];
         return await this.imageService.getCountOfFilteredImagesVulnerabilities(normalizedFilters, groupBy);
     }
 
