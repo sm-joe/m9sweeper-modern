@@ -1,6 +1,42 @@
-# m9sweeper-new — release acceptance tracker
+# m9sweeper-modern — release acceptance tracker
 
-**Status: release candidate in progress — NOT production-ready.** Updated 2026-11-09. This is the canonical source-of-truth for completion claims and next priorities. Do not merge a PR merely because an individual scan worked or a unit test passed.
+**Current checkpoint: 13 November 2026 — integration candidate, NOT approved for production release.**
+
+This is the current source-of-truth checkpoint. The pre-November-13 history
+below is retained only for traceability; old pending descriptions do not
+supersede verified, merged work. The release is **not** complete simply because
+repository CI is green.
+
+## Current merged source and CI evidence
+
+| Gate | Evidence as of 13 November 2026 | Decision |
+| --- | --- | --- |
+| Dashboard startup/summary filters | [PR #74](https://github.com/sm-joe/m9sweeper-modern/pull/74) merged as `86d3809`, backend Jest and full platform PR CI passed; outdated #65 closed | Code and PR CI completed; runtime release confirmation still required |
+| Trivy queue → Java → PostgreSQL → Angular | [PR #71](https://github.com/sm-joe/m9sweeper-modern/pull/71) merged as `df1d024`; real staging queue and Chromium acceptance passed, including replay idempotency and DLQ | Verified in disposable CI; native production environment not certified |
+| Scanner multicluster authorization | [PR #72](https://github.com/sm-joe/m9sweeper-modern/pull/72) merged as `33389ec`; full integration matrix passed | Disposable CI authorization passed; final live tenancy review required |
+| Exact-commit release evidence | [PR #73](https://github.com/sm-joe/m9sweeper-modern/pull/73) merged as `7fd6bf6`; fail-closed manifest validator and fast CI passed | Evidence schema implemented; operator sign-off not yet supplied |
+| Fresh native scanner evidence | [PR #75](https://github.com/sm-joe/m9sweeper-modern/pull/75) merged as `abc7960`; native Linux read-only staging scanner checker and fast safety CI passed | **Native sensor and cluster evidence not yet executed/attested** |
+| Helm and DB restore | Existing staging lifecycle/rollback scripts and scratch DB digest verification; full Kind API compatibility CI | **Production-like Linux rollout and independent recovery proof outstanding** |
+| Signed Linux candidate | `.github/workflows/signed-linux-candidate.yml` supports nonproduction OCI images, signatures, Helm, SBOM | **No successful final candidate publication independently verified** |
+| Public v1.0.0 | No public GitHub release published in this checkpoint | **Blocked** |
+
+## Remaining public-release blockers
+
+1. Approved native Linux/eBPF Falco sensor → Sidekick → NestJS → PostgreSQL → Angular, plus fresh kube-bench evidence/PDF, kube-hunter, Kubesec and Trivy in one qualified staging environment.
+2. Full Helm install, upgrade, rollback, uninstall/cleanup and trusted-TLS/Secrets operational validation with retained before/after evidence.
+3. Quiesced staging backup and scratch PostgreSQL restore; verify counts and content digests, retain private backup, and separately document recovery objectives.
+4. Route-by-route cluster ownership/security assessment, least-privilege scanner identities, signed release asset review, third-party dependency/license and upstream attribution confirmation.
+5. Independently verified OCI/Helm signature and SBOM artifacts pinned to the exact proposed release SHA, followed by reviewed [release sign-off evidence](release-evidence-signoff.md). Do not publish a production tag before sign-off.
+
+Follow the [native Linux end-to-end procedure](native-linux-final-acceptance.md).
+Do not fabricate scanner or CIS compliance results. Existing Kind and Compose CI
+does not establish native Linux kernel compatibility or disaster recovery.
+
+---
+
+## Archived 9 November tracker (historical context)
+
+**Historical snapshot: 9 November 2026; superseded by the 13 November checkpoint above.** Do not merge a PR merely because an individual scan worked or a unit test passed.
 
 Product target: independently maintained Linux/Kubernetes deployment of m9sweeper-new with maintained upstream license attribution, professional documentation, and a functioning Angular dashboard, NestJS API, Java scanner/trawler, RabbitMQ transport and PostgreSQL persistence. Maintain original Trivy, kube-bench, Kubesec, kube-hunter, Falco, policy/admission and risk-scoring features.
 
