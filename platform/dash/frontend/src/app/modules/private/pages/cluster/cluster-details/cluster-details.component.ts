@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ActivatedRoute } from '@angular/router';
@@ -18,6 +18,7 @@ export class ClusterDetailsComponent implements OnInit, OnDestroy {
   isClusterLoaded = false;
 
   constructor(
+    private readonly changeDetector: ChangeDetectorRef,
     private clusterService: ClusterService,
     private route: ActivatedRoute,
   ) {}
@@ -30,6 +31,7 @@ export class ClusterDetailsComponent implements OnInit, OnDestroy {
       } else {
         this.clusterLoadError = true;
         this.isClusterLoaded = false;
+        this.changeDetector.markForCheck();
       }
     });
   }
@@ -42,10 +44,12 @@ export class ClusterDetailsComponent implements OnInit, OnDestroy {
         this.cluster = response?.data;
         this.isClusterLoaded = !!this.cluster;
         this.clusterLoadError = !this.cluster;
+        this.changeDetector.markForCheck();
       },
       error: () => {
         this.isClusterLoaded = false;
         this.clusterLoadError = true;
+        this.changeDetector.markForCheck();
       }
     });
   }
