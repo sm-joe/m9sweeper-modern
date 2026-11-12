@@ -112,7 +112,7 @@ export class PodService {
         if (checkPodExistOrNot.length === 0) {
             await this.podDao.savePod(podDTO, imageIds);
         } else {
-            await this.podDao.refreshExistingPod(checkPodExistOrNot[0].id, podDTO, imageIds);
+            await this.podDao.refreshExistingPod(checkPodExistOrNot[0].id, podDTO, imageIds, checkPodExistOrNot[0].uid);
         }
     }
 
