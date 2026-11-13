@@ -1,5 +1,5 @@
 import { KubernetesApiService } from './kubernetes-api.service';
-import { KubeConfig } from '@kubernetes/client-node';
+import { KubeConfig, KubernetesObjectApi } from '@kubernetes/client-node';
 
 describe('Kubernetes API client TLS requirements', () => {
   const svc = new KubernetesApiService({get: jest.fn().mockReturnValue('m9sweeper-system')} as any);
@@ -72,5 +72,52 @@ describe('service account token provisioning readiness', () => {
       {readNamespacedSecret} as any, 'm9sweeper', 'default'
     )).resolves.toBe('issued-service-account-jwt');
     expect(readNamespacedSecret).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Kubernetes object apply is fail closed', () => {
+  const svc = new KubernetesApiService({get: jest.fn()} as any);
+  const config = new KubeConfig();
+  const target: any = {apiVersion: 'v1',kind: 'ServiceAccount',
+    metadata:{name:'m9sweeper',namespace:'default'}};
+  afterEach(() => jest.restoreAllMocks());
+
+  function mockClient(readResult: Promise<any>) {
+    const api = {read: jest.fn().mockReturnValue(readResult),
+      create: jest.fn().mockResolvedValue({body: {id:'created'}}),
+      patch: jest.fn().mockResolvedValue({body: {id:'patched'}})};
+    jest.spyOn(KubernetesObjectApi, 'makeApiClient').mockReturnValue(api as any);
+    return api;
+  }
+
+  it('creates only when a read returns 404', async () => {
+    const api = mockClient(Promise.reject({statusCode:404}));
+    await expect(svc.applyK8sObject(target, config)).resolves.toEqual({id:'created'});
+    expect(api.create).toHaveBeenCalledTimes(1);
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('updates an existing object without calling create', async () => {
+    const api = mockClient(Promise.resolve({body:{id:'existing'}}));
+    await expect(svc.applyK8sObject(target, config)).resolves.toEqual({id:'patched'});
+    expect(api.patch).toHaveBeenCalledTimes(1);
+    expect(api.create).not.toHaveBeenCalled();
+  });
+
+  it.each([{statusCode:401}, {statusCode:403}, {code:'ENOTFOUND'}, {code:'ETIMEDOUT'}])(
+    'propagates read failures without attempting create: %p', async (failure) => {
+      const api = mockClient(Promise.reject(failure));
+      await expect(svc.applyK8sObject(target, config)).rejects.toBe(failure);
+      expect(api.create).not.toHaveBeenCalled();
+      expect(api.patch).not.toHaveBeenCalled();
+    }
+  );
+
+  it('does not try create when patch of an existing object fails', async () => {
+    const api = mockClient(Promise.resolve({body: {id:'existing'}}));
+    const failure = {statusCode:403};
+    api.patch.mockRejectedValue(failure);
+    await expect(svc.applyK8sObject(target, config)).rejects.toBe(failure);
+    expect(api.create).not.toHaveBeenCalled();
   });
 });
