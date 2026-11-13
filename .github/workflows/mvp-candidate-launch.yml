@@ -12,7 +12,7 @@ on:
       - 'tools/integration/mvp_helm_trivy_acceptance.py'
       - 'scripts/accept-signed-mvp-chart-kind-linux.sh'
       - '.github/workflows/mvp-beta-publication.yml'
-      - 'docs/mvp-beta-release-notes.md'
+      - 'docs/release-notes.md'
   workflow_dispatch:
 
 permissions:
