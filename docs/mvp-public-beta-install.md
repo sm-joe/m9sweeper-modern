@@ -121,6 +121,45 @@ The source-tree chart is for staging and development; a public download
 should install the independently verified **published signed Helm package**
 rather than `main` or mutable tags.
 
+## Verified staging-only installation helper
+
+The signed Linux candidate artifact bundle contains
+`install-mvp-staging-linux.sh`, `mvp_preinstall_secrets.py`,
+`mvp-installer.sigstore.json`, `chart.sigstore.json`,
+`IMAGE-DIGESTS.txt`, `SHA256SUMS` and `MVP-INSTALL.md`.
+
+**Before executing any downloaded script**, independently verify the installer
+blob signature using `cosign` on a trusted Linux workstation:
+
+```bash
+identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
+issuer='https://token.actions.githubusercontent.com'
+cosign verify-blob --bundle /secure/candidate/mvp-installer.sigstore.json \
+  --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
+  /secure/candidate/install-mvp-staging-linux.sh
+```
+
+Once the chart digest, Secret files, and labelled staging namespace are ready,
+the helper verifies chart/image signing, artifact checksums, Kubernetes context
+and Secret keys **before calling Helm**:
+
+```bash
+export M9_MVP_INSTALL_CONFIRM=INSTALL_STAGING_ONLY
+export M9_EXPECTED_KUBE_CONTEXT="$(kubectl config current-context)"
+export M9_MVP_NAMESPACE=m9-mvp-staging
+export M9_MVP_RELEASE=m9-mvp
+export M9_MVP_ARTIFACT_DIR=/secure/candidate
+export M9_MVP_CHART=/secure/candidate/m9sweeper-0.1.0-rc1.tgz
+export M9_MVP_VALUES=/secure/m9-mvp-values.yaml
+export M9_MVP_SECRET_CHECKER=/secure/candidate/mvp_preinstall_secrets.py
+bash /secure/candidate/install-mvp-staging-linux.sh
+```
+
+Adjust the chart file to the actual signed candidate version. This helper is
+restricted to isolated staging namespaces and is **not** a production
+installer. It cannot create or manage external PostgreSQL, RabbitMQ, Secrets,
+trusted ingress, backup schedules or scanner RBAC automatically.
+
 ## Staging install acceptance — not yet confirmed
 
 Do **not** install into an existing production namespace. Once private DB,

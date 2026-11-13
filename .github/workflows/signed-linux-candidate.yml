@@ -166,12 +166,20 @@ jobs:
         run: |
           set -euo pipefail
           chart="dist/m9sweeper-${VERSION#v}.tgz"
+          # Include the exact operator install helper, Secret check and Linux
+          # instructions in the same retained artifact as the verified chart.
+          cp scripts/install-mvp-staging-linux.sh dist/install-mvp-staging-linux.sh
+          cp tools/security/mvp_preinstall_secrets.py dist/mvp_preinstall_secrets.py
+          cp docs/mvp-public-beta-install.md dist/MVP-INSTALL.md
+          chmod 755 dist/install-mvp-staging-linux.sh
           python3 -m json.tool dist/m9sweeper-source.spdx.json >/dev/null
           cosign sign-blob --yes --bundle dist/chart.sigstore.json "$chart"
+          cosign sign-blob --yes --bundle dist/mvp-installer.sigstore.json dist/install-mvp-staging-linux.sh
           identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
           issuer='https://token.actions.githubusercontent.com'
           cosign verify-blob --bundle dist/chart.sigstore.json --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$chart"
-          (cd dist && sha256sum ./*.tgz m9sweeper-source.spdx.json > SHA256SUMS && sha256sum -c SHA256SUMS)
+          cosign verify-blob --bundle dist/mvp-installer.sigstore.json --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" dist/install-mvp-staging-linux.sh
+          (cd dist && sha256sum ./*.tgz m9sweeper-source.spdx.json install-mvp-staging-linux.sh mvp_preinstall_secrets.py MVP-INSTALL.md > SHA256SUMS && sha256sum -c SHA256SUMS)
       - name: Upload immutable-digest candidate manifest, chart and evidence
         uses: actions/upload-artifact@v4
         with:
