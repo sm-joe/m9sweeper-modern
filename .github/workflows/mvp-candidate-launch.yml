@@ -6,6 +6,7 @@ on:
       - '.github/workflows/mvp-candidate-launch.yml'
       - 'platform/manifests/charts/dash/templates/cronjob-*.yaml'
       - '.github/workflows/mvp-downloaded-chart-acceptance.yml'
+      - 'tools/integration/mvp_helm_trivy_acceptance.py'
   workflow_dispatch:
 
 permissions:

@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/accept-signed-mvp-chart-kind-linux.sh'
+      - 'tools/integration/mvp_helm_trivy_acceptance.py'
       - '.github/workflows/mvp-downloaded-chart-acceptance.yml'
       - '.github/workflows/mvp-chart-acceptance-fast.yml'
   push:
@@ -23,6 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/accept-signed-mvp-chart-kind-linux.sh
+          python3 -m py_compile tools/integration/mvp_helm_trivy_acceptance.py
           set +e
           bash scripts/accept-signed-mvp-chart-kind-linux.sh >/tmp/mvp-kind-refusal 2>&1
           result=$?
@@ -31,4 +33,5 @@ jobs:
           grep -q 'Refusing non-CI' /tmp/mvp-kind-refusal
           grep -Fq 'helm upgrade --install' scripts/accept-signed-mvp-chart-kind-linux.sh
           grep -Fq 'm9-mvp-staging' scripts/accept-signed-mvp-chart-kind-linux.sh
+          grep -Fq 'mvp_helm_trivy_acceptance.py' scripts/accept-signed-mvp-chart-kind-linux.sh
           echo 'PASS: actual signed candidate acceptance script is syntactically valid and opt-in'
