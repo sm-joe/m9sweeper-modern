@@ -79,7 +79,7 @@ jobs:
           [[ "$DASH_DIGEST" == sha256:* && "$TRAWLER_DIGEST" == sha256:* ]]
           cosign sign --yes "ghcr.io/sm-joe/m9sweeper-dash@$DASH_DIGEST"
           cosign sign --yes "ghcr.io/sm-joe/m9sweeper-trawler@$TRAWLER_DIGEST"
-          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
+          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/release-build.yml@refs/heads/main'
           issuer='https://token.actions.githubusercontent.com'
           cosign verify --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "ghcr.io/sm-joe/m9sweeper-dash@$DASH_DIGEST"
           cosign verify --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "ghcr.io/sm-joe/m9sweeper-trawler@$TRAWLER_DIGEST"
@@ -170,7 +170,7 @@ jobs:
           cp docs/installation.md dist/INSTALL.md
           python3 -m json.tool dist/m9sweeper-source.spdx.json >/dev/null
           cosign sign-blob --yes --bundle dist/chart.sigstore.json "$chart"
-          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
+          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/release-build.yml@refs/heads/main'
           issuer='https://token.actions.githubusercontent.com'
           cosign verify-blob --bundle dist/chart.sigstore.json --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$chart"
           (cd dist && sha256sum ./*.tgz m9sweeper-source.spdx.json INSTALL.md > SHA256SUMS && sha256sum -c SHA256SUMS)
@@ -190,7 +190,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
-          gh workflow run mvp-downloaded-chart-acceptance.yml --ref main \
+          gh workflow run release-acceptance.yml --ref main \
             -f source_sha="$GITHUB_SHA" \
             -f candidate_run_id="$GITHUB_RUN_ID" \
             -f confirmation=ACCEPT_CANDIDATE
