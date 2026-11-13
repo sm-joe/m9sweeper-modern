@@ -7,6 +7,9 @@ on:
       - 'platform/manifests/charts/dash/templates/cronjob-*.yaml'
       - '.github/workflows/mvp-downloaded-chart-acceptance.yml'
       - 'tools/integration/mvp_helm_trivy_acceptance.py'
+      - 'scripts/accept-signed-mvp-chart-kind-linux.sh'
+      - '.github/workflows/mvp-beta-publication.yml'
+      - 'docs/mvp-beta-release-notes.md'
   workflow_dispatch:
 
 permissions:
