@@ -11,7 +11,7 @@ Kubernetes 1.35, Helm 3, kubectl, GitHub CLI, PostgreSQL 17 and RabbitMQ 4.4. Ma
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
 gh release download v0.1.0-beta.1 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
-\`\`\`
+```
 
 ## Step 2 — Configure
 
