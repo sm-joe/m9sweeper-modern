@@ -100,7 +100,7 @@ kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-trawler --timeout=5m
 ```
 
-****Do not add `--wait` during the first installation**; the database initialization hook must complete before checking deployment readiness.nitial Helm command.** It can prevent the database initialization hook from running. The release's separate `install-mvp-staging-linux.sh` script still uses that older sequence; use the Helm command above.
+**Do not use `--wait` for the first install.** The database initialization job must run before deployment readiness is checked.
 
 ## Step 4 — Open m9sweeper
 
