@@ -49,7 +49,7 @@ jobs:
           test "$SOURCE_SHA" = "$(git rev-parse HEAD)"
           test -s ATTRIBUTION.md
           test -s platform/LICENSE
-          test -s docs/mvp-beta-release-notes.md
+          test -s docs/release-notes.md
           if gh release view v0.1.0-beta.1 >/dev/null 2>&1; then
             echo 'Refusing to overwrite existing immutable public beta release' >&2
             exit 1
@@ -148,5 +148,5 @@ jobs:
             --target "$SOURCE_SHA" \
             --prerelease \
             --title 'm9sweeper-modern v0.1.0 Public Beta' \
-            --notes-file docs/mvp-beta-release-notes.md
+            --notes-file docs/release-notes.md
           echo 'PASS: public beta published ONLY after signed candidate and independent native Kind install/Trivy acceptance'
