@@ -1,194 +1,175 @@
-# m9sweeper-modern v0.1.0 public beta — Helm installation profile
+# Install m9sweeper-modern v0.1.0-beta.1 on Linux Kubernetes
 
-**Stage: development / acceptance, NOT publicly released yet.** The source
-umbrella chart still contains **legacy PostgreSQL 11 and RabbitMQ 3.8**
-development components. The opt-in `global.mvp.enabled=true` guard refuses
-those bundled components, requires existing Secrets, and insists on
-digest-pinned image references. It does not itself provide external databases,
-validate Secret contents, or prove a complete end-user installation.
+[← Project README](../README.md) · [Public release assets](https://github.com/sm-joe/m9sweeper-modern/releases/tag/v0.1.0-beta.1) · [Release notes](mvp-beta-release-notes.md)
 
-## Prerequisites (native Linux operator workstation)
+**Status: public beta published.** The release's signed Helm package was independently accepted on native Linux Kubernetes 1.35 with PostgreSQL 17, RabbitMQ 4.4, Dash login, real Trivy scanning and Helm upgrade/rollback. This guide is for an **isolated staging cluster**. It is not a production HA or disaster-recovery guarantee.
 
-- A supported Linux Kubernetes staging cluster, Helm 3, kubectl, a dedicated
-  namespace, approved kubeconfig/role and persistent storage.
-- An independently managed, **supported PostgreSQL 17** instance and RabbitMQ
-  instance reachable from Pods on private DNS. Validate backups, TLS, auth,
-  readiness and operations independently before production use.
-- A **successful signed Linux release-candidate workflow** and its verified
-  immutable Dash and Trawler image digests, plus a corresponding Helm chart.
-- Existing cluster-local Kubernetes Secrets holding runtime/init credentials
-  (never `--set` raw secret values or commit values with passwords).
-- Working internal callback/network routes, trusted Kubernetes CA and
-  least-privilege scanner accounts.
+> **Important beta.1 installer advisory:** The published `install-mvp-staging-linux.sh` asset was signed before a source-only correction to the Helm initial-install sequence. It still uses `--wait`, which can stall Dash's post-install initialization hook. **Do not execute that downloaded beta.1 helper.** Verify and install the **signed Helm chart directly without `--wait`**, then verify rollouts. Do not modify or replace the immutable signed assets in place.
 
-## Secret contract
+## Prerequisites
 
-Create three private local env files **outside this repository** and protect
-them with `umask 077`. Mandatory keys include:
+On a **native Linux** operator workstation install `kubectl`, Helm 3, Python 3, `gh` (GitHub CLI for download), `cosign`, `sha256sum`, Bash and OpenSSL.
 
-`m9-dash-env` (Dash runtime, use the actual external DB and broker names):
-```text
-SECURITY_JWT_SECRET=generated-random-unique-min-32
-DATABASE_CONNECTION_HOST=your-db-private-dns
+Have access to:
+
+- A disposable, approved Kubernetes **v1.35** cluster with Linux nodes. The signed chart declares v1.35–v1.37 compatibility; independent beta.1 downloaded-chart acceptance was on v1.35.
+- An existing **PostgreSQL 17** database and **RabbitMQ 4.4** broker reachable from Pods. The beta **does not deploy** these dependencies and must not enable the legacy bundled charts.
+- Secure storage for credentials; a dedicated namespace; an appropriate kubeconfig with CA verification; and public registry access for the signed images.
+- A private network connection from Dash to DB/broker, and from scanner workers to Dash. Production-like remote browser access requires a trusted HTTPS ingress.
+
+## 1. Download and verify the release
+
+```bash
+mkdir -p "$HOME/m9sweeper-beta"
+cd "$HOME/m9sweeper-beta"
+gh release download v0.1.0-beta.1 \
+  --repo sm-joe/m9sweeper-modern --dir . --clobber
+sha256sum -c SHA256SUMS
+
+identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
+issuer='https://token.actions.githubusercontent.com'
+cosign verify-blob --bundle chart.sigstore.json \
+  --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
+  m9sweeper-0.1.0-rc9.tgz
+
+for name in dash trawler; do
+  image="$(sed -n "s/^$name=//p" IMAGE-DIGESTS.txt)"
+  test -n "$image"
+  cosign verify --certificate-identity "$identity" \
+    --certificate-oidc-issuer "$issuer" "$image" >/dev/null
+done
+```
+
+The published beta tag is `v0.1.0-beta.1` and its attached signed chart file is `m9sweeper-0.1.0-rc9.tgz`. These exact names matter. If signature or checksum verification fails, **stop**; never skip or bypass it.
+
+## 2. Create credentials and Kubernetes Secrets
+
+On your operator workstation, create three **private env files outside the repository**. Use `umask 077` and replace every example value with a unique generated secret, e.g. `openssl rand -hex 32`. Use actual private DNS hostnames. All three files must be protected (`chmod 600`) and removed from unencrypted shared locations.
+
+`/secure/dash-runtime.env`:
+
+```dotenv
+SECURITY_JWT_SECRET=<unique-32-plus-character-secret>
+DATABASE_CONNECTION_HOST=<postgres-private-host>
 DATABASE_CONNECTION_PORT=5432
 DATABASE_CONNECTION_DATABASE=postgres
-DATABASE_CONNECTION_USERNAME=your-db-user
-DATABASE_CONNECTION_PASSWORD=replace-with-private-secret
-RABBITMQ_HOST_NAME=your-rabbit-private-dns
+DATABASE_CONNECTION_USERNAME=<database-user>
+DATABASE_CONNECTION_PASSWORD=<database-password>
+RABBITMQ_HOST_NAME=<rabbitmq-private-host>
 RABBITMQ_HOST_PORT=5672
 RABBITMQ_PORT=5672
-RABBITMQ_USER_NAME=your-rabbit-user
-RABBITMQ_USER_PASSWORD=replace-with-private-secret
+RABBITMQ_USER_NAME=<rabbitmq-user>
+RABBITMQ_USER_PASSWORD=<rabbitmq-password>
 MSG_QUEUE_NAME_IMAGE_SCANNER=trawler_queue
 ```
 
-`m9-init-env` (one-time bootstrap; all values must be independently generated
-and safely stored, with the trawler key matching the Trawler Secret):
-```text
-CLUSTER_API_KEY=generated-unique-key
-SUPER_ADMIN_EMAIL=operator@example.invalid
-SUPER_ADMIN_PASSWORD=unique-long-password
-TRAWLER_API_KEY=generated-trawler-key
-KUBE_HUNTER_API_KEY=generated-kubehunter-key
-KUBE_BENCH_API_KEY=generated-kubebench-key
-FALCO_API_KEY=generated-falco-key
+`/secure/dash-bootstrap.env`:
+
+```dotenv
+CLUSTER_API_KEY=<unique-cluster-key>
+SUPER_ADMIN_EMAIL=<your-admin-email>
+SUPER_ADMIN_PASSWORD=<unique-admin-password>
+TRAWLER_API_KEY=<unique-trawler-key>
+KUBE_HUNTER_API_KEY=<unique-hunter-key>
+KUBE_BENCH_API_KEY=<unique-bench-key>
+FALCO_API_KEY=<unique-falco-key>
 ```
 
-`m9-trawler-env` (scanner worker):
-```text
-RABBITMQ_HOSTNAME=your-rabbit-private-dns
+`/secure/trawler-runtime.env`:
+
+```dotenv
+RABBITMQ_HOSTNAME=<same-rabbitmq-private-host>
 RABBITMQ_PORT=5672
-RABBITMQ_USERNAME=your-rabbit-user
-RABBITMQ_PASSWORD=replace-with-private-secret
+RABBITMQ_USERNAME=<same-rabbitmq-user>
+RABBITMQ_PASSWORD=<same-rabbitmq-password>
 RABBITMQ_QUEUE_NAME=trawler_queue
-M9SWEEPER_API_KEY=generated-trawler-key
+M9SWEEPER_API_KEY=<exact-value-of-TRAWLER_API_KEY-above>
 ```
 
-These snippets are templates, **not valid credentials**. Do not use literal
-placeholder strings, and do not pass Secret values through shell history.
-The Helm preflight only verifies references. It does not check whether Secrets
-exist, are correctly populated, or match the actual DB/RabbitMQ identities.
-
-After securely creating private local env files, create the Kubernetes
-Secrets in your *isolated staging namespace*:
+Use secure credentials supported by your infrastructure; placeholder values above are **not** valid. The Dash RabbitMQ credentials must match Trawler's. Do not publish Secret values or place passwords on command lines.
 
 ```bash
+kubectl config current-context
 kubectl create namespace m9-mvp-staging
 kubectl label namespace m9-mvp-staging m9sweeper-staging=true --overwrite
+
 kubectl -n m9-mvp-staging create secret generic m9-dash-env \
   --from-env-file=/secure/dash-runtime.env
 kubectl -n m9-mvp-staging create secret generic m9-init-env \
   --from-env-file=/secure/dash-bootstrap.env
 kubectl -n m9-mvp-staging create secret generic m9-trawler-env \
   --from-env-file=/secure/trawler-runtime.env
-```
 
-Before attempting Helm installation, verify the actual installed staging
-Secret keys and cross-component scanner/broker identity consistency **without
-printing Secret values**:
-
-```bash
 export M9_MVP_PREFLIGHT=YES
 export M9_EXPECTED_KUBE_CONTEXT="$(kubectl config current-context)"
-python3 tools/security/mvp_preinstall_secrets.py --namespace m9-mvp-staging
+python3 "$HOME/m9sweeper-beta/mvp_preinstall_secrets.py" \
+  --namespace m9-mvp-staging
 ```
 
-The checker refuses unlabelled or non-staging namespaces and mismatched
-Kubernetes contexts. It does not test database or broker connectivity and
-must not be presented as complete production security validation.
+Preflight checks Secret references, required keys, matching identities and namespace labels. It **does not** prove DB/broker TLS, network connectivity, backups or workload readiness.
 
-Restrict access to the files and Secrets. Rotate any accidental disclosures.
+## 3. Install the verified chart
 
-## Prepare an immutable installation candidate
+Create `/secure/m9-mvp-values.yaml` (nonsecret, file access restricted):
 
-From the repository root, use
-`platform/manifests/charts/m9sweeper/values-mvp.example.yaml` as a **template**.
-Copy to an excluded private location and replace both
-`REPLACE_WITH_VERIFIED_64_HEX_DIGEST` placeholders with verified signed OCI
-image digests from the same release candidate. Ensure the release chart's
-version, values and image digests match the original verified artifact.
+```yaml
+global:
+  mvp:
+    enabled: true
+  postgres:
+    enabled: false
+  rabbitmq:
+    enabled: false
+dash:
+  existingSecret: m9-dash-env
+  init:
+    existingSecret: m9-init-env
+trawler:
+  existingSecret: m9-trawler-env
+```
+
+Do **not** override the chart's signed OCI image references. With the signed beta.1 package:
 
 ```bash
-helm dependency update platform/manifests/charts/m9sweeper
-helm lint platform/manifests/charts/m9sweeper \
-  -f /secure/m9-mvp-values.yaml
-helm template m9-mvp platform/manifests/charts/m9sweeper \
-  -n m9-mvp-staging -f /secure/m9-mvp-values.yaml \
-  --kube-version 1.35.0 >/secure/m9-mvp-render.yaml
+cd "$HOME/m9sweeper-beta"
+kubectl get --raw /version # Check the Kubernetes server is a supported version
+
+# Initial install: do NOT add --wait (Dash post-install DB bootstrap hook).
+helm upgrade --install m9-mvp ./m9sweeper-0.1.0-rc9.tgz \
+  --namespace m9-mvp-staging \
+  --values /secure/m9-mvp-values.yaml \
+  --timeout 15m
+
+# Post-install readiness is explicitly checked after the hook has run.
+kubectl -n m9-mvp-staging rollout status deployment/m9-mvp-dash --timeout=5m
+kubectl -n m9-mvp-staging rollout status deployment/m9-mvp-trawler --timeout=5m
+kubectl -n m9-mvp-staging get pods,jobs
 ```
 
-The source-tree chart is for staging and development; a public download
-should install the independently verified **published signed Helm package**
-rather than `main` or mutable tags.
+The Helm package must be the one you verified in step 1. No separate source checkout is needed for this workflow.
 
-## Verified staging-only installation helper
-
-The signed Linux candidate artifact bundle contains
-`install-mvp-staging-linux.sh`, `mvp_preinstall_secrets.py`,
-`mvp-installer.sigstore.json`, `chart.sigstore.json`,
-`IMAGE-DIGESTS.txt`, `SHA256SUMS` and `MVP-INSTALL.md`.
-
-**Before executing any downloaded script**, independently verify the installer
-blob signature using `cosign` on a trusted Linux workstation:
+## 4. Log in and verify scanning
 
 ```bash
-identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
-issuer='https://token.actions.githubusercontent.com'
-cosign verify-blob --bundle /secure/candidate/mvp-installer.sigstore.json \
-  --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
-  /secure/candidate/install-mvp-staging-linux.sh
+kubectl -n m9-mvp-staging port-forward svc/m9-mvp-dash 13000:3000
 ```
 
-Once the chart digest, Secret files, and labelled staging namespace are ready,
-the helper verifies chart/image signing, artifact checksums, Kubernetes context
-and Secret keys **before calling Helm**:
+Open `http://127.0.0.1:13000` from the **same workstation**, log in with `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD`, configure a **test** cluster using CA-verified Kubernetes credentials, configure a matching Trivy scanner policy, and trigger an image scan. Verify the scan transitions from queued to completed, vulnerability details persist, and policy-compliant/noncompliant outcomes reflect the findings. Failed scans must be displayed as failures. Do not expose this HTTP port-forward to other networks.
+
+## Troubleshooting and limitations
 
 ```bash
-export M9_MVP_INSTALL_CONFIRM=INSTALL_STAGING_ONLY
-export M9_EXPECTED_KUBE_CONTEXT="$(kubectl config current-context)"
-export M9_MVP_NAMESPACE=m9-mvp-staging
-export M9_MVP_RELEASE=m9-mvp
-export M9_MVP_ARTIFACT_DIR=/secure/candidate
-export M9_MVP_CHART=/secure/candidate/m9sweeper-0.1.0-rc1.tgz
-export M9_MVP_VALUES=/secure/m9-mvp-values.yaml
-export M9_MVP_SECRET_CHECKER=/secure/candidate/mvp_preinstall_secrets.py
-bash /secure/candidate/install-mvp-staging-linux.sh
+helm status m9-mvp -n m9-mvp-staging
+kubectl -n m9-mvp-staging get deployments,pods,jobs -o wide
+kubectl -n m9-mvp-staging get events --sort-by=.metadata.creationTimestamp
+kubectl -n m9-mvp-staging describe deployment/m9-mvp-dash
+kubectl -n m9-mvp-staging describe deployment/m9-mvp-trawler
 ```
 
-Adjust the chart file to the actual signed candidate version. This helper is
-restricted to isolated staging namespaces and is **not** a production
-installer. It cannot create or manage external PostgreSQL, RabbitMQ, Secrets,
-trusted ingress, backup schedules or scanner RBAC automatically.
+If Helm hangs at initial installation, check that **`--wait` was not added** and that the external DB is reachable for the post-install bootstrap Job. A Trawler container with `exec: "trawler": executable file not found` indicates the wrong (pre-fix) chart; verify the published rc9 chart, not an earlier candidate.
 
-## Staging install acceptance — not yet confirmed
+If a workload is unready, inspect its pod conditions and sanitized logs locally. Avoid posting tokens, kubeconfig contents or raw Secrets in public issues. Never delete database volumes or retry destructive migrations as a troubleshooting shortcut.
 
-Do **not** install into an existing production namespace. Once private DB,
-broker, Secret content and verified images are ready, run on a disposable
-staging cluster with a trusted kubeconfig:
+**Not included in beta.1 guarantees:** in-cluster managed PostgreSQL/RabbitMQ, production HA, full database disaster recovery, native Falco/eBPF compatibility on all kernels, production admission enforcement, complete CIS benchmark assessment, or automatic remediation. Backup and restore PostgreSQL separately before any upgrade; a Helm rollback cannot reverse a database migration.
 
-```bash
-helm upgrade --install m9-mvp platform/manifests/charts/m9sweeper \
-  --namespace m9-mvp-staging -f /secure/m9-mvp-values.yaml \
-  --wait --timeout 15m
-kubectl -n m9-mvp-staging get pods
-kubectl -n m9-mvp-staging get jobs
-kubectl -n m9-mvp-staging rollout status deployment/m9-mvp-dash
-kubectl -n m9-mvp-staging rollout status deployment/m9-mvp-trawler
-kubectl -n m9-mvp-staging port-forward svc/m9-mvp-dash 3000:3000
-```
-
-Open `http://127.0.0.1:3000` from the same isolated Linux workstation.
-Verify admin login, healthy PostgreSQL/RabbitMQ workers, connection to a
-second *fresh* test cluster using CA-verified Kubernetes credentials, real
-Trivy HIGH/CRITICAL findings and the Angular results, and no false compliant
-outcomes for failed scans. Follow the
-[full Linux acceptance plan](native-linux-final-acceptance.md).
-Verify migrations, PVC data retention, upgrade and rollback before
-publishing any installation commands as a production guarantee.
-
-**Current limitations:** a supported external PostgreSQL/RabbitMQ operator is
-required; the source repository does not yet offer a one-command bundled
-database/broker installation for public beta, and a successful
-`helm template` is not runtime acceptance. Advanced scanners including
-Falco, Gatekeeper and kube-hunter require separate environment-specific
-validation and may be designated experimental.
+[Report installation issues](https://github.com/sm-joe/m9sweeper-modern/issues) with sanitized steps, cluster version, chart filename, pod states and events. See [release notes](mvp-beta-release-notes.md) and [attribution](../ATTRIBUTION.md).

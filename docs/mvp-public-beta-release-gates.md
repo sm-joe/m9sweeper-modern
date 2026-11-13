@@ -1,5 +1,7 @@
 # m9sweeper-modern v0.1.0-beta — public release decision
 
+> **Historical engineering record.** The [v0.1.0-beta.1 public prerelease](https://github.com/sm-joe/m9sweeper-modern/releases/tag/v0.1.0-beta.1) was published after exact-source CI and downloaded-chart Kind acceptance passed for commit `36f63ebf1d68a4a6308cc000e3e2deead3f2b697`. Older “not yet published” statements below describe earlier checkpoints, not current release status. The beta remains **not production certified**; for installation use the [current guide](mvp-public-beta-install.md), including its immutable beta.1 installer advisory.
+
 **Decision: NOT YET PUBLISHABLE.** This checklist is the minimum for a
 downloadable, explicitly **experimental** self-hosted Kubernetes security
 scanning MVP. It is narrower than the independently audited production-v1.0
