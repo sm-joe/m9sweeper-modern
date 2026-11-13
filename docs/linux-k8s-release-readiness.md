@@ -1,5 +1,7 @@
 # Linux and Kubernetes release readiness — post-RC4 hardening
 
+> **Historical engineering record.** The [v0.1.0-beta.1 public prerelease](https://github.com/sm-joe/m9sweeper-modern/releases/tag/v0.1.0-beta.1) was published after exact-source CI and downloaded-chart Kind acceptance passed for commit `36f63ebf1d68a4a6308cc000e3e2deead3f2b697`. Older “not yet published” statements below describe earlier checkpoints, not current release status. The beta remains **not production certified**; for installation use the [current guide](mvp-public-beta-install.md), including its immutable beta.1 installer advisory.
+
 **Baseline:** RC4 was merged into `main` via PR #9 (`9b77f9d`). Integration development was carried out against Kind and an operator-managed Docker deployment; production Linux/Kubernetes support is a **target**, not a certification. Do not use WSL2, desktop container runtime assumptions or PowerShell commands as public product installation requirements.
 
 ## Verified versus reported versus missing
