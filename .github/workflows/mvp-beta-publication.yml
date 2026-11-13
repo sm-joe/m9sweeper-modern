@@ -1,0 +1,152 @@
+name: Publish verified m9sweeper-modern public MVP beta
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact successful source SHA
+        type: string
+        required: true
+      candidate_run_id:
+        description: Successful immutable signed candidate workflow run ID
+        type: string
+        required: true
+      acceptance_run_id:
+        description: Successful independent downloaded-chart acceptance run ID
+        type: string
+        required: true
+      confirmation:
+        description: Gate token SIGNED_AND_ACCEPTED
+        type: string
+        required: true
+permissions:
+  contents: write
+  actions: read
+  packages: read
+jobs:
+  publish-beta:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirmation == 'SIGNED_AND_ACCEPTED' &&
+      inputs.source_sha == github.sha &&
+      github.repository == 'sm-joe/m9sweeper-modern'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - uses: sigstore/cosign-installer@v3
+      - name: Require exact SHA candidate and full platform success
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          test "$GH_REPO" = 'sm-joe/m9sweeper-modern'
+          test "$SOURCE_SHA" = "$(git rev-parse HEAD)"
+          test -s ATTRIBUTION.md
+          test -s platform/LICENSE
+          test -s docs/mvp-beta-release-notes.md
+          if gh release view v0.1.0-beta.1 >/dev/null 2>&1; then
+            echo 'Refusing to overwrite existing immutable public beta release' >&2
+            exit 1
+          fi
+          gh run list --workflow revamp-platform-ci.yml --limit 50 \
+            --json databaseId,headSha,conclusion > /tmp/platform-runs.json
+          jq -e --arg sha "$SOURCE_SHA" \
+            'any(.[]; .headSha == $sha and .conclusion == "success")' \
+            /tmp/platform-runs.json >/dev/null || {
+            echo 'Exact-source full platform CI is not green; public release refused' >&2
+            exit 1
+          }
+          [[ "${{ inputs.candidate_run_id }}" =~ ^[1-9][0-9]*$ &&
+             "${{ inputs.acceptance_run_id }}" =~ ^[1-9][0-9]*$ ]] || {
+            echo 'Invalid candidate or acceptance workflow run identifier' >&2; exit 2
+          }
+          echo 'CANDIDATE_RUN=${{ inputs.candidate_run_id }}' >> "$GITHUB_ENV"
+          acceptance_id='${{ inputs.acceptance_run_id }}'
+          accepted=0
+          # Workflow dispatch may be enqueued while acceptance job is
+          # finalizing. Never publish unless that job completes successfully.
+          for attempt in {1..60}; do
+            evidence="$(gh run view "$acceptance_id" --json name,status,conclusion,headSha)"
+            if jq -e --arg sha "$SOURCE_SHA" '
+              .name == "Verify downloaded signed MVP chart on native Linux Kind"
+              and .headSha == $sha and .status == "completed"
+              and .conclusion == "success"' <<<"$evidence" >/dev/null; then
+              accepted=1; break
+            fi
+            if jq -e '.status == "completed"' <<<"$evidence" >/dev/null; then
+              echo 'Independent native Linux candidate acceptance failed' >&2; exit 1
+            fi
+            sleep 5
+          done
+          [[ "$accepted" == 1 ]] || {
+            echo 'Independent acceptance run did not complete successfully' >&2; exit 1
+          }
+          candidate="$(gh run view "${{ inputs.candidate_run_id }}" --json name,status,conclusion,headSha)"
+          jq -e --arg sha "$SOURCE_SHA" '
+            .name == "Signed Linux release candidate images and Helm artifact"
+            and .headSha == $sha and .status == "completed"
+            and .conclusion == "success"' <<<"$candidate" >/dev/null || {
+            echo 'Exact-source candidate has not passed signing' >&2; exit 1
+          }
+      - name: Download artifacts from exactly accepted signed candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download "$CANDIDATE_RUN" \
+            --name "m9sweeper-signed-linux-candidate-$SOURCE_SHA" \
+            --dir dist
+          (cd dist && sha256sum -c SHA256SUMS)
+          test -s dist/m9sweeper-source.spdx.json
+          python3 -m json.tool dist/m9sweeper-source.spdx.json >/dev/null
+      - name: Independently verify OCI and Helm signatures before release publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
+          issuer='https://token.actions.githubusercontent.com'
+          shopt -s nullglob
+          charts=(dist/m9sweeper-*.tgz)
+          test "${#charts[@]}" -eq 1
+          cosign verify-blob --bundle dist/chart.sigstore.json \
+            --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
+            "${charts[0]}"
+          cosign verify-blob --bundle dist/mvp-installer.sigstore.json \
+            --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
+            dist/install-mvp-staging-linux.sh
+          for name in dash trawler; do
+            image="$(sed -n "s/^$name=//p" dist/IMAGE-DIGESTS.txt)"
+            [[ "$image" =~ ^ghcr.io/sm-joe/m9sweeper-(dash|trawler)@sha256:[a-f0-9]{64}$ ]]
+            cosign verify --certificate-identity "$identity" \
+              --certificate-oidc-issuer "$issuer" "$image" >/dev/null
+          done
+          echo 'PASS: verified exactly accepted source, signed chart/installer and OCI digests'
+      - name: Publish public PRE-RELEASE with verified downloadable assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          gh release create v0.1.0-beta.1 \
+            dist/*.tgz dist/SHA256SUMS dist/IMAGE-DIGESTS.txt \
+            dist/chart.sigstore.json dist/mvp-installer.sigstore.json \
+            dist/m9sweeper-source.spdx.json dist/RELEASE-METADATA.txt \
+            dist/install-mvp-staging-linux.sh dist/mvp_preinstall_secrets.py \
+            dist/MVP-INSTALL.md \
+            --target "$SOURCE_SHA" \
+            --prerelease \
+            --title 'm9sweeper-modern v0.1.0 Public Beta' \
+            --notes-file docs/mvp-beta-release-notes.md
+          echo 'PASS: public beta published ONLY after signed candidate and independent native Kind install/Trivy acceptance'
