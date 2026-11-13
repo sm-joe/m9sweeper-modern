@@ -28,8 +28,8 @@ Write-Check 'Dash container' $dashFound $DashContainer
 Write-Check 'Kind API container' $kindFound $KindControlPlane
 if (-not $dashFound) { exit 2 }
 
-$dash = Docker-Json @('inspect', $DashContainer, '--format', '{{json .NetworkSettings.Networks}}')
-$kind = if ($kindFound) { Docker-Json @('inspect', $KindControlPlane, '--format', '{{json .NetworkSettings.Networks}}') } else { $null }
+$dash = Docker-Json -Arguments @('inspect', $DashContainer, '--format', '{{json .NetworkSettings.Networks}}')
+$kind = if ($kindFound) { Docker-Json -Arguments @('inspect', $KindControlPlane, '--format', '{{json .NetworkSettings.Networks}}') } else { $null }
 $dashNetworks = @($dash.PSObject.Properties.Name)
 $kindNetworks = if ($kind) { @($kind.PSObject.Properties.Name) } else { @() }
 $shared = @($dashNetworks | Where-Object { $kindNetworks -contains $_ })
