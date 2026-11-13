@@ -1,5 +1,8 @@
 name: Build and sign m9sweeper release
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/release-build.yml']
   workflow_dispatch:
     inputs:
       version:
@@ -18,7 +21,7 @@ permissions:
   actions: write
 jobs:
   candidate:
-    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'BUILD_RELEASE'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.confirmation == 'BUILD_RELEASE')
     runs-on: ubuntu-latest
     timeout-minutes: 85
     steps:
@@ -28,7 +31,7 @@ jobs:
       - name: Validate candidate version and release scope
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
         run: |
           set -euo pipefail
           [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
@@ -54,7 +57,7 @@ jobs:
           file: ./platform/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/sm-joe/m9sweeper-dash:${{ inputs.version }}
+          tags: ghcr.io/sm-joe/m9sweeper-dash:${{ inputs.version || 'v0.1.0' }}
           provenance: mode=max
           sbom: true
       - name: Build and publish Java trawler candidate with OCI provenance and SBOM
@@ -65,7 +68,7 @@ jobs:
           file: ./platform/trawler/Dockerfile.jvm
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/sm-joe/m9sweeper-trawler:${{ inputs.version }}
+          tags: ghcr.io/sm-joe/m9sweeper-trawler:${{ inputs.version || 'v0.1.0' }}
           provenance: mode=max
           sbom: true
       - uses: sigstore/cosign-installer@v3
@@ -91,7 +94,7 @@ jobs:
       - name: Package Helm values pinned to verified OCI image digests
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
           DASH_DIGEST: ${{ steps.dash.outputs.digest }}
           TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
         run: |
@@ -128,7 +131,7 @@ jobs:
       - name: Verify signed immutable images in rendered candidate Kubernetes workloads
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
           DASH_DIGEST: ${{ steps.dash.outputs.digest }}
           TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
         run: |
@@ -163,7 +166,7 @@ jobs:
       - name: Sign chart and package installation instructions
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
         run: |
           set -euo pipefail
           chart="dist/m9sweeper-${VERSION#v}.tgz"
