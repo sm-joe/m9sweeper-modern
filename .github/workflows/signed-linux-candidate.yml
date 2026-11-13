@@ -37,7 +37,7 @@ jobs:
           }
           test -s ATTRIBUTION.md
           test -s platform/LICENSE
-          test -s docs/mvp-public-beta-install.md
+          test -s docs/installation.md
           echo 'Candidate artifact job is NOT a production acceptance or GitHub release'
       - uses: docker/setup-buildx-action@v3
       - name: Authenticate to GitHub Container Registry
@@ -171,7 +171,7 @@ jobs:
           # instructions in the same retained artifact as the verified chart.
           cp scripts/install-mvp-staging-linux.sh dist/install-mvp-staging-linux.sh
           cp tools/security/mvp_preinstall_secrets.py dist/mvp_preinstall_secrets.py
-          cp docs/mvp-public-beta-install.md dist/MVP-INSTALL.md
+          cp docs/installation.md dist/MVP-INSTALL.md
           chmod 755 dist/install-mvp-staging-linux.sh
           python3 -m json.tool dist/m9sweeper-source.spdx.json >/dev/null
           cosign sign-blob --yes --bundle dist/chart.sigstore.json "$chart"
