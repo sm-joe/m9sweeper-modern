@@ -74,6 +74,7 @@ Secrets in your *isolated staging namespace*:
 
 ```bash
 kubectl create namespace m9-mvp-staging
+kubectl label namespace m9-mvp-staging m9sweeper-staging=true --overwrite
 kubectl -n m9-mvp-staging create secret generic m9-dash-env \
   --from-env-file=/secure/dash-runtime.env
 kubectl -n m9-mvp-staging create secret generic m9-init-env \
@@ -81,6 +82,20 @@ kubectl -n m9-mvp-staging create secret generic m9-init-env \
 kubectl -n m9-mvp-staging create secret generic m9-trawler-env \
   --from-env-file=/secure/trawler-runtime.env
 ```
+
+Before attempting Helm installation, verify the actual installed staging
+Secret keys and cross-component scanner/broker identity consistency **without
+printing Secret values**:
+
+```bash
+export M9_MVP_PREFLIGHT=YES
+export M9_EXPECTED_KUBE_CONTEXT="$(kubectl config current-context)"
+python3 tools/security/mvp_preinstall_secrets.py --namespace m9-mvp-staging
+```
+
+The checker refuses unlabelled or non-staging namespaces and mismatched
+Kubernetes contexts. It does not test database or broker connectivity and
+must not be presented as complete production security validation.
 
 Restrict access to the files and Secrets. Rotate any accidental disclosures.
 
