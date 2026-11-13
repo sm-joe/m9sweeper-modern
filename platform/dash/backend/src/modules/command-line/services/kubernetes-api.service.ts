@@ -271,15 +271,28 @@ export class KubernetesApiService {
 
     /** Retrieves a namespace's token from a cluster & decodes it*/
     async getServiceAccountToken(coreApi: CoreV1Api, serviceAccountName: string, namespaceName: string): Promise<string | null> {
-        try {
-            //const secretName = (await coreApi.readNamespacedServiceAccount(serviceAccountName, namespaceName)).body.secrets[0].name;
-            const secretName = "m9sweeper"
-            const rawToken = (await coreApi.readNamespacedSecret(secretName, namespaceName)).body.data['token'];
-            // We will retrieve the token base 64 encoded, and it will only be useful decoded
-            return Buffer.from(rawToken, 'base64').toString('utf-8');
-        } catch {
-            return null;
+        // A newly created kubernetes.io/service-account-token Secret is populated
+        // asynchronously by the controller. Never persist an empty credential.
+        // Bounded retry tolerates startup races without endless onboarding hangs.
+        for (let attempt = 0; attempt < 6; attempt++) {
+            try {
+                const response = await coreApi.readNamespacedSecret(serviceAccountName, namespaceName);
+                const encoded = response?.body?.data?.['token'];
+                if (typeof encoded === 'string' && encoded.length > 0) {
+                    const token = Buffer.from(encoded, 'base64').toString('utf-8').trim();
+                    if (token.length > 0) return token;
+                }
+            } catch (error) {
+                const status = Number(error?.statusCode ?? error?.response?.statusCode ?? error?.response?.status);
+                // 404 is a transient Secret-provisioning race. Never retry or
+                // hide RBAC denial, invalid credentials, DNS or TLS errors.
+                if (status !== 404) throw error;
+            }
+            if (attempt < 5) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
         }
+        return null;
     }
 
     /**
@@ -409,8 +422,7 @@ export class KubernetesApiService {
             // Save the service account in the cluster
             canContinue = !!(await this.applyK8sObject(serviceAccount, config));
             if (!canContinue) {
-                console.log(`Failed to create service account`);
-                return null;
+                throw new Error('Kubernetes service account could not be created; check onboarding permissions.');
             }
         } else {
             // already exists, so no need to patch it (nothing ever changes here).
@@ -428,9 +440,8 @@ export class KubernetesApiService {
         secret.metadata.namespace = serviceAccountNamespace;
         secret.metadata.annotations={'kubernetes.io/service-account.name': "m9sweeper"};
         const secretResponse = await this.applyK8sObject(secret, config)
-        if (!secretResponse){
-            console.log("secret response", secretResponse);
-
+        if (!secretResponse) {
+            throw new Error('Kubernetes service-account token Secret could not be created or updated; check onboarding RBAC.');
         }
 
         // Build the clusterRole w/the rules
@@ -446,8 +457,7 @@ export class KubernetesApiService {
         // Create the Cluster Role in the cluster or patch it (in case it got corrupted)
         canContinue = !!(await this.applyK8sObject(clusterRole, config));
         if (!canContinue) {
-            console.log(`Failed to create cluster role`);
-            return null;
+            throw new Error('Kubernetes cluster role could not be provisioned; check RBAC.');
         }
 
         // build a rolebinding linking the previously created service account & role
@@ -471,8 +481,7 @@ export class KubernetesApiService {
         // Create the rolebinding in the cluster or patch it (in case it got corrupted)
         canContinue = !!(await this.applyK8sObject(roleBinding, config));
         if(!canContinue)  {
-            console.log(`Failed to create cluster role binding`);
-            return null;
+            throw new Error('Kubernetes cluster role binding could not be provisioned; check RBAC.');
         }
 
         // Get the service account's token, and replace the user in the config with that service account
