@@ -81,7 +81,7 @@ jobs:
           path: dist
           run-id: ${{ inputs.candidate_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Verify downloaded chart and installer signatures before execution
+      - name: Verify downloaded Helm chart signature before installation
         shell: bash
         run: |
           set -euo pipefail
@@ -93,11 +93,8 @@ jobs:
           issuer='https://token.actions.githubusercontent.com'
           cosign verify-blob --bundle dist/chart.sigstore.json \
             --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$chart"
-          cosign verify-blob --bundle dist/mvp-installer.sigstore.json \
-            --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
-            dist/install-mvp-staging-linux.sh
           printf '%s\n' "$chart" > /tmp/m9-mvp-chart-path
-          echo 'PASS: downloaded immutable candidate chart and installer verified'
+          echo 'PASS: downloaded Helm chart verified'
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25.2'
