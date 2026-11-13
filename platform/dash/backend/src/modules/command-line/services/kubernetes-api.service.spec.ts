@@ -31,3 +31,46 @@ describe('Kubernetes API client TLS requirements', () => {
       .rejects.toThrow(/trusted cluster CA/);
   });
 });
+
+describe('service account token provisioning readiness', () => {
+  const service = new KubernetesApiService({get: jest.fn()} as any);
+  const validToken = Buffer.from('issued-service-account-jwt').toString('base64');
+
+  it('waits for an asynchronously populated Secret', async () => {
+    const secretReader = jest.fn()
+      .mockResolvedValueOnce({body: {data: {}}})
+      .mockResolvedValueOnce({body: {data: {token: validToken}}});
+    const result = await service.getServiceAccountToken(
+      {readNamespacedSecret: secretReader} as any, 'm9sweeper', 'default');
+    expect(result).toBe('issued-service-account-jwt');
+    expect(secretReader).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not hide a Kubernetes RBAC 403', async () => {
+    const forbidden = {statusCode: 403};
+    const readNamespacedSecret = jest.fn().mockRejectedValue(forbidden);
+    await expect(service.getServiceAccountToken(
+      {readNamespacedSecret} as any, 'm9sweeper', 'default'
+    )).rejects.toBe(forbidden);
+    expect(readNamespacedSecret).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not hide a Kubernetes DNS error', async () => {
+    const networkFailure = {code: 'ENOTFOUND'};
+    const readNamespacedSecret = jest.fn().mockRejectedValue(networkFailure);
+    await expect(service.getServiceAccountToken(
+      {readNamespacedSecret} as any, 'm9sweeper', 'default'
+    )).rejects.toBe(networkFailure);
+    expect(readNamespacedSecret).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts an already provisioned token immediately', async () => {
+    const readNamespacedSecret = jest.fn().mockResolvedValue({
+      body: {data: {token: validToken}}
+    });
+    await expect(service.getServiceAccountToken(
+      {readNamespacedSecret} as any, 'm9sweeper', 'default'
+    )).resolves.toBe('issued-service-account-jwt');
+    expect(readNamespacedSecret).toHaveBeenCalledTimes(1);
+  });
+});
