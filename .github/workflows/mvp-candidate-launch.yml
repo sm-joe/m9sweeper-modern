@@ -5,6 +5,9 @@ on:
     paths:
       - '.github/workflows/mvp-candidate-launch.yml'
       - 'platform/manifests/charts/dash/templates/cronjob-*.yaml'
+      - 'platform/manifests/charts/trawler/**'
+      - 'platform/manifests/charts/m9sweeper/**'
+      - 'platform/trawler/Dockerfile.jvm'
       - '.github/workflows/mvp-downloaded-chart-acceptance.yml'
       - 'tools/integration/mvp_helm_trivy_acceptance.py'
       - 'scripts/accept-signed-mvp-chart-kind-linux.sh'
