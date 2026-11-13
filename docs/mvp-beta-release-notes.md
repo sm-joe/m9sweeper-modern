@@ -45,7 +45,7 @@ candidate build version even though it is distributed as the public
 
 Verify signatures, configure the external PostgreSQL/RabbitMQ and pre-created
 Secrets, then follow `MVP-INSTALL.md` or the repository's
-[public beta installation guide](docs/mvp-public-beta-install.md).
+[public beta installation guide](mvp-public-beta-install.md).
 The staging installer explicitly checks namespace, trusted source workflow
 signature, digests, Secret identities and Helm readiness before installation.
 New users should first exercise this in their own **disposable** Kubernetes
@@ -59,7 +59,7 @@ vulnerabilities through repository GitHub security reporting rather than
 public issues containing secrets. Share only sanitized logs and reproduction
 steps. Release assets are bound to an immutable source SHA and signed via
 GitHub Actions OIDC/Sigstore; verify the identity documented in
-[Signed Candidate Instructions](docs/signed-linux-candidate.md).
+[README signature-verification instructions](../README.md#1-download-and-verify-the-signed-release).
 
 For data protection, retain independent encrypted PostgreSQL backups, apply
 upgrade/rollback procedures in staging first, and do not delete PVCs during
