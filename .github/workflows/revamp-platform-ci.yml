@@ -74,7 +74,7 @@ jobs:
           python3 tools/security/test_restore_compose_guard.py
           bash -n scripts/check-broker-health-linux.sh
           test -s docs/installation.md
-          grep -q 'Linux' README.md
+          grep -q '^## Installation' README.md
           grep -q 'Kubernetes' README.md
           echo 'PASS: Linux operator scripts syntax'
 
