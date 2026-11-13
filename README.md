@@ -96,6 +96,16 @@ Only after assigning each active **trawler, Falco and kube-hunter** service iden
 
 `SCANNER_ALLOW_LEGACY_QUERY_KEYS` is compatibility-only. Set it to `false` **after** migrating all scanner senders to `X-API-Key` and testing report ingestion. `SCANNER_ALLOW_LEGACY_KEY_EXPORT` should remain `false`. Rotate any keys previously exposed in browser URLs, logs or chart values.
 
+### Public beta Helm profile (staging-only until independently accepted)
+
+An **opt-in**, fail-closed `global.mvp.enabled=true` installation profile
+requires external supported PostgreSQL and RabbitMQ, pre-created Kubernetes
+Secrets, and digest-pinned Dash/Trawler release images. This avoids presenting
+the source chart's bundled legacy database/broker defaults as safe public
+installation defaults. It is **not** yet a published one-command installer.
+See [public-beta Helm installation and Secret contract](docs/mvp-public-beta-install.md)
+and the [release acceptance checklist](docs/RELEASE-ACCEPTANCE-TRACKER.md).
+
 ### Helm on Kubernetes (experimental packaging)
 
 The source contains umbrella and component charts in `platform/manifests/charts/`. They are **not a hardened turn-key production installer**. Inspect the actual chart values, image availability, persistence, webhook TLS and security contexts before applying:
