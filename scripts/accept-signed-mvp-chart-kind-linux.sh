@@ -201,8 +201,14 @@ print('PASS: downloaded Helm candidate renders using external dependencies')
 PY
 
 echo 'Installing actual signed candidate to disposable native Linux Kind'
+# The Dash database initializer is a post-install Helm hook. Helm --wait
+# defers post-install hooks until Deployments are Ready, but Dash readiness
+# depends on the DB schema/admin bootstrap performed by that hook.
+# Install without --wait: Helm still waits for hook Jobs to complete; then
+# explicitly gate both Deployments below. Do not use --wait=false as a string.
 helm upgrade --install "$release" "$M9_MVP_CHART" -n "$namespace" "${values[@]}" \
-  --wait --timeout 15m
+  --timeout 10m
+echo 'PASS: Helm install and post-install initialization hook completed'
 kubectl -n "$namespace" rollout status deployment/m9-mvp-dash --timeout=5m
 kubectl -n "$namespace" rollout status deployment/m9-mvp-trawler --timeout=5m
 kubectl -n "$namespace" get pods -o wide
