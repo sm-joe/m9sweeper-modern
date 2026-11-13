@@ -3,7 +3,7 @@ Standard installation profile. Legacy/default umbrella deployment is retained fo
 existing integrations and older Helm values.
 External Secret values are references, not raw secret values in Helm history.
 */}}
-{{- if or (dig "installation" "enabled" false .Values.global) (dig "mvp" "enabled" false .Values.global) }}
+{{- if (dig "installation" "enabled" false .Values.global) }}
 {{- if .Values.global.postgres.enabled }}
 {{- fail "Installation profile: disable the bundled legacy PostgreSQL chart (global.postgres.enabled=false); configure an external supported PostgreSQL 17 deployment via the external Dash Secret" }}
 {{- end }}
