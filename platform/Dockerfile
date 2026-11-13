@@ -49,22 +49,8 @@ RUN test ! -d /usr/src/app/backend/node_modules && \
     npm run build:prod && \
     test -s /usr/src/app/backend/dist/public/index.html
 
-#########################
-## Stage 3: Build Docs ##
-#########################
-FROM klakegg/hugo:0.111.3-ext-ubuntu as docs-builder
-RUN git config --global --add safe.directory /src
-
-WORKDIR /usr/src/
-
-COPY ./docs/ /usr/src/
-
-
-RUN hugo --config config-local.toml
-
-
 ######################
-## Stage 4: DELIVER ##
+## Stage 3: DELIVER ##
 ######################
 FROM node:22-alpine
 
@@ -79,7 +65,6 @@ COPY --from=builder /usr/src/app/backend/dist /usr/src/app
 COPY --from=frontend-builder /usr/src/app/backend/dist/public /usr/src/app/public
 COPY --from=builder /usr/src/app/backend/node_modules /usr/src/app/node_modules
 COPY --from=builder /usr/src/app/backend/vendor /usr/src/app/vendor
-COPY --from=docs-builder /usr/src/public /usr/src/app/public/docs
 
 # Create non root user
 RUN addgroup -g 1050 -S limitedaccessaccount && \
