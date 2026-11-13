@@ -188,7 +188,7 @@ The current public beta is a prerelease; regular production use requires your ow
 
 Source is organized under `platform/` (Angular/NestJS dashboard, Java Trawler and Helm charts); `tools/` holds integration and security tests; `scripts/` holds CI and operator helpers. The development integration environment is under `platform/docker-compose/`. Historical implementation notes remain in Git history; public user docs start here and in the [installation guide](docs/mvp-public-beta-install.md).
 
-Contribution workflow: fork the repository, open a focused PR with relevant tests, and avoid including production credentials, private kubeconfigs or database dumps. The package is provided without a promise of CIS certification or upstream endorsement.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the pull request checklist and [SECURITY.md](SECURITY.md) for responsible vulnerability reporting. Avoid including production credentials, private kubeconfigs or database dumps. The package is provided without a promise of CIS certification or upstream endorsement.
 
 ## License and origin
 
