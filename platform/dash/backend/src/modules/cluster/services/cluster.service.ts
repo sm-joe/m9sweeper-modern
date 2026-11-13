@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {classifyKubernetesOnboardingError} from '../utilities/kubernetes-onboarding-error';
 import {ClusterDto} from '../dto/cluster-dto';
 import {ClusterDao} from '../dao/cluster.dao';
 import {ClusterEventService} from '../../cluster-event/services/cluster-event.service';
@@ -191,8 +192,15 @@ export class ClusterService {
 
     if (serviceAccountConfig === 'automatically') {
       clusterObj.kubeConfig = await this.kubernetesApiService.AddServiceAccount(cluster.kubeConfig)
-        .catch(() => {
-          throw new HttpException({status: HttpStatus.BAD_REQUEST, message: 'Could not connect to cluster with provided kubeconfig', entityType: this.entityType, entityId: id}, HttpStatus.BAD_REQUEST);
+        .catch((error) => {
+          const failure = classifyKubernetesOnboardingError(error);
+          // Never forward the original exception body, raw kubeconfig, request headers,
+          // token, endpoint URL or stack into user-visible cluster errors.
+          this.logger.error({label: 'Kubernetes cluster kubeconfig update failed',
+            data: {clusterId: id, category: failure.message, httpStatus: failure.httpStatus,
+              networkCode: failure.networkCode}}, undefined, 'ClusterService.updateCluster');
+          throw new HttpException({status: HttpStatus.BAD_REQUEST, message: failure.message,
+            entityType: this.entityType, entityId: id}, HttpStatus.BAD_REQUEST);
         })
       if (cluster.kubeConfig === null) {
         throw new HttpException({status: HttpStatus.BAD_REQUEST, message: 'Could not create service account with kubeconfig', entityType: this.entityType, entityId: id}, HttpStatus.BAD_REQUEST);
