@@ -1,9 +1,23 @@
 name: Publish verified m9sweeper-modern public MVP beta
 on:
-  workflow_run:
-    workflows:
-      - Verify downloaded signed MVP chart on native Linux Kind
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact successful source SHA
+        type: string
+        required: true
+      candidate_run_id:
+        description: Successful immutable signed candidate workflow run ID
+        type: string
+        required: true
+      acceptance_run_id:
+        description: Successful independent downloaded-chart acceptance run ID
+        type: string
+        required: true
+      confirmation:
+        description: Gate token SIGNED_AND_ACCEPTED
+        type: string
+        required: true
 permissions:
   contents: write
   actions: read
@@ -11,16 +25,16 @@ permissions:
 jobs:
   publish-beta:
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.head_sha == github.sha &&
-      github.event.workflow_run.head_repository.full_name == 'sm-joe/m9sweeper-modern'
+      github.ref == 'refs/heads/main' &&
+      inputs.confirmation == 'SIGNED_AND_ACCEPTED' &&
+      inputs.source_sha == github.sha &&
+      github.repository == 'sm-joe/m9sweeper-modern'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ inputs.source_sha }}
           persist-credentials: false
       - uses: sigstore/cosign-installer@v3
       - name: Require exact SHA candidate and full platform success
@@ -28,7 +42,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
           set -euo pipefail
           test "$GH_REPO" = 'sm-joe/m9sweeper-modern'
@@ -48,22 +62,44 @@ jobs:
             echo 'Exact-source full platform CI is not green; public release refused' >&2
             exit 1
           }
-          gh run list --workflow signed-linux-candidate.yml --limit 60 \
-            --json databaseId,headSha,conclusion > /tmp/candidates.json
-          id="$(jq -r --arg sha "$SOURCE_SHA" \
-            '[.[] | select(.headSha == $sha and .conclusion == "success") | .databaseId][0] // empty' \
-            /tmp/candidates.json)"
-          [[ "$id" =~ ^[1-9][0-9]*$ ]] || {
-            echo 'No successful signed candidate for exact accepted source SHA' >&2
-            exit 1
+          [[ "${{ inputs.candidate_run_id }}" =~ ^[1-9][0-9]*$ &&
+             "${{ inputs.acceptance_run_id }}" =~ ^[1-9][0-9]*$ ]] || {
+            echo 'Invalid candidate or acceptance workflow run identifier' >&2; exit 2
           }
-          echo "CANDIDATE_RUN=$id" >> "$GITHUB_ENV"
+          echo 'CANDIDATE_RUN=${{ inputs.candidate_run_id }}' >> "$GITHUB_ENV"
+          acceptance_id='${{ inputs.acceptance_run_id }}'
+          accepted=0
+          # Workflow dispatch may be enqueued while acceptance job is
+          # finalizing. Never publish unless that job completes successfully.
+          for attempt in {1..60}; do
+            evidence="$(gh run view "$acceptance_id" --json name,status,conclusion,headSha)"
+            if jq -e --arg sha "$SOURCE_SHA" '
+              .name == "Verify downloaded signed MVP chart on native Linux Kind"
+              and .headSha == $sha and .status == "completed"
+              and .conclusion == "success"' <<<"$evidence" >/dev/null; then
+              accepted=1; break
+            fi
+            if jq -e '.status == "completed"' <<<"$evidence" >/dev/null; then
+              echo 'Independent native Linux candidate acceptance failed' >&2; exit 1
+            fi
+            sleep 5
+          done
+          [[ "$accepted" == 1 ]] || {
+            echo 'Independent acceptance run did not complete successfully' >&2; exit 1
+          }
+          candidate="$(gh run view "${{ inputs.candidate_run_id }}" --json name,status,conclusion,headSha)"
+          jq -e --arg sha "$SOURCE_SHA" '
+            .name == "Signed Linux release candidate images and Helm artifact"
+            and .headSha == $sha and .status == "completed"
+            and .conclusion == "success"' <<<"$candidate" >/dev/null || {
+            echo 'Exact-source candidate has not passed signing' >&2; exit 1
+          }
       - name: Download artifacts from exactly accepted signed candidate
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
           set -euo pipefail
           mkdir -p dist
@@ -100,7 +136,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
           set -euo pipefail
           gh release create v0.1.0-beta.1 \
