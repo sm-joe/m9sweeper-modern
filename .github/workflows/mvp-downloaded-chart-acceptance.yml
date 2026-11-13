@@ -1,0 +1,88 @@
+name: Verify downloaded signed MVP chart on native Linux Kind
+on:
+  workflow_run:
+    workflows:
+      - Signed Linux release candidate images and Helm artifact
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  packages: read
+
+jobs:
+  install-downloaded-release:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_sha == github.sha &&
+      github.event.workflow_run.head_repository.full_name == 'sm-joe/m9sweeper-modern'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+      - uses: sigstore/cosign-installer@v3
+      - uses: actions/download-artifact@v4
+        with:
+          name: m9sweeper-signed-linux-candidate-${{ github.event.workflow_run.head_sha }}
+          path: dist
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify downloaded chart and installer signatures before execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/SHA256SUMS
+          (cd dist && sha256sum -c SHA256SUMS)
+          chart="$(find dist -maxdepth 1 -name 'm9sweeper-*.tgz' -type f)"
+          [[ -n "$chart" && -s "$chart" ]]
+          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
+          issuer='https://token.actions.githubusercontent.com'
+          cosign verify-blob --bundle dist/chart.sigstore.json \
+            --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$chart"
+          cosign verify-blob --bundle dist/mvp-installer.sigstore.json \
+            --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
+            dist/install-mvp-staging-linux.sh
+          printf '%s\n' "$chart" > /tmp/m9-mvp-chart-path
+          echo 'PASS: downloaded immutable candidate chart and installer verified'
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.2'
+      - name: Install pinned Kind
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install sigs.k8s.io/kind@v0.33.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Create isolated supported Kubernetes 1.35 Kind cluster
+        shell: bash
+        run: |
+          set -euo pipefail
+          kind create cluster --name m9-mvp-ci \
+            --image 'kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0' \
+            --wait 180s
+          test "$(kubectl config current-context)" = kind-m9-mvp-ci
+      - name: Install real signed chart with PostgreSQL 17 and RabbitMQ 4.4
+        shell: bash
+        env:
+          M9_MVP_KIND_CI: APPROVED_GITHUB_CI
+        run: |
+          set -euo pipefail
+          export M9_MVP_CHART="$(cat /tmp/m9-mvp-chart-path)"
+          bash scripts/accept-signed-mvp-chart-kind-linux.sh
+      - name: Collect nonsecret install failure status
+        if: failure()
+        shell: bash
+        run: |
+          kubectl --context kind-m9-mvp-ci -n m9-mvp-staging get deployments,pods,jobs,events --sort-by=.metadata.creationTimestamp 2>/dev/null | tail -120 || true
+          helm status m9-mvp -n m9-mvp-staging 2>/dev/null | head -45 || true
+      - name: Clean up isolated Kind cluster
+        if: always()
+        shell: bash
+        run: kind delete cluster --name m9-mvp-ci || true

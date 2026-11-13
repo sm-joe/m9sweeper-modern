@@ -1,0 +1,34 @@
+name: Downloaded MVP Helm acceptance script fast checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/accept-signed-mvp-chart-kind-linux.sh'
+      - '.github/workflows/mvp-downloaded-chart-acceptance.yml'
+      - '.github/workflows/mvp-chart-acceptance-fast.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/accept-signed-mvp-chart-kind-linux.sh'
+      - '.github/workflows/mvp-chart-acceptance-fast.yml'
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard against unapproved Kind installation
+        run: |
+          set -euo pipefail
+          bash -n scripts/accept-signed-mvp-chart-kind-linux.sh
+          set +e
+          bash scripts/accept-signed-mvp-chart-kind-linux.sh >/tmp/mvp-kind-refusal 2>&1
+          result=$?
+          set -e
+          test "$result" -eq 2
+          grep -q 'Refusing non-CI' /tmp/mvp-kind-refusal
+          grep -Fq 'helm upgrade --install' scripts/accept-signed-mvp-chart-kind-linux.sh
+          grep -Fq 'm9-mvp-staging' scripts/accept-signed-mvp-chart-kind-linux.sh
+          echo 'PASS: actual signed candidate acceptance script is syntactically valid and opt-in'
