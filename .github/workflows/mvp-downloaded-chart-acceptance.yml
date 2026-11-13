@@ -1,38 +1,66 @@
 name: Verify downloaded signed MVP chart on native Linux Kind
 on:
-  workflow_run:
-    workflows:
-      - Signed Linux release candidate images and Helm artifact
-    types: [completed]
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact candidate source SHA
+        type: string
+        required: true
+      candidate_run_id:
+        description: Signed candidate run ID
+        type: string
+        required: true
+      confirmation:
+        description: Required ACCEPT_CANDIDATE acknowledgement
+        type: string
+        required: true
 
 permissions:
   contents: read
-  actions: read
+  actions: write
   packages: read
 
 jobs:
   install-downloaded-release:
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.head_sha == github.sha &&
-      github.event.workflow_run.head_repository.full_name == 'sm-joe/m9sweeper-modern'
+      github.ref == 'refs/heads/main' &&
+      inputs.confirmation == 'ACCEPT_CANDIDATE' &&
+      inputs.source_sha == github.sha &&
+      github.repository == 'sm-joe/m9sweeper-modern'
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ inputs.source_sha }}
           persist-credentials: false
+      - name: Verify signed candidate run completed for exact main SHA
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_RUN" =~ ^[1-9][0-9]*$ ]]
+          gh run view "$CANDIDATE_RUN" --json name,headSha,status,conclusion |
+            jq -e --arg sha "$SOURCE_SHA" '
+              .name == "Signed Linux release candidate images and Helm artifact"
+              and .headSha == $sha and .status == "completed"
+              and .conclusion == "success"' >/dev/null || {
+              echo 'Selected candidate is not a successful exact-source signed build' >&2
+              exit 1
+            }
       - uses: azure/setup-helm@v4
         with:
           version: v3.17.3
       - uses: sigstore/cosign-installer@v3
       - uses: actions/download-artifact@v4
         with:
-          name: m9sweeper-signed-linux-candidate-${{ github.event.workflow_run.head_sha }}
+          name: m9sweeper-signed-linux-candidate-${{ inputs.source_sha }}
           path: dist
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ inputs.candidate_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Verify downloaded chart and installer signatures before execution
         shell: bash
@@ -82,6 +110,23 @@ jobs:
         run: |
           kubectl --context kind-m9-mvp-ci -n m9-mvp-staging get deployments,pods,jobs,events --sort-by=.metadata.creationTimestamp 2>/dev/null | tail -120 || true
           helm status m9-mvp -n m9-mvp-staging 2>/dev/null | head -45 || true
+      - name: Request gated public beta publication after successful acceptance
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
+        run: |
+          set -euo pipefail
+          test "$SOURCE_SHA" = "$GITHUB_SHA"
+          gh workflow run mvp-beta-publication.yml --ref main \
+            -f source_sha="$SOURCE_SHA" \
+            -f candidate_run_id="$CANDIDATE_RUN" \
+            -f acceptance_run_id="$GITHUB_RUN_ID" \
+            -f confirmation=SIGNED_AND_ACCEPTED
+          echo 'Requested beta publication gate; publication only after this workflow completes successfully'
       - name: Clean up isolated Kind cluster
         if: always()
         shell: bash
