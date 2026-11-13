@@ -35,7 +35,7 @@ done
 [[ "$(kubectl config current-context)" == "$M9_EXPECTED_KUBE_CONTEXT" ]] || {
   echo 'FAIL: kubectl current context does not match expected staging context' >&2; exit 2;
 }
-[[ "$(kubectl get namespace "$namespace" -o 'jsonpath={.metadata.labels.m9sweeper-staging}')" == true ]] || {
+[[ "$(kubectl get namespace "$namespace" -o 'go-template={{index .metadata.labels "m9sweeper-staging"}}')" == true ]] || {
   echo 'FAIL: namespace does not carry m9sweeper-staging=true' >&2; exit 2;
 }
 # Exact source bundle: signature is tied to the approved CI identity, not a
