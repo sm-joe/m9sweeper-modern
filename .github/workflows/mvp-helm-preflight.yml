@@ -5,6 +5,7 @@ on:
     paths:
       - 'platform/manifests/charts/**'
       - '.github/workflows/mvp-helm-preflight.yml'
+      - '.github/workflows/signed-linux-candidate.yml'
   push:
     branches: [main]
     paths:
@@ -57,4 +58,8 @@ jobs:
           refuse --set-string trawler.existingSecret=
           refuse --set-string dash.image.tag=latest
           refuse --set-string trawler.image.tag=latest
+          # Candidate workflow must check EXACTLY the same secure profile.
+          grep -Fq -- '--set global.mvp.enabled=true' .github/workflows/signed-linux-candidate.yml
+          grep -Fq -- '--set global.postgres.enabled=false' .github/workflows/signed-linux-candidate.yml
+          grep -Fq -- '--set global.rabbitmq.enabled=false' .github/workflows/signed-linux-candidate.yml
           echo 'PASS: only externally secured, digest-pinned public MVP render accepted'

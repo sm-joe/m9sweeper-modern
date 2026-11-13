@@ -4,6 +4,13 @@
 
 The manually dispatched `signed-linux-candidate.yml` workflow is restricted to `main`, requires `CANDIDATE_ONLY` confirmation, and accepts only `vMAJOR.MINOR.PATCH-rcN` versions. It builds the *actual* Dockerfiles for Dash and Java trawler as linux/amd64 images, publishes OCI provenance and build-generated SBOM metadata, signs image digests keylessly using GitHub Actions OIDC, verifies those signatures, and packages the existing Helm umbrella chart with the candidate version **and bakes in the two signed image digests** so it cannot silently deploy the obsolete upstream image repositories. The Helm tarball receives a Sigstore bundle; a separate source SPDX JSON SBOM and SHA256 hashes are uploaded as retained workflow artifacts.
 
+The render verification now explicitly enables the public MVP profile,
+disables the bundled legacy PostgreSQL/RabbitMQ charts, provides reference
+names for external Kubernetes Secrets, and verifies digest-pinned Dash and
+Trawler images. Real external Secret contents, database/broker connectivity,
+and a successful fresh Linux Helm installation are **not tested** by this
+render-only check. See [public-beta release gates](mvp-public-beta-release-gates.md).
+
 ## Candidate dispatch
 
 From an authorized workstation (GitHub CLI), after reviewing the exact main SHA:

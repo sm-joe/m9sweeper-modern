@@ -96,6 +96,14 @@ Only after assigning each active **trawler, Falco and kube-hunter** service iden
 
 `SCANNER_ALLOW_LEGACY_QUERY_KEYS` is compatibility-only. Set it to `false` **after** migrating all scanner senders to `X-API-Key` and testing report ingestion. `SCANNER_ALLOW_LEGACY_KEY_EXPORT` should remain `false`. Rotate any keys previously exposed in browser URLs, logs or chart values.
 
+### MVP public beta progress and release blockers
+
+Follow the [v0.1.0-beta acceptance contract](docs/mvp-public-beta-release-gates.md)
+for the exact requirements to move from passing integration CI to a signed,
+downloadable and honestly described public release. The package cannot be
+announced as installable until a fresh independent Linux/Kubernetes installation
+and real Trivy scan succeed using the downloaded artifact.
+
 ### Public beta Helm profile (staging-only until independently accepted)
 
 An **opt-in**, fail-closed `global.mvp.enabled=true` installation profile
