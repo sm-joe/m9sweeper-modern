@@ -175,7 +175,20 @@ values=(--set global.mvp.enabled=true
         --set dash.clusterScraping.history.enabled=false
         --set dash.clusterScraping.gatekeeperExceptionBlock.enabled=false
         --set dash.clusterScraping.updateExceptionStatus.enabled=false)
-helm template "$release" "$M9_MVP_CHART" -n "$namespace" "${values[@]}" >"$scratch/render.yaml"
+# Helm template is an offline renderer and otherwise uses its built-in
+# default K8s version (currently 1.32), not the connected Kind API version.
+# Read the actual server version and keep chart kubeVersion enforcement intact.
+server_version="$(kubectl get --raw /version | python3 -c '
+import json,sys
+data=json.load(sys.stdin)
+print(data.get("gitVersion", ""))
+')"
+[[ "$server_version" == v1.35.8 ]] || {
+  echo "FAIL: pinned Kind test expected Kubernetes v1.35.8" >&2
+  exit 1
+}
+helm template "$release" "$M9_MVP_CHART" -n "$namespace" \
+  --kube-version "${server_version#v}" "${values[@]}" >"$scratch/render.yaml"
 python3 - "$scratch/render.yaml" <<'PY'
 from pathlib import Path
 import sys
