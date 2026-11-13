@@ -34,4 +34,6 @@ jobs:
           grep -Fq 'helm upgrade --install' scripts/accept-signed-mvp-chart-kind-linux.sh
           grep -Fq 'm9-mvp-staging' scripts/accept-signed-mvp-chart-kind-linux.sh
           grep -Fq 'mvp_helm_trivy_acceptance.py' scripts/accept-signed-mvp-chart-kind-linux.sh
+          grep -Fq -- '--kube-version "${server_version#v}"' scripts/accept-signed-mvp-chart-kind-linux.sh
+          grep -Fq 'kubectl get --raw /version' scripts/accept-signed-mvp-chart-kind-linux.sh
           echo 'PASS: actual signed candidate acceptance script is syntactically valid and opt-in'
