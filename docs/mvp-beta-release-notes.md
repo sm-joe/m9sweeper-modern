@@ -1,5 +1,7 @@
 # m9sweeper-modern v0.1.0-beta.1
 
+> **Installer advisory for beta.1 (2026-11-14):** The already-signed downloadable staging helper in this release uses `helm --wait` on initial installation, which can block the post-install database bootstrap. Do not run that beta.1 helper. Verify the signed `m9sweeper-0.1.0-rc9.tgz` and follow the [manual, staging-only installation sequence](mvp-public-beta-install.md#3-install-the-verified-chart) without initial `--wait`. Source-side helper fixes will require a separately signed later release; this advisory does not alter immutable beta.1 assets.
+
 **Public beta — Linux/Kubernetes self-hosted security scanner. NOT a production-certified security appliance.**
 
 This first public beta contains a real Angular/NestJS dashboard, PostgreSQL
