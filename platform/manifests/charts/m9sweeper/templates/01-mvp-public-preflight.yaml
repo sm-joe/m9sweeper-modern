@@ -19,7 +19,7 @@ External Secret values are references, not raw secret values in Helm history.
 {{- fail (printf "Public MVP profile: %s.image.tag must include an immutable @sha256: digest from the signed release candidate" $component) }}
 {{- end }}
 {{- end }}
-{{- if and .Values.dash.validatingWebhook.enabled (not .Values.dash.validatingWebhook.caBundle) }}
+{{- if and (dig "validatingWebhook" "enabled" false .Values.dash) (not (dig "validatingWebhook" "caBundle" "" .Values.dash)) }}
 {{- fail "Public MVP profile: admission webhook cannot be enabled without a verified CA bundle" }}
 {{- end }}
 {{- end }}
