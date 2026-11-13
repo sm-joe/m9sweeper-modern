@@ -139,12 +139,19 @@ jobs:
           helm template m9-candidate "$chart" \
             --namespace m9-staging-candidate \
             --kube-version 1.35.0 \
+            --set global.mvp.enabled=true \
+            --set global.postgres.enabled=false \
+            --set global.rabbitmq.enabled=false \
             --set-string dash.existingSecret=external-dash-env \
             --set-string trawler.existingSecret=external-trawler-env \
             --set-string dash.init.existingSecret=external-init-env \
             > dist/RENDERED-CANDIDATE.yaml
           python3 tools/security/verify_candidate_workload_digests.py \
             dist/RENDERED-CANDIDATE.yaml "$VERSION" "$DASH_DIGEST" "$TRAWLER_DIGEST"
+          if grep -Eq 'kind: StatefulSet|name: .*rabbitmq' dist/RENDERED-CANDIDATE.yaml; then
+            echo 'Public MVP candidate unexpectedly contains a legacy bundled database/broker' >&2
+            exit 1
+          fi
       - name: Generate source dependency SPDX SBOM
         uses: anchore/sbom-action@v0
         with:
