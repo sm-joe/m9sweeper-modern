@@ -10,7 +10,7 @@ vulnerability assessment, authenticated scanning and cluster integration,
 with optional Kubesec, kube-bench, kube-hunter, Falco and Gatekeeper modules.
 Advanced modules are experimental unless separately confirmed on your
 environment. This project is an independently maintained modernization of
-the original m9sweeper; see [upstream attribution](ATTRIBUTION.md) and the
+the original m9sweeper; see [upstream attribution](../ATTRIBUTION.md) and the
 repository's license material.
 
 ## Requirements and limitations
