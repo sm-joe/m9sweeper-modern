@@ -124,7 +124,7 @@ jobs:
           test -s "dist/m9sweeper-${expected_version#v}.tgz" || {
             echo 'Exact versioned Helm package missing' >&2; exit 1
           }
-      - name: Independently verify OCI and Helm signatures before release publication
+      - name: Verify OCI and Helm artifact signatures before release
         shell: bash
         run: |
           set -euo pipefail
@@ -136,16 +136,13 @@ jobs:
           cosign verify-blob --bundle dist/chart.sigstore.json \
             --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
             "${charts[0]}"
-          cosign verify-blob --bundle dist/mvp-installer.sigstore.json \
-            --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
-            dist/install-mvp-staging-linux.sh
           for name in dash trawler; do
             image="$(sed -n "s/^$name=//p" dist/IMAGE-DIGESTS.txt)"
             [[ "$image" =~ ^ghcr.io/sm-joe/m9sweeper-(dash|trawler)@sha256:[a-f0-9]{64}$ ]]
             cosign verify --certificate-identity "$identity" \
               --certificate-oidc-issuer "$issuer" "$image" >/dev/null
           done
-          echo 'PASS: verified exactly accepted source, signed chart/installer and OCI digests'
+          echo 'PASS: verified source, chart signature and OCI digests'
       - name: Publish release with verified downloadable assets
         shell: bash
         env:
@@ -157,10 +154,8 @@ jobs:
           version="${{ inputs.release_version }}"
           gh release create "$version" \
             dist/*.tgz dist/SHA256SUMS dist/IMAGE-DIGESTS.txt \
-            dist/chart.sigstore.json dist/mvp-installer.sigstore.json \
-            dist/m9sweeper-source.spdx.json dist/RELEASE-METADATA.txt \
-            dist/install-mvp-staging-linux.sh dist/mvp_preinstall_secrets.py \
-            dist/MVP-INSTALL.md \
+            dist/chart.sigstore.json dist/m9sweeper-source.spdx.json \
+            dist/RELEASE-METADATA.txt dist/INSTALL.md \
             --target "$SOURCE_SHA" \
             --title "m9sweeper-modern $version" \
             --notes-file docs/release-notes.md
