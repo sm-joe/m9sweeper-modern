@@ -117,6 +117,13 @@ jobs:
           (cd dist && sha256sum -c SHA256SUMS)
           test -s dist/m9sweeper-source.spdx.json
           python3 -m json.tool dist/m9sweeper-source.spdx.json >/dev/null
+          expected_version='${{ inputs.release_version }}'
+          grep -Fxq "version=$expected_version" dist/RELEASE-METADATA.txt || {
+            echo 'Release tag does not match signed chart/image build version' >&2; exit 1
+          }
+          test -s "dist/m9sweeper-${expected_version#v}.tgz" || {
+            echo 'Exact versioned Helm package missing' >&2; exit 1
+          }
       - name: Independently verify OCI and Helm signatures before release publication
         shell: bash
         run: |
