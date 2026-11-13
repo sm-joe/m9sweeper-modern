@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
-VERSION = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$")
+VERSION = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 IMAGE = re.compile(r"(?m)^\s*-?\s*image:\s*['\"]?([^\s'\"]+)")
 # Both modern repositories and the obsolete upstream repositories are checked.
 COMPONENT = re.compile(
@@ -19,7 +19,7 @@ COMPONENT = re.compile(
 
 def verify(manifest: str, version: str, dash_digest: str, trawler_digest: str) -> tuple[int, int]:
     if not VERSION.fullmatch(version):
-        raise ValueError("Candidate version must be vMAJOR.MINOR.PATCH-rcN")
+        raise ValueError("Release version must be vMAJOR.MINOR.PATCH")
     if not DIGEST.fullmatch(dash_digest) or not DIGEST.fullmatch(trawler_digest):
         raise ValueError("Candidate requires exact SHA-256 OCI image digests")
     expected = {
