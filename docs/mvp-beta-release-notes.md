@@ -1,6 +1,6 @@
 # m9sweeper-modern v0.1.0-beta.1
 
-> **Installer advisory for beta.1 (2026-11-14):** The already-signed downloadable staging helper in this release uses `helm --wait` on initial installation, which can block the post-install database bootstrap. Do not run that beta.1 helper. Verify the signed `m9sweeper-0.1.0-rc9.tgz` and follow the [manual, staging-only installation sequence](mvp-public-beta-install.md#3-install-the-verified-chart) without initial `--wait`. Source-side helper fixes will require a separately signed later release; this advisory does not alter immutable beta.1 assets.
+> **Installer advisory for beta.1 (2026-11-14):** The already-signed downloadable staging helper in this release uses `helm --wait` on initial installation, which can block the post-install database bootstrap. Do not run that beta.1 helper. Verify the signed `m9sweeper-0.1.0-rc9.tgz` and follow the [manual, staging-only installation sequence](installation.md#3-install-the-verified-chart) without initial `--wait`. Source-side helper fixes will require a separately signed later release; this advisory does not alter immutable beta.1 assets.
 
 **Public beta — Linux/Kubernetes self-hosted security scanner. NOT a production-certified security appliance.**
 
@@ -45,7 +45,7 @@ candidate build version even though it is distributed as the public
 
 Verify signatures, configure the external PostgreSQL/RabbitMQ and pre-created
 Secrets, then follow `MVP-INSTALL.md` or the repository's
-[public beta installation guide](mvp-public-beta-install.md).
+[public beta installation guide](installation.md).
 The staging installer explicitly checks namespace, trusted source workflow
 signature, digests, Secret identities and Helm readiness before installation.
 New users should first exercise this in their own **disposable** Kubernetes
