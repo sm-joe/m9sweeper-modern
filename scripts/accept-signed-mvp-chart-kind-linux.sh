@@ -232,6 +232,12 @@ done
 [[ "$login_ok" == 1 ]] || { echo 'FAIL: seeded admin unable to log in to signed candidate Dash' >&2; exit 1; }
 echo 'PASS: signed candidate seeded administrator authentication'
 
+# Prove a real scanned image survives the full signed Helm installation,
+# not just the prior Compose scanner acceptance. Secrets stay in memory only.
+M9_MVP_ADMIN_EMAIL="$admin_email" M9_MVP_ADMIN_PASSWORD="$admin_password" \
+  python3 tools/integration/mvp_helm_trivy_acceptance.py
+
+
 # Confirm resource reconciliation across upgrade and rollback without
 # interpreting Helm success as a database schema downgrade guarantee.
 helm upgrade "$release" "$M9_MVP_CHART" -n "$namespace" "${values[@]}" --wait --timeout 15m
