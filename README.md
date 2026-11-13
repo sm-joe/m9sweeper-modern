@@ -110,6 +110,8 @@ kubectl -n m9-mvp-staging create secret generic m9-trawler-env \
 
 ### 4. Install the signed chart
 
+**Beta.1 installer notice:** the downloadable `install-mvp-staging-linux.sh` in this immutable beta.1 release still uses `helm --wait` on the initial install, which can delay its database bootstrap hook. **Do not execute that beta.1 helper.** Use the signed-chart installation below until a newer, independently signed release includes the corrected helper.
+
 Create `/secure/m9-mvp-values.yaml` containing only nonsecret settings:
 
 ```yaml
@@ -130,20 +132,26 @@ trawler:
 
 **Important:** the published chart already contains exact signed image-digest references. Do not override its `dash.image` or `trawler.image` unless validating a separately signed release.
 
+For the verified chart, first check Secret keys using the bundled preflight, then install **without** Helm `--wait`, and check Deployment readiness separately:
+
 ```bash
 cd "$HOME/m9sweeper-beta"
-export M9_MVP_INSTALL_CONFIRM=INSTALL_STAGING_ONLY
+export M9_MVP_PREFLIGHT=YES
 export M9_EXPECTED_KUBE_CONTEXT="$(kubectl config current-context)"
-export M9_MVP_NAMESPACE=m9-mvp-staging
-export M9_MVP_RELEASE=m9-mvp
-export M9_MVP_ARTIFACT_DIR="$PWD"
-export M9_MVP_CHART="$PWD/m9sweeper-0.1.0-rc9.tgz"
-export M9_MVP_VALUES=/secure/m9-mvp-values.yaml
-export M9_MVP_SECRET_CHECKER="$PWD/mvp_preinstall_secrets.py"
-bash ./install-mvp-staging-linux.sh
+python3 ./mvp_preinstall_secrets.py --namespace m9-mvp-staging
+
+kubectl get --raw /version  # Confirm supported Kubernetes version
+helm upgrade --install m9-mvp ./m9sweeper-0.1.0-rc9.tgz \
+  --namespace m9-mvp-staging \
+  --values /secure/m9-mvp-values.yaml \
+  --timeout 15m
+
+kubectl -n m9-mvp-staging rollout status deployment/m9-mvp-dash --timeout=5m
+kubectl -n m9-mvp-staging rollout status deployment/m9-mvp-trawler --timeout=5m
 ```
 
-The helper refuses a non-staging namespace, verifies hashes/signatures and Secret references, installs the chart, and checks core Deployment readiness. The backend and broker **must** already be reachable. Follow the [full operator installation guide](docs/mvp-public-beta-install.md) for preparation and troubleshooting.
+The chart's post-install bootstrap hook runs before the explicit rollout checks. These commands are staging-only and assume the external database, broker and Secrets are already available. Follow the [operator installation guide](docs/mvp-public-beta-install.md) for troubleshooting and full configuration.
+
 
 ### 5. Open the dashboard and test a real scan
 
@@ -164,7 +172,7 @@ kubectl -n m9-mvp-staging describe deployment m9-mvp-trawler
 helm status m9-mvp -n m9-mvp-staging
 ```
 
-Common causes include mismatched DB/RabbitMQ credentials, unready external services, missing Secret keys, unreachable registry images, or scanner callback URLs unavailable from Kubernetes Pods. Don't delete database volumes to troubleshoot, and don't paste tokens, kubeconfigs or Secret values into public issues. **For initial installation, don't introduce Helm `--wait` before the post-install bootstrap hook**; the verified installer runs the hook first and then checks readiness.
+Common causes include mismatched DB/RabbitMQ credentials, unready external services, missing Secret keys, unreachable registry images, or scanner callback URLs unavailable from Kubernetes Pods. Don't delete database volumes to troubleshoot, and don't paste tokens, kubeconfigs or Secret values into public issues. **For initial installation, don't introduce Helm `--wait` before the post-install bootstrap hook**; the above initial-install sequence permits the bootstrap hook to run before readiness checks.
 
 ## Support, security and limitations
 
