@@ -1,0 +1,60 @@
+name: Public MVP Helm install profile checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'platform/manifests/charts/**'
+      - '.github/workflows/mvp-helm-preflight.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'platform/manifests/charts/**'
+      - '.github/workflows/mvp-helm-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  helm-mvp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+      - name: Render the public MVP with immutable candidate references
+        shell: bash
+        run: |
+          set -euo pipefail
+          chart=platform/manifests/charts/m9sweeper
+          helm dependency update "$chart"
+          sha="$(printf 'a%.0s' {1..64})"
+          overrides=(
+            --set-string "dash.image.tag=v0.1.0-rc1@sha256:$sha"
+            --set-string "trawler.image.tag=v0.1.0-rc1@sha256:$sha"
+          )
+          helm template m9-mvp "$chart" --namespace m9-mvp-test --kube-version 1.35.0 \
+            -f "$chart/values-mvp.example.yaml" "${overrides[@]}" > /tmp/mvp-render.yaml
+          grep -q 'kind: Deployment' /tmp/mvp-render.yaml
+          if grep -q 'kind: StatefulSet' /tmp/mvp-render.yaml; then
+            echo 'FAIL: legacy bundled database must not be rendered in public profile' >&2
+            exit 1
+          fi
+          # Helm must reject every unsafe public-beta configuration.
+          refuse() {
+            if helm template m9-mvp "$chart" -f "$chart/values-mvp.example.yaml" \
+              "${overrides[@]}" "$@" > /tmp/mvp-negative.yaml 2>&1; then
+              echo 'FAIL: public MVP profile accepted an unsafe configuration' >&2
+              exit 1
+            fi
+          }
+          refuse --set global.postgres.enabled=true
+          refuse --set global.rabbitmq.enabled=true
+          refuse --set-string dash.existingSecret=
+          refuse --set-string dash.init.existingSecret=
+          refuse --set-string trawler.existingSecret=
+          refuse --set-string dash.image.tag=latest
+          refuse --set-string trawler.image.tag=latest
+          echo 'PASS: only externally secured, digest-pinned public MVP render accepted'

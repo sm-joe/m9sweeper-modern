@@ -1,0 +1,25 @@
+{{/*
+Opt-in public beta profile. Legacy/default umbrella deployment is retained for
+internal integration tests, but never qualifies as a publicly supported install.
+External Secret values are references, not raw secret values in Helm history.
+*/}}
+{{- if (dig "mvp" "enabled" false .Values.global) }}
+{{- if .Values.global.postgres.enabled }}
+{{- fail "Public MVP profile: disable the bundled legacy PostgreSQL chart (global.postgres.enabled=false); configure an external supported PostgreSQL 17 deployment via the external Dash Secret" }}
+{{- end }}
+{{- if .Values.global.rabbitmq.enabled }}
+{{- fail "Public MVP profile: disable the bundled legacy RabbitMQ chart (global.rabbitmq.enabled=false); configure an external supported RabbitMQ deployment via Dash and Trawler Secrets" }}
+{{- end }}
+{{- if not (and .Values.dash.existingSecret .Values.dash.init.existingSecret .Values.trawler.existingSecret) }}
+{{- fail "Public MVP profile: dash.existingSecret, dash.init.existingSecret and trawler.existingSecret must reference pre-created Kubernetes Secrets" }}
+{{- end }}
+{{- range $component := list "dash" "trawler" }}
+{{- $image := index $.Values $component "image" }}
+{{- if not (regexMatch "^[^@]+@sha256:[a-f0-9]{64}$" (toString $image.tag)) }}
+{{- fail (printf "Public MVP profile: %s.image.tag must include an immutable @sha256: digest from the signed release candidate" $component) }}
+{{- end }}
+{{- end }}
+{{- if and (dig "validatingWebhook" "enabled" false .Values.dash) (not (dig "validatingWebhook" "caBundle" "" .Values.dash)) }}
+{{- fail "Public MVP profile: admission webhook cannot be enabled without a verified CA bundle" }}
+{{- end }}
+{{- end }}
