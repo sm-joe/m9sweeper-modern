@@ -1,4 +1,4 @@
-name: Verify downloaded signed MVP chart on native Linux Kind
+name: Kubernetes release acceptance
 on:
   workflow_dispatch:
     inputs:
@@ -51,7 +51,7 @@ jobs:
           for attempt in {1..60}; do
             evidence="$(gh run view "$CANDIDATE_RUN" --json name,headSha,status,conclusion)"
             jq -e --arg sha "$SOURCE_SHA" '
-              .name == "Signed Linux release candidate images and Helm artifact"
+              .name == "Build and sign m9sweeper release"
               and .headSha == $sha' <<<"$evidence" >/dev/null || {
               echo 'Candidate workflow identity or source SHA mismatch' >&2
               exit 1
@@ -158,23 +158,6 @@ jobs:
           echo '=== Helm install hook Jobs (no Secret values) ==='
           kubectl --context "$context" -n "$ns" describe jobs 2>&1 | tail -120
           echo 'Never print Secrets, environment dumps, or application logs in public CI.'
-      - name: Request gated public beta publication after successful acceptance
-        if: success()
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
-        run: |
-          set -euo pipefail
-          test "$SOURCE_SHA" = "$GITHUB_SHA"
-          gh workflow run mvp-beta-publication.yml --ref main \
-            -f source_sha="$SOURCE_SHA" \
-            -f candidate_run_id="$CANDIDATE_RUN" \
-            -f acceptance_run_id="$GITHUB_RUN_ID" \
-            -f confirmation=SIGNED_AND_ACCEPTED
-          echo 'Requested beta publication gate; publication only after this workflow completes successfully'
       - name: Clean up isolated Kind cluster
         if: always()
         shell: bash
