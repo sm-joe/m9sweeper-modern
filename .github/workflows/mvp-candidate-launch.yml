@@ -1,0 +1,38 @@
+name: MVP signed beta candidate launch
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mvp-candidate-launch.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  launch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Guard the candidate launch against non-main refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = refs/heads/main
+          test "${GITHUB_REPOSITORY}" = sm-joe/m9sweeper-modern
+      - name: Dispatch nonproduction signed RC workflow
+        shell: bash
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: v0.1.0-rc${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^v0\.1\.0-rc[0-9]+$ ]]
+          gh workflow run signed-linux-candidate.yml --ref main \
+            -f version="$VERSION" \
+            -f confirmation=CANDIDATE_ONLY
+          echo "Requested nonproduction signed candidate $VERSION for main"
+          echo 'Check signed-linux-candidate workflow run for full build/sign/verification results.'
+          echo 'Dispatch does NOT create a public GitHub release or claim runtime acceptance.'
