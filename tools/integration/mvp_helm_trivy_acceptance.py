@@ -14,7 +14,7 @@ from urllib.request import Request, urlopen
 if (os.getenv("M9_MVP_KIND_CI") != "APPROVED_GITHUB_CI"
         or os.getenv("GITHUB_ACTIONS") != "true"):
     sys.exit("Refusing Trivy acceptance outside disposable GitHub-hosted Kind")
-namespace = "m9-mvp-staging"
+namespace = "m9sweeper-system"
 if subprocess.check_output(["kubectl", "config", "current-context"], text=True).strip() != "kind-m9-mvp-ci":
     sys.exit("Refusing Trivy acceptance on unapproved Kubernetes context")
 email = os.environ.get("M9_MVP_ADMIN_EMAIL")
