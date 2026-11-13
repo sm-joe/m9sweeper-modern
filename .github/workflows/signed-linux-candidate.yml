@@ -15,6 +15,7 @@ permissions:
   contents: read
   packages: write
   id-token: write
+  actions: write
 jobs:
   candidate:
     if: github.ref == 'refs/heads/main' && inputs.confirmation == 'CANDIDATE_ONLY'
@@ -187,3 +188,19 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 30
+      - name: Dispatch exact-source independent native Linux install acceptance
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          gh workflow run mvp-downloaded-chart-acceptance.yml --ref main \
+            -f source_sha="$GITHUB_SHA" \
+            -f candidate_run_id="$GITHUB_RUN_ID" \
+            -f confirmation=ACCEPT_CANDIDATE
+          echo 'Signed candidate complete: requested exact-commit real Kind install acceptance'
+          echo 'No public release is published unless independent installation and scan pass'
+
