@@ -130,9 +130,9 @@ jobs:
         run: |
           set +e
           context=kind-m9-mvp-ci
-          ns=m9-mvp-staging
+          ns=m9sweeper-system
           echo '=== Helm release status ==='
-          helm status m9-mvp -n "$ns" 2>&1 | head -70
+          helm status m9sweeper -n "$ns" 2>&1 | head -70
           echo '=== Workload states (separate calls to preserve failures) ==='
           kubectl --context "$context" -n "$ns" get deployments -o wide 2>&1
           kubectl --context "$context" -n "$ns" get pods -o wide 2>&1
