@@ -99,7 +99,7 @@ def kubectl(*args: str) -> dict | str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Read-only public MVP Kubernetes Secret preflight")
+    parser = argparse.ArgumentParser(description="Read-only Kubernetes Secret preflight")
     parser.add_argument("--namespace", required=True)
     parser.add_argument("--dash-secret", default="m9-dash-env")
     parser.add_argument("--init-secret", default="m9-init-env")
@@ -109,8 +109,8 @@ def main() -> int:
     if os.environ.get("M9_MVP_PREFLIGHT") != "YES" or not expected:
         print("FAIL: explicit M9_MVP_PREFLIGHT=YES and M9_EXPECTED_KUBE_CONTEXT required", file=sys.stderr)
         return 2
-    if not re.fullmatch(r"m9-[a-z0-9-]*staging", args.namespace):
-        print("FAIL: preflight restricted to dedicated m9-*staging namespaces", file=sys.stderr)
+    if args.namespace != "m9sweeper-system" and not re.fullmatch(r"m9-[a-z0-9-]*staging", args.namespace):
+        print("FAIL: expected m9sweeper-system namespace or a dedicated test namespace", file=sys.stderr)
         return 2
     if any(not re.fullmatch(r"[a-z0-9]([-a-z0-9]*[a-z0-9])?", name)
            for name in (args.dash_secret, args.init_secret, args.trawler_secret)):
@@ -121,8 +121,8 @@ def main() -> int:
             raise RuntimeError("Kubernetes context mismatch; refusing to inspect Secrets")
         namespace = kubectl("get", "namespace", args.namespace, "-o", "json")
         labels = namespace.get("metadata", {}).get("labels", {})
-        if labels.get("m9sweeper-staging") != "true":
-            raise RuntimeError("namespace lacks explicit m9sweeper-staging=true label")
+        if args.namespace != "m9sweeper-system" and labels.get("m9sweeper-staging") != "true":
+            raise RuntimeError("test namespace lacks explicit m9sweeper-staging=true label")
         objects = {
             "dash": kubectl("-n", args.namespace, "get", "secret", args.dash_secret, "-o", "json"),
             "init": kubectl("-n", args.namespace, "get", "secret", args.init_secret, "-o", "json"),
@@ -136,7 +136,7 @@ def main() -> int:
         print("FAIL: " + error, file=sys.stderr)
     if errors:
         return 1
-    print("PASS: required staging Secret keys exist; credentials match across Dash/init/Trawler")
+    print("PASS: required Secret keys exist; credentials match across Dash/init/Trawler")
     print("LIMITATION: DB/broker connectivity, TLS and deployment readiness not verified")
     return 0
 
