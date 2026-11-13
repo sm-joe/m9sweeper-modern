@@ -45,7 +45,7 @@ spec:
                   value: "./cli.js"
               envFrom:
                 - secretRef:
-                    name: {{ include "dash.fullname" . }}-secrets
+                    name: {{ .Values.existingSecret | default (printf "%s-secrets" (include "dash.fullname" .)) }}
 {{- if or .Values.extraConfigVars .Values.extraSecretVars }}
 {{- if .Values.extraConfigVars }}
                 - configMapRef:

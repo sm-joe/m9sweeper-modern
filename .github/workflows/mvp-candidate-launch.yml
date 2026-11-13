@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/mvp-candidate-launch.yml'
+      - 'platform/manifests/charts/dash/templates/cronjob-*.yaml'
   workflow_dispatch:
 
 permissions:
