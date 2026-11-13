@@ -1,4 +1,4 @@
-import {AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild} from '@angular/core';
+import {AfterViewInit, ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {Location} from '@angular/common';
 import {MatTableDataSource} from '@angular/material/table';
 import {MatSort} from '@angular/material/sort';
@@ -59,6 +59,7 @@ export class ImageComponent implements OnInit, AfterViewInit, OnDestroy {
     private router: Router,
     private jwtAuthService: JwtAuthService,
     private location: Location,
+    private readonly changeDetector: ChangeDetectorRef,
   ) {
     // .getCurrentNavigation() may return null due to a bug in Angular 15
     // https://stackoverflow.com/questions/54891110/router-getcurrentnavigation-always-returns-null
@@ -99,6 +100,7 @@ export class ImageComponent implements OnInit, AfterViewInit, OnDestroy {
       next: resp => this.onSearchSuccess(resp),
       error: () => {
         this.imageLoadError = true;
+        this.changeDetector.markForCheck();
         this.alertService.danger('Unable to load images for this cluster. Check the Kubernetes API connection and retry.');
       }
     });
@@ -112,11 +114,15 @@ export class ImageComponent implements OnInit, AfterViewInit, OnDestroy {
   onSearchSuccess(response: IServerResponse<{totalCount: number, list: IImage[]}>): void {
     if (!response?.success || !Array.isArray(response.data?.list)) {
       this.imageLoadError = true;
+      this.changeDetector.markForCheck();
       return;
     }
     this.imageLoadError = false;
     this.dataSource = new MatTableDataSource(response.data.list);
     this.totalCount = response.data.totalCount;
+    // HttpClient data may arrive outside the next view pass in the upgraded
+    // Angular runtime; explicitly schedule rendering of the image table.
+    this.changeDetector.markForCheck();
   }
 
   pageEvent(pageEvent: any) {
