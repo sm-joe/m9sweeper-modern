@@ -4,9 +4,8 @@
 # Global Config #
 #################
 global:
-  # Opt-in only after external DB/broker, precreated Secrets and digest-pinned
-  # signed images are configured. Keeps original integration profile unchanged.
-  mvp:
+  # Standard installation uses existing database, broker and Kubernetes Secrets.
+  installation:
     enabled: false
   # A postgres DB is required, you can either have this chart deploy a minimal postgres DB for you, or bring your own
   postgres:

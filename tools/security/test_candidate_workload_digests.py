@@ -4,7 +4,7 @@ from verify_candidate_workload_digests import verify
 
 DASH = "sha256:" + "a" * 64
 TRAWLER = "sha256:" + "b" * 64
-VERSION = "v0.1.0-rc9"
+VERSION = "v0.1.0"
 dash = f"ghcr.io/sm-joe/m9sweeper-dash:{VERSION}@{DASH}"
 trawler = f"ghcr.io/sm-joe/m9sweeper-trawler:{VERSION}@{TRAWLER}"
 fixture = f"""

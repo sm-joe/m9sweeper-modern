@@ -10,7 +10,7 @@ Kubernetes 1.35, Helm 3, kubectl, GitHub CLI, PostgreSQL 17 and RabbitMQ 4.4. Ma
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.0-beta.1 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
 ```
 
 ## Step 2 — Configure
@@ -72,7 +72,7 @@ Create **`/secure/m9sweeper-values.yaml`**:
 
 ```yaml
 global:
-  mvp:
+  installation:
     enabled: true
   postgres:
     enabled: false
@@ -86,14 +86,14 @@ trawler:
   existingSecret: m9-trawler-env
 ```
 
-The chart already contains the signed image references. Don't replace them with unverified image tags.
+The chart includes its application image references. Configure database and broker connections through your private Secrets.
 
 ## Step 3 — Install
 
 From the directory where you downloaded the release:
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.0-rc9.tgz \
+helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
   --namespace m9sweeper-system --values /secure/m9sweeper-values.yaml --timeout 15m
 
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m

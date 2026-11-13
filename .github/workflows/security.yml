@@ -1,4 +1,4 @@
-name: Real queued Trivy staging acceptance
+name: Security integration tests
 on:
   pull_request:
     branches: [main]
@@ -7,7 +7,7 @@ on:
       - 'tools/integration/trivy-dlq-staging.py'
       - 'tools/browser-e2e/tests/trivy-staging.spec.cjs'
       - 'tools/browser-e2e/tests/mvp-security-pages.spec.cjs'
-      - '.github/workflows/real-trivy-acceptance.yml'
+      - '.github/workflows/security.yml'
   workflow_dispatch:
 
 permissions:

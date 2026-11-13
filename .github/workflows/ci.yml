@@ -1,4 +1,4 @@
-name: Full m9sweeper platform source validation
+name: Platform CI
 # Expensive full-stack validation is opt-in during PR iteration. Automatic
 # frontend/backend fast checks still run via their own workflows.
 # Before merging, add the ci/full label (remove/re-add to rerun after new commits)
@@ -12,7 +12,7 @@ on:
     branches: [main, revamp/original-platform, product/m9sweeper-new-foundation, 'fix/rc3-trivy-queue-fail-closed', 'release/m9sweeper-new-rc4-security-reliability', 'release/linux-k8s-hardening-rc5', 'security/p0-retire-query-key-default']
     paths:
       - 'platform/**'
-      - '.github/workflows/revamp-platform-ci.yml'
+      - '.github/workflows/ci.yml'
       - 'tools/import-platform/**'
       - 'tools/integration/**'
       - 'scripts/**'
@@ -35,6 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate active workflow files and Kubernetes Secret contract
+        run: |
+          ruby -r yaml -e 'Dir[".github/workflows/*.{yml,yaml}"].each { |p| YAML.parse_file(p) }'
+          python3 -m unittest tools.security.test_mvp_preinstall_secrets
       - name: Validate upstream product modules and UI routes
         run: |
           python3 tools/import-platform/verify.py
@@ -243,12 +247,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version=v0.1.0-rc9
+          version=v0.1.0
           dash_digest="sha256:$(printf 'a%.0s' {1..64})"
           trawler_digest="sha256:$(printf 'b%.0s' {1..64})"
           helm template m9-image-proof platform/manifests/charts/m9sweeper \
-            --namespace m9-staging-render \
+            --namespace m9sweeper-system \
             --kube-version 1.35.0 \
+            --set global.installation.enabled=true \
+            --set global.postgres.enabled=false \
+            --set global.rabbitmq.enabled=false \
             --set-string dash.existingSecret=external-dash-env \
             --set-string trawler.existingSecret=external-trawler-env \
             --set-string dash.init.existingSecret=external-init-env \

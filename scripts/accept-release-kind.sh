@@ -15,13 +15,12 @@ for bin in kubectl helm openssl curl python3; do
   command -v "$bin" >/dev/null || { echo "Missing $bin" >&2; exit 2; }
 done
 
-namespace=m9-mvp-staging
-release=m9-mvp
+namespace=m9sweeper-system
+release=m9sweeper
 [[ "$(kubectl config current-context)" == kind-m9-mvp-ci ]] || {
   echo 'Refusing mismatched Kubernetes cluster context' >&2; exit 2;
 }
 kubectl create namespace "$namespace"
-kubectl label namespace "$namespace" m9sweeper-staging=true
 umask 077
 scratch="$(mktemp -d)"
 port_forward_pid=''
@@ -163,14 +162,14 @@ kubectl -n "$namespace" rollout status deployment/ci-rabbitmq --timeout=8m
 export M9_MVP_PREFLIGHT=YES M9_EXPECTED_KUBE_CONTEXT=kind-m9-mvp-ci
 python3 tools/security/mvp_preinstall_secrets.py --namespace "$namespace"
 
-values=(--set global.mvp.enabled=true
+values=(--set global.installation.enabled=true
         --set global.postgres.enabled=false
         --set global.rabbitmq.enabled=false
         --set-string dash.existingSecret=m9-dash-env
         --set-string dash.init.existingSecret=m9-init-env
         --set-string trawler.existingSecret=m9-trawler-env
-        --set-string global.baseUrl="http://m9-mvp-dash.$namespace.svc:3000"
-        --set-string trawler.dashUrl="http://m9-mvp-dash.$namespace.svc:3000"
+        --set-string global.baseUrl="http://m9sweeper-dash.$namespace.svc:3000"
+        --set-string trawler.dashUrl="http://m9sweeper-dash.$namespace.svc:3000"
         --set dash.clusterScraping.scheduled.enabled=false
         --set dash.clusterScraping.history.enabled=false
         --set dash.clusterScraping.gatekeeperExceptionBlock.enabled=false
@@ -209,11 +208,11 @@ echo 'Installing actual signed candidate to disposable native Linux Kind'
 helm upgrade --install "$release" "$M9_MVP_CHART" -n "$namespace" "${values[@]}" \
   --timeout 10m
 echo 'PASS: Helm install and post-install initialization hook completed'
-kubectl -n "$namespace" rollout status deployment/m9-mvp-dash --timeout=5m
-kubectl -n "$namespace" rollout status deployment/m9-mvp-trawler --timeout=5m
+kubectl -n "$namespace" rollout status deployment/m9sweeper-dash --timeout=5m
+kubectl -n "$namespace" rollout status deployment/m9sweeper-trawler --timeout=5m
 kubectl -n "$namespace" get pods -o wide
 kubectl -n "$namespace" get jobs
-kubectl -n "$namespace" port-forward service/m9-mvp-dash 13000:3000 >"$scratch/port-forward.log" 2>&1 &
+kubectl -n "$namespace" port-forward service/m9sweeper-dash 13000:3000 >"$scratch/port-forward.log" 2>&1 &
 port_forward_pid="$!"
 healthy=0
 for attempt in {1..60}; do
@@ -261,7 +260,7 @@ M9_MVP_ADMIN_EMAIL="$admin_email" M9_MVP_ADMIN_PASSWORD="$admin_password" \
 # interpreting Helm success as a database schema downgrade guarantee.
 helm upgrade "$release" "$M9_MVP_CHART" -n "$namespace" "${values[@]}" --wait --timeout 15m
 helm rollback "$release" 1 -n "$namespace" --wait --timeout 15m
-kubectl -n "$namespace" rollout status deployment/m9-mvp-dash --timeout=5m
-kubectl -n "$namespace" rollout status deployment/m9-mvp-trawler --timeout=5m
+kubectl -n "$namespace" rollout status deployment/m9sweeper-dash --timeout=5m
+kubectl -n "$namespace" rollout status deployment/m9sweeper-trawler --timeout=5m
 echo 'PASS: signed candidate clean installation, login, upgrade and rollback on disposable Linux Kind'
 echo 'LIMITATIONS: native Falco, persistence migration recovery and scanner results require separate evidence'

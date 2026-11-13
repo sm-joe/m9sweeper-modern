@@ -1,7 +1,11 @@
-name: Verify downloaded signed MVP chart on native Linux Kind
+name: Kubernetes release acceptance
 on:
   workflow_dispatch:
     inputs:
+      release_version:
+        description: Exact chart release version (e.g. v0.1.0)
+        required: true
+        type: string
       source_sha:
         description: Exact candidate source SHA
         type: string
@@ -51,7 +55,7 @@ jobs:
           for attempt in {1..60}; do
             evidence="$(gh run view "$CANDIDATE_RUN" --json name,headSha,status,conclusion)"
             jq -e --arg sha "$SOURCE_SHA" '
-              .name == "Signed Linux release candidate images and Helm artifact"
+              .name == "Build and sign m9sweeper release"
               and .headSha == $sha' <<<"$evidence" >/dev/null || {
               echo 'Candidate workflow identity or source SHA mismatch' >&2
               exit 1
@@ -81,7 +85,7 @@ jobs:
           path: dist
           run-id: ${{ inputs.candidate_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Verify downloaded chart and installer signatures before execution
+      - name: Verify downloaded Helm chart signature before installation
         shell: bash
         run: |
           set -euo pipefail
@@ -89,15 +93,12 @@ jobs:
           (cd dist && sha256sum -c SHA256SUMS)
           chart="$(find dist -maxdepth 1 -name 'm9sweeper-*.tgz' -type f)"
           [[ -n "$chart" && -s "$chart" ]]
-          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
+          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/release-build.yml@refs/heads/main'
           issuer='https://token.actions.githubusercontent.com'
           cosign verify-blob --bundle dist/chart.sigstore.json \
             --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$chart"
-          cosign verify-blob --bundle dist/mvp-installer.sigstore.json \
-            --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
-            dist/install-mvp-staging-linux.sh
           printf '%s\n' "$chart" > /tmp/m9-mvp-chart-path
-          echo 'PASS: downloaded immutable candidate chart and installer verified'
+          echo 'PASS: downloaded Helm chart verified'
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25.2'
@@ -122,16 +123,16 @@ jobs:
         run: |
           set -euo pipefail
           export M9_MVP_CHART="$(cat /tmp/m9-mvp-chart-path)"
-          bash scripts/accept-signed-mvp-chart-kind-linux.sh
+          bash scripts/accept-release-kind.sh
       - name: Collect nonsecret install failure status
         if: failure()
         shell: bash
         run: |
           set +e
           context=kind-m9-mvp-ci
-          ns=m9-mvp-staging
+          ns=m9sweeper-system
           echo '=== Helm release status ==='
-          helm status m9-mvp -n "$ns" 2>&1 | head -70
+          helm status m9sweeper -n "$ns" 2>&1 | head -70
           echo '=== Workload states (separate calls to preserve failures) ==='
           kubectl --context "$context" -n "$ns" get deployments -o wide 2>&1
           kubectl --context "$context" -n "$ns" get pods -o wide 2>&1
@@ -158,23 +159,45 @@ jobs:
           echo '=== Helm install hook Jobs (no Secret values) ==='
           kubectl --context "$context" -n "$ns" describe jobs 2>&1 | tail -120
           echo 'Never print Secrets, environment dumps, or application logs in public CI.'
-      - name: Request gated public beta publication after successful acceptance
+      - name: Publish after exact-source platform CI is successful
         if: success()
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           SOURCE_SHA: ${{ inputs.source_sha }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
           CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
         run: |
           set -euo pipefail
-          test "$SOURCE_SHA" = "$GITHUB_SHA"
-          gh workflow run mvp-beta-publication.yml --ref main \
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo 'Release version must be vMAJOR.MINOR.PATCH' >&2; exit 2
+          }
+          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
+            echo 'Release tag already exists; will not republish'
+            exit 0
+          fi
+          ready=0
+          for attempt in {1..90}; do
+            gh run list --workflow ci.yml --limit 50 --json headSha,status,conclusion > /tmp/ci-runs.json
+            if jq -e --arg sha "$SOURCE_SHA" 'any(.[]; .headSha == $sha and .status == "completed" and .conclusion == "success")' /tmp/ci-runs.json >/dev/null; then
+              ready=1; break
+            fi
+            if jq -e --arg sha "$SOURCE_SHA" 'any(.[]; .headSha == $sha and .status == "completed" and .conclusion != "success")' /tmp/ci-runs.json >/dev/null; then
+              echo 'Full platform CI failed; publication blocked' >&2; exit 1
+            fi
+            sleep 5
+          done
+          [[ "$ready" == 1 ]] || {
+            echo 'Platform CI is not complete; release is not published' >&2; exit 1
+          }
+          gh workflow run release-publish.yml --ref main \
+            -f release_version="$RELEASE_VERSION" \
             -f source_sha="$SOURCE_SHA" \
             -f candidate_run_id="$CANDIDATE_RUN" \
             -f acceptance_run_id="$GITHUB_RUN_ID" \
             -f confirmation=SIGNED_AND_ACCEPTED
-          echo 'Requested beta publication gate; publication only after this workflow completes successfully'
+          echo 'Requested release publication after signed chart, Kind acceptance and platform CI'
       - name: Clean up isolated Kind cluster
         if: always()
         shell: bash

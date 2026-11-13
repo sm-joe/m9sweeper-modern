@@ -57,9 +57,9 @@ spec:
                 - ALL
             seccompProfile:
               type: RuntimeDefault
-          # JVM MVP images already supply ENTRYPOINT java -jar /opt/m9sweeper/trawler.jar.
+          # Java scanner images already supply ENTRYPOINT java -jar /opt/m9sweeper/trawler.jar.
           # The legacy native-image container requires the trawler binary.
-{{- if not .Values.global.mvp.enabled }}
+{{- if not (dig "installation" "enabled" false .Values.global) }}
           command: ["trawler"]
 {{- end }}
           env:

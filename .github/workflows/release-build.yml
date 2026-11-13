@@ -1,14 +1,17 @@
-name: Signed Linux release candidate images and Helm artifact
+name: Build and sign m9sweeper release
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/release-build.yml']
   workflow_dispatch:
     inputs:
       version:
-        description: 'Nonproduction candidate version, e.g. v0.1.0-rc6'
+        description: 'Release version, e.g. v0.1.0'
         required: true
-        default: 'v0.1.0-rc6'
+        default: 'v0.1.0'
         type: string
       confirmation:
-        description: 'Type CANDIDATE_ONLY (does not create a production release)'
+        description: 'Type BUILD_RELEASE to build the release package'
         required: true
         type: string
 permissions:
@@ -18,7 +21,7 @@ permissions:
   actions: write
 jobs:
   candidate:
-    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'CANDIDATE_ONLY'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.confirmation == 'BUILD_RELEASE')
     runs-on: ubuntu-latest
     timeout-minutes: 85
     steps:
@@ -28,17 +31,17 @@ jobs:
       - name: Validate candidate version and release scope
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
         run: |
           set -euo pipefail
-          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$ ]] || {
-            echo 'Only nonproduction vMAJOR.MINOR.PATCH-rcN candidate tags are permitted' >&2
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo 'Release version must be vMAJOR.MINOR.PATCH' >&2
             exit 2
           }
           test -s ATTRIBUTION.md
           test -s platform/LICENSE
           test -s docs/installation.md
-          echo 'Candidate artifact job is NOT a production acceptance or GitHub release'
+          echo 'Release package build is separate from publication; runtime validation follows'
       - uses: docker/setup-buildx-action@v3
       - name: Authenticate to GitHub Container Registry
         uses: docker/login-action@v3
@@ -54,7 +57,7 @@ jobs:
           file: ./platform/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/sm-joe/m9sweeper-dash:${{ inputs.version }}
+          tags: ghcr.io/sm-joe/m9sweeper-dash:${{ inputs.version || 'v0.1.0' }}
           provenance: mode=max
           sbom: true
       - name: Build and publish Java trawler candidate with OCI provenance and SBOM
@@ -65,7 +68,7 @@ jobs:
           file: ./platform/trawler/Dockerfile.jvm
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/sm-joe/m9sweeper-trawler:${{ inputs.version }}
+          tags: ghcr.io/sm-joe/m9sweeper-trawler:${{ inputs.version || 'v0.1.0' }}
           provenance: mode=max
           sbom: true
       - uses: sigstore/cosign-installer@v3
@@ -79,7 +82,7 @@ jobs:
           [[ "$DASH_DIGEST" == sha256:* && "$TRAWLER_DIGEST" == sha256:* ]]
           cosign sign --yes "ghcr.io/sm-joe/m9sweeper-dash@$DASH_DIGEST"
           cosign sign --yes "ghcr.io/sm-joe/m9sweeper-trawler@$TRAWLER_DIGEST"
-          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
+          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/release-build.yml@refs/heads/main'
           issuer='https://token.actions.githubusercontent.com'
           cosign verify --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "ghcr.io/sm-joe/m9sweeper-dash@$DASH_DIGEST"
           cosign verify --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "ghcr.io/sm-joe/m9sweeper-trawler@$TRAWLER_DIGEST"
@@ -91,7 +94,7 @@ jobs:
       - name: Package Helm values pinned to verified OCI image digests
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
           DASH_DIGEST: ${{ steps.dash.outputs.digest }}
           TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
         run: |
@@ -124,11 +127,11 @@ jobs:
           test -s "$chart"
           tar -xOzf "$chart" m9sweeper/values.yaml | grep -Fq "tag: "$VERSION"@$DASH_DIGEST"
           tar -xOzf "$chart" m9sweeper/values.yaml | grep -Fq "tag: "$VERSION"@$TRAWLER_DIGEST"
-          printf 'source_commit=%s\nversion=%s\nstatus=nonproduction-candidate\n' "$(git rev-parse HEAD)" "$VERSION" >dist/RELEASE-METADATA.txt
+          printf 'source_commit=%s\nversion=%s\nstatus=release-build\n' "$(git rev-parse HEAD)" "$VERSION" >dist/RELEASE-METADATA.txt
       - name: Verify signed immutable images in rendered candidate Kubernetes workloads
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
           DASH_DIGEST: ${{ steps.dash.outputs.digest }}
           TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
         run: |
@@ -137,10 +140,10 @@ jobs:
           chart="dist/m9sweeper-${VERSION#v}.tgz"
           # Render the actual packaged chart, not a mutable source directory.
           # External Secrets prevent generated bootstrap credentials in CI artifacts.
-          helm template m9-candidate "$chart" \
-            --namespace m9-staging-candidate \
+          helm template m9sweeper "$chart" \
+            --namespace m9sweeper-system \
             --kube-version 1.35.0 \
-            --set global.mvp.enabled=true \
+            --set global.installation.enabled=true \
             --set global.postgres.enabled=false \
             --set global.rabbitmq.enabled=false \
             --set-string dash.existingSecret=external-dash-env \
@@ -150,7 +153,7 @@ jobs:
           python3 tools/security/verify_candidate_workload_digests.py \
             dist/RENDERED-CANDIDATE.yaml "$VERSION" "$DASH_DIGEST" "$TRAWLER_DIGEST"
           if grep -Eq 'kind: StatefulSet|name: .*rabbitmq' dist/RENDERED-CANDIDATE.yaml; then
-            echo 'Public MVP candidate unexpectedly contains a legacy bundled database/broker' >&2
+            echo 'Release chart unexpectedly contains bundled legacy database/broker' >&2
             exit 1
           fi
       - name: Generate source dependency SPDX SBOM
@@ -160,27 +163,20 @@ jobs:
           format: spdx-json
           output-file: dist/m9sweeper-source.spdx.json
           upload-artifact: false
-      - name: Sign candidate Helm chart and verify independent artifacts
+      - name: Sign chart and package installation instructions
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
         run: |
           set -euo pipefail
           chart="dist/m9sweeper-${VERSION#v}.tgz"
-          # Include the exact operator install helper, Secret check and Linux
-          # instructions in the same retained artifact as the verified chart.
-          cp scripts/install-mvp-staging-linux.sh dist/install-mvp-staging-linux.sh
-          cp tools/security/mvp_preinstall_secrets.py dist/mvp_preinstall_secrets.py
-          cp docs/installation.md dist/MVP-INSTALL.md
-          chmod 755 dist/install-mvp-staging-linux.sh
+          cp docs/installation.md dist/INSTALL.md
           python3 -m json.tool dist/m9sweeper-source.spdx.json >/dev/null
           cosign sign-blob --yes --bundle dist/chart.sigstore.json "$chart"
-          cosign sign-blob --yes --bundle dist/mvp-installer.sigstore.json dist/install-mvp-staging-linux.sh
-          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
+          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/release-build.yml@refs/heads/main'
           issuer='https://token.actions.githubusercontent.com'
           cosign verify-blob --bundle dist/chart.sigstore.json --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$chart"
-          cosign verify-blob --bundle dist/mvp-installer.sigstore.json --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" dist/install-mvp-staging-linux.sh
-          (cd dist && sha256sum ./*.tgz m9sweeper-source.spdx.json install-mvp-staging-linux.sh mvp_preinstall_secrets.py MVP-INSTALL.md > SHA256SUMS && sha256sum -c SHA256SUMS)
+          (cd dist && sha256sum ./*.tgz m9sweeper-source.spdx.json INSTALL.md > SHA256SUMS && sha256sum -c SHA256SUMS)
       - name: Upload immutable-digest candidate manifest, chart and evidence
         uses: actions/upload-artifact@v4
         with:
@@ -188,7 +184,7 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 30
-      - name: Dispatch exact-source independent native Linux install acceptance
+      - name: Dispatch independent Kubernetes installation tests
         if: success()
         shell: bash
         env:
@@ -197,7 +193,8 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
-          gh workflow run mvp-downloaded-chart-acceptance.yml --ref main \
+          gh workflow run release-acceptance.yml --ref main \
+            -f release_version='${{ inputs.version || 'v0.1.0' }}' \
             -f source_sha="$GITHUB_SHA" \
             -f candidate_run_id="$GITHUB_RUN_ID" \
             -f confirmation=ACCEPT_CANDIDATE
