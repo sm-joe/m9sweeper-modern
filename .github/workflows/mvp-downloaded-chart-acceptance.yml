@@ -89,7 +89,7 @@ jobs:
           (cd dist && sha256sum -c SHA256SUMS)
           chart="$(find dist -maxdepth 1 -name 'm9sweeper-*.tgz' -type f)"
           [[ -n "$chart" && -s "$chart" ]]
-          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main'
+          identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/release-build.yml@refs/heads/main'
           issuer='https://token.actions.githubusercontent.com'
           cosign verify-blob --bundle dist/chart.sigstore.json \
             --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$chart"
