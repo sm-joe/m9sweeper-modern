@@ -6,6 +6,7 @@ on:
       - 'tools/integration/real-trivy-e2e-staging.py'
       - 'tools/integration/trivy-dlq-staging.py'
       - 'tools/browser-e2e/tests/trivy-staging.spec.cjs'
+      - 'tools/browser-e2e/tests/mvp-security-pages.spec.cjs'
       - '.github/workflows/real-trivy-acceptance.yml'
   workflow_dispatch:
 
@@ -46,7 +47,7 @@ jobs:
           node -e "console.log('Resolved @playwright/test:', require.resolve('@playwright/test'))"
           test -x ./node_modules/.bin/playwright
           ./node_modules/.bin/playwright install --with-deps chromium
-      - name: Verify same real Trivy scan is visible in Angular
+      - name: Verify real Trivy scan and MVP security pages in Angular
         working-directory: tools/browser-e2e
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
@@ -54,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           node -e "require.resolve('@playwright/test')"
-          ./node_modules/.bin/playwright test tests/trivy-staging.spec.cjs --project=chromium
+          ./node_modules/.bin/playwright test tests/trivy-staging.spec.cjs tests/mvp-security-pages.spec.cjs --project=chromium
       - name: Upload Trivy UI traces on failure
         if: failure()
         uses: actions/upload-artifact@v4
