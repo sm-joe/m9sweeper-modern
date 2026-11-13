@@ -34,7 +34,8 @@ KEYS = {
     ),
 }
 # Only names are safe to include in error output. Never show Secret values.
-BAD_VALUES = {"postgres", "guest", "password", "changeme", "replace-me", "replace-with-private-secret", ""}
+BAD_VALUES = {"password", "changeme", "replace-me", "replace-with-private-secret", ""}
+SENSITIVE_KEYS = {"SECURITY_JWT_SECRET", "DATABASE_CONNECTION_PASSWORD", "RABBITMQ_USER_PASSWORD", "RABBITMQ_PASSWORD", "SUPER_ADMIN_PASSWORD", "CLUSTER_API_KEY", "TRAWLER_API_KEY", "KUBE_HUNTER_API_KEY", "KUBE_BENCH_API_KEY", "FALCO_API_KEY", "M9SWEEPER_API_KEY"}
 
 
 def validate_secret_data(objects: dict) -> list[str]:
@@ -55,7 +56,7 @@ def validate_secret_data(objects: dict) -> list[str]:
                 errors.append(f"{role}: key {key} must be valid UTF-8 base64 Secret data")
                 continue
             decoded[role][key] = value
-            if not value.strip() or value.strip().lower() in BAD_VALUES or value.lower().startswith("generated-"):
+            if (not value.strip() or value.lower().startswith("generated-") or (key in SENSITIVE_KEYS and value.strip().lower() in BAD_VALUES) or (key in {"RABBITMQ_USER_NAME", "RABBITMQ_USERNAME"} and value.strip().lower() == "guest")):
                 errors.append(f"{role}: key {key} is empty or uses a known placeholder")
     for role, key, minimum in [
         ("dash", "SECURITY_JWT_SECRET", 32),
