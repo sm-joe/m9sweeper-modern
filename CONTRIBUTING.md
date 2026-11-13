@@ -1,35 +1,33 @@
 # Contributing to m9sweeper-modern
 
-Thanks for helping improve this open-source Kubernetes security project. The current public distribution is **v0.1.0-beta.1**, a staging-focused prerelease; production readiness, cross-cluster isolation and scanner compatibility must be demonstrated rather than assumed.
+Contributions are welcome! m9sweeper-modern is an open-source Kubernetes security platform built with Angular, NestJS, Java and Helm.
 
-## Before opening a change
+## How to contribute
 
-1. Search [existing issues](https://github.com/sm-joe/m9sweeper-modern/issues) and pull requests. For user-facing behavior, include the Linux/Kubernetes version and whether the issue reproduces using the [published signed beta](https://github.com/sm-joe/m9sweeper-modern/releases/tag/v0.1.0-beta.1).
-2. For security vulnerabilities, **do not** create a public issue or post exploit details. Follow [SECURITY.md](SECURITY.md).
-3. Keep changes focused. Explain the user-visible behavior, root cause, regression risk and how you verified it.
-4. Preserve upstream license notices, original attribution and any third-party licensing obligations.
+1. Search [existing issues](https://github.com/sm-joe/m9sweeper-modern/issues) and pull requests.
+2. Open an issue explaining a bug or enhancement, or submit a focused pull request.
+3. Include the relevant component, version, expected result and reproduction steps.
+4. Run the appropriate automated tests and update the documentation when behavior changes.
 
-## Repository layout
+## Repository guide
 
-- `platform/dash/`: Angular and NestJS dashboard / API.
-- `platform/trawler/`: Java scanner worker and Trivy integration.
-- `platform/manifests/charts/`: Helm charts and image deployment.
-- `tools/`: integration and security checks.
-- `scripts/`: operator and CI acceptance helpers.
-- `docs/`: public beta guidance, feature verification and historical release evidence.
+| Path | Contents |
+| --- | --- |
+| `platform/dash/frontend/` | Angular web dashboard |
+| `platform/dash/backend/` | NestJS API and database migrations |
+| `platform/trawler/` | Java image-scanning worker |
+| `platform/manifests/charts/` | Helm charts |
+| `tools/` | Unit, browser, integration and security tests |
+| `docs/` | Installation and release notes |
+| `.github/workflows/` | CI, security and release automation |
 
 ## Pull request checklist
 
-- [ ] Describes the problem, intended change and supported environments.
-- [ ] Includes relevant build/test or runtime evidence, and states what remains unverified.
-- [ ] Avoids secrets, raw kubeconfigs, private IPs, credentials and personal data.
-- [ ] Keeps scanner failures fail-closed; never changes missing findings into a compliant verdict.
-- [ ] Keeps signed release/artifact checks, cluster authorization and database preservation protections intact.
-- [ ] Updates public documentation when installation, configuration or behavior changes.
-- [ ] Preserves `platform/LICENSE` and [ATTRIBUTION.md](ATTRIBUTION.md) obligations.
+- [ ] Change has a clear description and focused scope.
+- [ ] Relevant tests or installation verification pass.
+- [ ] No credentials, private kubeconfigs, environment secrets or sensitive logs are committed.
+- [ ] API authentication, cluster authorization and scanner-failure behavior remain protected.
+- [ ] Helm and Kubernetes changes are accompanied by rendering or runtime checks.
+- [ ] Documentation and upstream licensing/attribution remain correct.
 
-Run the relevant frontend/backend/Java tests and Helm lint/template checks for changed components. Do not use a passing compile step to claim a real Kubernetes scanner or install was validated. For releases, use the signed-chart and independent Linux Kind acceptance workflows.
-
-## Issues and support
-
-Please supply reproduction steps, sanitized logs, expected/actual behavior, component versions and the exact release chart filename or commit. Attach only artifacts that contain no credentials or private infrastructure data. This is a community beta; there is no committed production SLA.
+For vulnerabilities, read [SECURITY.md](SECURITY.md) and report privately rather than creating a public issue. This project retains upstream license notices; see [ATTRIBUTION.md](ATTRIBUTION.md).
