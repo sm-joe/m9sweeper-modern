@@ -1,22 +1,22 @@
 # Security policy
 
-## Supported security updates
+m9sweeper-modern welcomes responsible reports of security vulnerabilities.
 
-| Version | Status |
-| --- | --- |
-| `v0.1.0-beta.1` | Public experimental beta; security fixes may require a new signed prerelease |
-| Historical RC or development snapshots | Not supported as distributions |
+## Reporting a vulnerability
 
-This project provides **no production security certification or response-time SLA**. Operators are responsible for their cluster RBAC, HTTPS/TLS, credential rotation, network access, external PostgreSQL/RabbitMQ persistence and independent backups.
+Use the repository's [GitHub Security page](https://github.com/sm-joe/m9sweeper-modern/security) and private vulnerability reporting where enabled.
 
-## Report a vulnerability privately
+Do not publish active credentials, kubeconfigs, private infrastructure details, exploit chains or unpatched vulnerability reproductions in public issues.
 
-Use the repository's [GitHub Security page](https://github.com/sm-joe/m9sweeper-modern/security) and private vulnerability reporting where enabled. **Do not** disclose active credentials, kubeconfig contents, private infrastructure identifiers, weaponized proof-of-concept details or unpatched vulnerabilities in public GitHub issues.
+A useful report includes the affected version, impact, required attacker access, reproduction conditions and sanitized logs or evidence. Test only on systems you are authorized to assess.
 
-Include a clear impact statement, affected release/version, sanitized reproduction conditions and what an attacker needs in order to exploit the problem. Avoid testing against systems you do not own or administer.
+## Secure deployment
 
-## Release integrity
+- Use dedicated Kubernetes identities and least-privilege permissions.
+- Protect dashboard access with HTTPS when exposed beyond a local port-forward.
+- Generate unique administrator and scanner credentials and store them in Kubernetes Secrets.
+- Secure PostgreSQL and RabbitMQ network access and authentication.
+- Back up PostgreSQL and test restoration before upgrading.
+- Review optional security integrations for your cluster before enabling them.
 
-Public prerelease assets are checked with SHA256 checksums and Sigstore identities from the signed GitHub Actions candidate workflow. Verify a chart and installer independently before use. Do not replace a signed asset with edited source code under the same filename or assume a source fix updates an already published immutable release.
-
-Read the [public beta installation guide](docs/installation.md), including the beta.1 installer advisory, and validate deployment security in an isolated environment before connecting sensitive clusters.
+For setup, see the [installation guide](docs/installation.md). Public release assets are produced by the repository's release workflows; build metadata, checksums and signature evidence are attached as part of the publishing process.
