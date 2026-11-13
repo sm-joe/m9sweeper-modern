@@ -247,12 +247,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version=v0.1.0-rc9
+          version=v0.1.0
           dash_digest="sha256:$(printf 'a%.0s' {1..64})"
           trawler_digest="sha256:$(printf 'b%.0s' {1..64})"
           helm template m9-image-proof platform/manifests/charts/m9sweeper \
-            --namespace m9-staging-render \
+            --namespace m9sweeper-system \
             --kube-version 1.35.0 \
+            --set global.installation.enabled=true \
+            --set global.postgres.enabled=false \
+            --set global.rabbitmq.enabled=false \
             --set-string dash.existingSecret=external-dash-env \
             --set-string trawler.existingSecret=external-trawler-env \
             --set-string dash.init.existingSecret=external-init-env \
