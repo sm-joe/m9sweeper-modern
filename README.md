@@ -7,7 +7,7 @@
 
 **m9sweeper-modern** is a free, open-source Kubernetes security platform. Scan container images for vulnerabilities, review cluster security, manage security policies and track findings from a single dashboard.
 
-[Installation guide](docs/mvp-public-beta-install.md) · [Releases](https://github.com/sm-joe/m9sweeper-modern/releases) · [Issues](https://github.com/sm-joe/m9sweeper-modern/issues) · [Contributing](CONTRIBUTING.md)
+[Installation guide](docs/installation.md) · [Releases](https://github.com/sm-joe/m9sweeper-modern/releases) · [Issues](https://github.com/sm-joe/m9sweeper-modern/issues) · [Contributing](CONTRIBUTING.md)
 
 ## Features
 
@@ -56,7 +56,7 @@ gh release download v0.1.0-beta.1 --repo sm-joe/m9sweeper-modern --pattern '*.tg
 
 ### 2. Configure
 
-Prepare three private environment files for the database, message queue and administrator credentials, as shown in the [installation guide](docs/mvp-public-beta-install.md).
+Prepare three private environment files for the database, message queue and administrator credentials, as shown in the [installation guide](docs/installation.md).
 
 ```bash
 kubectl create namespace m9sweeper-system
@@ -104,7 +104,7 @@ kubectl -n m9sweeper-system port-forward svc/m9sweeper-dash 13000:3000
 
 Open **http://localhost:13000** and sign in with the administrator account you configured.
 
-See the [installation guide](docs/mvp-public-beta-install.md) for all required environment variables and troubleshooting.
+See the [installation guide](docs/installation.md) for all required environment variables and troubleshooting.
 
 ## Contributing
 
