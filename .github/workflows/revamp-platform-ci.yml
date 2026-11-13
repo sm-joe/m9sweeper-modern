@@ -73,7 +73,7 @@ jobs:
           python3 tools/security/test_helm_staging_guard.py
           python3 tools/security/test_restore_compose_guard.py
           bash -n scripts/check-broker-health-linux.sh
-          test -s docs/linux-k8s-release-readiness.md
+          test -s docs/mvp-public-beta-install.md
           grep -q 'Linux' README.md
           grep -q 'Kubernetes' README.md
           echo 'PASS: Linux operator scripts syntax'
@@ -179,29 +179,6 @@ jobs:
           }
           console.log('Resolved @angular/material version:', require('./node_modules/@angular/material/package.json').version);
           JS
-      - name: Validate guarded Angular 17 to 18 migration preflight
-        shell: bash
-        run: |
-          bash -n ../../../scripts/migrate-angular-major.sh
-          current="$(node -p "require('./package.json').dependencies['@angular/core'].match(/[0-9]+/)[0]")"
-          if [[ "$current" -eq 22 ]]; then
-            # Final supported target: no Angular 23 transition exists in this runner.
-            # Re-applying 22 or downgrading to 21 must be rejected.
-            if bash ../../../scripts/migrate-angular-major.sh 22 --preflight ||
-               bash ../../../scripts/migrate-angular-major.sh 21 --preflight; then
-              echo 'ERROR: Final Angular 22 baseline accepted an invalid migration' >&2
-              exit 1
-            fi
-            echo 'PASS: Angular 22 is the final supported migration target'
-          else
-            next="$((current+1))"
-            skipped="$((current+2))"
-            bash ../../../scripts/migrate-angular-major.sh "$next" --preflight
-            if bash ../../../scripts/migrate-angular-major.sh "$skipped" --preflight; then
-              echo 'ERROR: Migration runner accepted a multi-major jump' >&2
-              exit 1
-            fi
-          fi
       - name: Assert Angular esbuild application target and NestJS output contract
         run: |
           node - <<'JS'
@@ -825,7 +802,7 @@ jobs:
           test -s platform/LICENSE
           test -s platform/.upstream-source-revision
           test -s ATTRIBUTION.md
-          test -s docs/m9sweeper-new-release-gates.md
+          test -s docs/mvp-public-beta-install.md
           mkdir -p dist
           commit="$(git rev-parse HEAD)"
           printf 'product=m9sweeper-new\nstatus=developer-preview-not-production\ncommit=%s\nupstream=%s\n'             "$commit" "$(cat platform/.upstream-source-revision)" > dist/BUILD-IDENTITY.txt

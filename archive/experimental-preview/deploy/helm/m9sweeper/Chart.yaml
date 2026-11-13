@@ -1,6 +1,0 @@
-apiVersion: v2
-name: m9sweeper
-version: 0.1.0
-appVersion: "0.1.0"
-description: Modernized m9sweeper foundation (images must be built and published separately)
-type: application
