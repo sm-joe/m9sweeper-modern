@@ -301,27 +301,17 @@ export class KubernetesApiService {
     async applyK8sObject(obj: KubernetesObject, config: KubeConfig): Promise<KubernetesObject> {
         const objApi = KubernetesObjectApi.makeApiClient(config);
         try {
-            // Casting to any, the interface the function seems to only want a prtial metadata
-            // But doesn;t quite work right without all of the fields
             await objApi.read(obj as any);
-            return (await objApi.patch(obj)).body;
-        } catch (e) { // objApi throws errors if it can't find the object
-            if (e.statusCode === 401) {
-                console.log('User does not have permission to read the object');
-                 return null;
-            }
-            return await objApi.create(obj)
-                .then(res => res.body)
-                .catch(er => {
-                   if (er.statusCode === 401) {
-                       console.log('user does not have permission to create the object');
-                       return null;
-                   }
-                   console.log('Error creating object', e);
-                   return null;
-                });
-
+        } catch (error) {
+            const status = Number(error?.statusCode ?? error?.response?.statusCode ??
+                error?.response?.status ?? error?.status);
+            // Only an actual 404 means the object is absent. Network faults,
+            // authentication errors, and RBAC denial must never trigger CREATE.
+            if (status !== 404) throw error;
+            return (await objApi.create(obj)).body;
         }
+        // An update failure must not fall through to CREATE.
+        return (await objApi.patch(obj)).body;
     }
 
     /**
