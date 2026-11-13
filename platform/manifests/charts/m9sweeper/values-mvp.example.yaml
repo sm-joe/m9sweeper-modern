@@ -1,8 +1,7 @@
-# Copy and customize for a PUBLIC-BETA installation only after a signed
-# candidate supplies actual immutable image digests. Never commit credentials.
-# Existing Secrets must be created out of band; values contain names only.
+# External PostgreSQL, RabbitMQ and pre-created Secret references.
+# Set immutable image references when using a newly packaged chart.
 global:
-  mvp:
+  installation:
     enabled: true
   postgres:
     enabled: false
