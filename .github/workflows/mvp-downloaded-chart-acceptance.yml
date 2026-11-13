@@ -44,14 +44,33 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$CANDIDATE_RUN" =~ ^[1-9][0-9]*$ ]]
-          gh run view "$CANDIDATE_RUN" --json name,headSha,status,conclusion |
+          # The candidate dispatches acceptance from its final step, before
+          # GitHub transitions the workflow run itself to "completed".
+          # Poll that exact run ID, never accept a different source or workflow.
+          candidate_ok=0
+          for attempt in {1..60}; do
+            evidence="$(gh run view "$CANDIDATE_RUN" --json name,headSha,status,conclusion)"
             jq -e --arg sha "$SOURCE_SHA" '
               .name == "Signed Linux release candidate images and Helm artifact"
-              and .headSha == $sha and .status == "completed"
-              and .conclusion == "success"' >/dev/null || {
-              echo 'Selected candidate is not a successful exact-source signed build' >&2
+              and .headSha == $sha' <<<"$evidence" >/dev/null || {
+              echo 'Candidate workflow identity or source SHA mismatch' >&2
               exit 1
             }
+            if jq -e '.status == "completed" and .conclusion == "success"' <<<"$evidence" >/dev/null; then
+              candidate_ok=1
+              break
+            fi
+            if jq -e '.status == "completed"' <<<"$evidence" >/dev/null; then
+              echo 'Signed candidate completed without success; release blocked' >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          [[ "$candidate_ok" == 1 ]] || {
+            echo 'Signed candidate did not reach completed/success within bounded verification window' >&2
+            exit 1
+          }
+          echo 'PASS: exact-source signed candidate completed successfully'
       - uses: azure/setup-helm@v4
         with:
           version: v3.17.3
