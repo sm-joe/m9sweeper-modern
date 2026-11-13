@@ -119,7 +119,7 @@ jobs:
         run: |
           set -euo pipefail
           export M9_MVP_CHART="$(cat /tmp/m9-mvp-chart-path)"
-          bash scripts/accept-signed-mvp-chart-kind-linux.sh
+          bash scripts/accept-release-kind.sh
       - name: Collect nonsecret install failure status
         if: failure()
         shell: bash
