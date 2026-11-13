@@ -30,7 +30,16 @@ async function signIn(page) {
 test('real scanned image is listed and navigable on the Angular Images screen', async ({page}) => {
   await signIn(page);
   const url = `/private/clusters/${fixture.clusterId}/images`;
-  await page.goto(url);
+  const [response] = await Promise.all([
+    page.waitForResponse(result => new URL(result.url()).pathname ===
+      `/api/clusters/${fixture.clusterId}/images/search` &&
+      result.request().method() === 'GET', {timeout: 20000}),
+    page.goto(url),
+  ]);
+  expect(response.status(), 'Image listing search must succeed').toBe(200);
+  const result = await response.json();
+  expect(result?.data?.list?.some(image => image.id === fixture.imageId),
+    'Real persisted Trivy image must appear in the image search API').toBeTruthy();
   await expect(page).toHaveURL(new RegExp(`/private/clusters/${fixture.clusterId}/images`));
   await expect(page.locator('app-image')).toHaveCount(1, {timeout: 20000});
   await expect(page.locator('#imagesTable')).toBeVisible();
