@@ -127,8 +127,37 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          kubectl --context kind-m9-mvp-ci -n m9-mvp-staging get deployments,pods,jobs,events --sort-by=.metadata.creationTimestamp 2>/dev/null | tail -120 || true
-          helm status m9-mvp -n m9-mvp-staging 2>/dev/null | head -45 || true
+          set +e
+          context=kind-m9-mvp-ci
+          ns=m9-mvp-staging
+          echo '=== Helm release status ==='
+          helm status m9-mvp -n "$ns" 2>&1 | head -70
+          echo '=== Workload states (separate calls to preserve failures) ==='
+          kubectl --context "$context" -n "$ns" get deployments -o wide 2>&1
+          kubectl --context "$context" -n "$ns" get pods -o wide 2>&1
+          kubectl --context "$context" -n "$ns" get jobs -o wide 2>&1
+          echo '=== Init and container termination/waiting reasons ==='
+          kubectl --context "$context" -n "$ns" get pods -o json | python3 -c '
+          import json,sys
+          try:
+              pods=json.load(sys.stdin).get("items",[])
+              for pod in pods:
+                  meta=pod.get("metadata",{}); status=pod.get("status",{})
+                  print(meta.get("name"),"phase="+str(status.get("phase")))
+                  for kind in ("initContainerStatuses","containerStatuses"):
+                      for c in status.get(kind,[]):
+                          state=c.get("state",{})
+                          print(" ",c.get("name"),"ready="+str(c.get("ready")),"restarts="+str(c.get("restartCount")),"state="+str(state))
+          except Exception as exc:
+              print("Cannot parse pod status:",type(exc).__name__)
+          ' 2>&1
+          echo '=== Pod conditions and Kubernetes scheduling/pull errors ==='
+          kubectl --context "$context" -n "$ns" describe pods 2>&1 | tail -260
+          echo '=== Recent Kubernetes events ==='
+          kubectl --context "$context" -n "$ns" get events --sort-by=.metadata.creationTimestamp 2>&1 | tail -120
+          echo '=== Helm install hook Jobs (no Secret values) ==='
+          kubectl --context "$context" -n "$ns" describe jobs 2>&1 | tail -120
+          echo 'Never print Secrets, environment dumps, or application logs in public CI.'
       - name: Request gated public beta publication after successful acceptance
         if: success()
         shell: bash
