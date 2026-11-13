@@ -163,7 +163,7 @@ kubectl -n "$namespace" rollout status deployment/ci-rabbitmq --timeout=8m
 export M9_MVP_PREFLIGHT=YES M9_EXPECTED_KUBE_CONTEXT=kind-m9-mvp-ci
 python3 tools/security/mvp_preinstall_secrets.py --namespace "$namespace"
 
-values=(--set global.mvp.enabled=true
+values=(--set global.installation.enabled=true
         --set global.postgres.enabled=false
         --set global.rabbitmq.enabled=false
         --set-string dash.existingSecret=m9-dash-env
