@@ -68,11 +68,21 @@ done
 export M9_MVP_PREFLIGHT=YES
 python3 "$M9_MVP_SECRET_CHECKER" --namespace "$namespace"
 helm lint "$M9_MVP_CHART" -f "$M9_MVP_VALUES" >/dev/null
+# Helm template is offline and otherwise assumes its built-in Kubernetes
+# version, which can be older than the signed chart's declared kubeVersion.
+server_version="$(kubectl get --raw /version | python3 -c 'import json,sys; print(json.load(sys.stdin).get("gitVersion",""))')"
+[[ "$server_version" =~ ^v1\.(35|36|37)\.[0-9]+ ]] || {
+  echo 'FAIL: Kubernetes server version is outside the signed beta chart range (1.35-1.37)' >&2; exit 2
+}
 helm template "$release" "$M9_MVP_CHART" -n "$namespace" \
-  -f "$M9_MVP_VALUES" >/dev/null
+  -f "$M9_MVP_VALUES" --kube-version "${server_version#v}" >/dev/null
 echo 'PASS: verified immutable release package and safe staging Secret preflight'
+# Dash initialization is a post-install Helm hook. Helm --wait on the
+# initial install defers that hook until Deployments are ready, while Dash
+# readiness can depend on that very initialization. Helm runs and waits for
+# hook Jobs without --wait; check Deployments explicitly afterward.
 helm upgrade --install "$release" "$M9_MVP_CHART" -n "$namespace" \
-  -f "$M9_MVP_VALUES" --wait --timeout 15m
+  -f "$M9_MVP_VALUES" --timeout 15m
 kubectl -n "$namespace" rollout status "deployment/$release-dash" --timeout=5m
 kubectl -n "$namespace" rollout status "deployment/$release-trawler" --timeout=5m
 echo 'PASS: staging Helm installation and core deployment rollout completed'
