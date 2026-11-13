@@ -73,8 +73,8 @@ jobs:
           python3 tools/security/test_helm_staging_guard.py
           python3 tools/security/test_restore_compose_guard.py
           bash -n scripts/check-broker-health-linux.sh
-          test -s docs/mvp-public-beta-install.md
-          grep -q 'Linux' README.md
+          test -s docs/installation.md
+          grep -q '^## Installation' README.md
           grep -q 'Kubernetes' README.md
           echo 'PASS: Linux operator scripts syntax'
 
@@ -802,7 +802,7 @@ jobs:
           test -s platform/LICENSE
           test -s platform/.upstream-source-revision
           test -s ATTRIBUTION.md
-          test -s docs/mvp-public-beta-install.md
+          test -s docs/installation.md
           mkdir -p dist
           commit="$(git rev-parse HEAD)"
           printf 'product=m9sweeper-new\nstatus=developer-preview-not-production\ncommit=%s\nupstream=%s\n'             "$commit" "$(cat platform/.upstream-source-revision)" > dist/BUILD-IDENTITY.txt

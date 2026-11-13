@@ -19,4 +19,4 @@ Include a clear impact statement, affected release/version, sanitized reproducti
 
 Public prerelease assets are checked with SHA256 checksums and Sigstore identities from the signed GitHub Actions candidate workflow. Verify a chart and installer independently before use. Do not replace a signed asset with edited source code under the same filename or assume a source fix updates an already published immutable release.
 
-Read the [public beta installation guide](docs/mvp-public-beta-install.md), including the beta.1 installer advisory, and validate deployment security in an isolated environment before connecting sensitive clusters.
+Read the [public beta installation guide](docs/installation.md), including the beta.1 installer advisory, and validate deployment security in an isolated environment before connecting sensitive clusters.

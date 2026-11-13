@@ -3,113 +3,115 @@
 ### Kubernetes Security for Everyone
 
 [![Release](https://img.shields.io/github/v/release/sm-joe/m9sweeper-modern?include_prereleases&label=release)](https://github.com/sm-joe/m9sweeper-modern/releases)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](platform/LICENSE)
+[![License](https://img.shields.io/badge/Apache--2.0-blue)](platform/LICENSE)
 
-**m9sweeper-modern** is an open-source security dashboard for Kubernetes. It brings together image vulnerability scanning, cluster visibility, security policies, and reports in one place.
+**m9sweeper-modern** is a free, open-source Kubernetes security platform. Scan container images for vulnerabilities, review cluster security, manage security policies and track findings from a single dashboard.
 
-[**Download**](https://github.com/sm-joe/m9sweeper-modern/releases) · [**Installation**](docs/mvp-public-beta-install.md) · [**Report a bug**](https://github.com/sm-joe/m9sweeper-modern/issues) · [**Contribute**](CONTRIBUTING.md)
+[Installation guide](docs/installation.md) · [Releases](https://github.com/sm-joe/m9sweeper-modern/releases) · [Issues](https://github.com/sm-joe/m9sweeper-modern/issues) · [Contributing](CONTRIBUTING.md)
 
 ## Features
 
-- **Vulnerability scanning:** Find container image vulnerabilities using [Trivy](https://github.com/aquasecurity/trivy).
-- **Cluster security:** Discover Kubernetes resources and review their security posture.
-- **Security policies:** Manage scanning rules, exceptions, and compliance decisions.
-- **Reports:** Review findings, scan history, and trends in one dashboard.
-- **Additional tools:** Integrations for [Kubesec](https://github.com/controlplaneio/kubesec), [kube-bench](https://github.com/aquasecurity/kube-bench), [kube-hunter](https://github.com/aquasecurity/kube-hunter), [Falco](https://falco.org/) and Gatekeeper. These require separate configuration and environment-specific testing.
+- **CVE scanning** with Trivy
+- **Kubernetes inventory** for clusters, namespaces, workloads and images
+- **Policies, exceptions and security reports**
+- **Historical vulnerability data and dashboards**
+- **Additional integrations:** Kubesec, kube-bench, kube-hunter, Falco and Gatekeeper (additional setup may be required)
 
-## Technology
+## Tech stack
 
 | Component | Technology |
 | --- | --- |
 | Dashboard | Angular 22, TypeScript, Angular Material |
-| API | NestJS 11, Node.js |
-| Image scanner | Java 21, Trivy |
+| Backend | NestJS 11, Node.js |
+| Scanner | Java 21, Trivy |
 | Database | PostgreSQL 17 |
 | Message queue | RabbitMQ 4.4 |
 | Deployment | Kubernetes, Helm 3 |
-| Testing | Jest, Playwright, GitHub Actions |
 
 ## Architecture
 
 ```text
-                    Kubernetes clusters
-                           |
-                           v
-Browser ---> Angular Dashboard + NestJS API
-                           |        |
-                           |        v
-                           |     RabbitMQ
-                           |        |
-                           v        v
-                       PostgreSQL  Java Trawler
-                           ^        |
-                           +-- Trivy scan results
+   Kubernetes clusters
+           |
+           v
+  Angular Dashboard + NestJS API ------> PostgreSQL
+           |
+           v
+        RabbitMQ
+           |
+           v
+      Java Trawler ---> Trivy ---> API ---> PostgreSQL
 ```
-
-The API manages clusters, policies and results. RabbitMQ delivers image-scan jobs to Trawler; Trivy scans images and findings are saved to PostgreSQL.
 
 ## Installation
 
-**You need:** a Kubernetes cluster (version 1.35 is the tested setup), Helm, kubectl, an existing PostgreSQL 17 database and RabbitMQ 4.4 server. Install the GitHub CLI (`gh`), Python 3 and Cosign to download and verify the release. Use a Unix-compatible shell on the host running these commands.
+**Requirements:** Kubernetes 1.35, Helm 3, `kubectl`, an accessible PostgreSQL 17 database and RabbitMQ 4.4 server. The current chart requires you to configure those two services separately.
 
-**1. Download m9sweeper**
-
-```bash
-mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.0-beta.1 --repo sm-joe/m9sweeper-modern
-sha256sum -c SHA256SUMS
-
-cosign verify-blob m9sweeper-0.1.0-rc9.tgz \
-  --bundle chart.sigstore.json \
-  --certificate-identity "https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main" \
-  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
-```
-
-**2. Configure the database, RabbitMQ and administrator account**
-
-Create three private configuration files using the examples in the [installation guide](docs/mvp-public-beta-install.md). Then create the Kubernetes namespace and Secrets:
+### 1. Download
 
 ```bash
-kubectl create namespace m9-mvp-staging
-kubectl label namespace m9-mvp-staging m9sweeper-staging=true
-
-kubectl -n m9-mvp-staging create secret generic m9-dash-env --from-env-file=/secure/dash-runtime.env
-kubectl -n m9-mvp-staging create secret generic m9-init-env --from-env-file=/secure/dash-bootstrap.env
-kubectl -n m9-mvp-staging create secret generic m9-trawler-env --from-env-file=/secure/trawler-runtime.env
+mkdir m9sweeper && cd m9sweeper
+gh release download v0.1.0-beta.1 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
 ```
 
-**3. Install with Helm**
+### 2. Configure
 
-Create `/secure/m9-mvp-values.yaml` as shown in the [installation guide](docs/mvp-public-beta-install.md), then:
+Prepare three private environment files for the database, message queue and administrator credentials, as shown in the [installation guide](docs/installation.md).
 
 ```bash
-export M9_MVP_PREFLIGHT=YES
-export M9_EXPECTED_KUBE_CONTEXT="$(kubectl config current-context)"
-python3 mvp_preinstall_secrets.py --namespace m9-mvp-staging
+kubectl create namespace m9sweeper-system
 
-helm upgrade --install m9-mvp ./m9sweeper-0.1.0-rc9.tgz \
-  --namespace m9-mvp-staging --values /secure/m9-mvp-values.yaml --timeout 15m
-
-kubectl -n m9-mvp-staging rollout status deployment/m9-mvp-dash --timeout=5m
-kubectl -n m9-mvp-staging rollout status deployment/m9-mvp-trawler --timeout=5m
+kubectl -n m9sweeper-system create secret generic m9-dash-env --from-env-file=/secure/dash-runtime.env
+kubectl -n m9sweeper-system create secret generic m9-init-env --from-env-file=/secure/dash-bootstrap.env
+kubectl -n m9sweeper-system create secret generic m9-trawler-env --from-env-file=/secure/trawler-runtime.env
 ```
 
-**4. Open the dashboard**
+Create `/secure/m9sweeper-values.yaml`:
+
+```yaml
+global:
+  mvp:
+    enabled: true
+  postgres:
+    enabled: false
+  rabbitmq:
+    enabled: false
+dash:
+  existingSecret: m9-dash-env
+  init:
+    existingSecret: m9-init-env
+trawler:
+  existingSecret: m9-trawler-env
+```
+
+### 3. Install
 
 ```bash
-kubectl -n m9-mvp-staging port-forward svc/m9-mvp-dash 13000:3000
+helm upgrade --install m9sweeper ./m9sweeper-0.1.0-rc9.tgz \
+  --namespace m9sweeper-system \
+  --values /secure/m9sweeper-values.yaml \
+  --timeout 15m
+
+kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m
+kubectl -n m9sweeper-system rollout status deployment/m9sweeper-trawler --timeout=5m
 ```
 
-Open **http://localhost:13000** and log in using the administrator account you configured.
+### 4. Open dashboard
 
-For the full configuration examples and troubleshooting, see [Installation](docs/mvp-public-beta-install.md).
+```bash
+kubectl -n m9sweeper-system port-forward svc/m9sweeper-dash 13000:3000
+```
 
-> The current download requires an existing database and message queue. Its bundled installation helper has a known first-install issue, so use the Helm commands above rather than the helper. The release is intended for evaluation; production backup, recovery and advanced scanner support are not yet independently certified.
+Open **http://localhost:13000** and sign in with the administrator account you configured.
+
+See the [installation guide](docs/installation.md) for all required environment variables and troubleshooting.
 
 ## Contributing
 
-Contributions and bug reports are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md), and use [GitHub Issues](https://github.com/sm-joe/m9sweeper-modern/issues) for requests.
+We welcome pull requests and bug reports. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
 ## License
 
-[Apache License 2.0](platform/LICENSE). This project modernizes the original [m9sweeper](https://github.com/m9sweeper/m9sweeper). Original authorship and notices are preserved in [ATTRIBUTION.md](ATTRIBUTION.md); this project is not endorsed by the original maintainers.
+[Apache 2.0](platform/LICENSE). Based on the original [m9sweeper](https://github.com/m9sweeper/m9sweeper); see [attribution](ATTRIBUTION.md).
+
+The downloadable chart has been tested on Kubernetes 1.35. Verify security settings, backups and recovery processes before using it for important workloads.

@@ -1,32 +1,17 @@
 # Installation
 
-[Back to README](../README.md) · [Download](https://github.com/sm-joe/m9sweeper-modern/releases)
-
-m9sweeper-modern runs in Kubernetes and is installed with Helm.
+[Back to README](../README.md) · [Releases](https://github.com/sm-joe/m9sweeper-modern/releases)
 
 ## Requirements
 
-- Kubernetes 1.35 cluster (the version tested with the downloadable package)
-- Helm 3 and kubectl
-- PostgreSQL 17 and RabbitMQ 4.4, reachable from the cluster
-- Python 3, GitHub CLI (`gh`), Cosign and `sha256sum` on your installation workstation
-
-The current release uses an existing database and queue; it does not install these services for you.
+Kubernetes 1.35, Helm 3, kubectl, GitHub CLI, PostgreSQL 17 and RabbitMQ 4.4. Make sure the database and message queue are reachable from Kubernetes before installing.
 
 ## Step 1 — Download
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.0-beta.1 --repo sm-joe/m9sweeper-modern
-sha256sum -c SHA256SUMS
-
-cosign verify-blob m9sweeper-0.1.0-rc9.tgz \
-  --bundle chart.sigstore.json \
-  --certificate-identity "https://github.com/sm-joe/m9sweeper-modern/.github/workflows/signed-linux-candidate.yml@refs/heads/main" \
-  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+gh release download v0.1.0-beta.1 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
 ```
-
-Use the downloaded chart `m9sweeper-0.1.0-rc9.tgz`. Stop if verification fails.
 
 ## Step 2 — Configure
 
@@ -77,14 +62,13 @@ The RabbitMQ username/password must match in both files. `M9SWEEPER_API_KEY` mus
 Create the Kubernetes namespace and Secrets:
 
 ```bash
-kubectl create namespace m9-mvp-staging
-kubectl label namespace m9-mvp-staging m9sweeper-staging=true --overwrite
-kubectl -n m9-mvp-staging create secret generic m9-dash-env --from-env-file=/secure/dash-runtime.env
-kubectl -n m9-mvp-staging create secret generic m9-init-env --from-env-file=/secure/dash-bootstrap.env
-kubectl -n m9-mvp-staging create secret generic m9-trawler-env --from-env-file=/secure/trawler-runtime.env
+kubectl create namespace m9sweeper-system
+kubectl -n m9sweeper-system create secret generic m9-dash-env --from-env-file=/secure/dash-runtime.env
+kubectl -n m9sweeper-system create secret generic m9-init-env --from-env-file=/secure/dash-bootstrap.env
+kubectl -n m9sweeper-system create secret generic m9-trawler-env --from-env-file=/secure/trawler-runtime.env
 ```
 
-Create **`/secure/m9-mvp-values.yaml`**:
+Create **`/secure/m9sweeper-values.yaml`**:
 
 ```yaml
 global:
@@ -109,23 +93,19 @@ The chart already contains the signed image references. Don't replace them with 
 From the directory where you downloaded the release:
 
 ```bash
-export M9_MVP_PREFLIGHT=YES
-export M9_EXPECTED_KUBE_CONTEXT="$(kubectl config current-context)"
-python3 mvp_preinstall_secrets.py --namespace m9-mvp-staging
+helm upgrade --install m9sweeper ./m9sweeper-0.1.0-rc9.tgz \
+  --namespace m9sweeper-system --values /secure/m9sweeper-values.yaml --timeout 15m
 
-helm upgrade --install m9-mvp ./m9sweeper-0.1.0-rc9.tgz \
-  --namespace m9-mvp-staging --values /secure/m9-mvp-values.yaml --timeout 15m
-
-kubectl -n m9-mvp-staging rollout status deployment/m9-mvp-dash --timeout=5m
-kubectl -n m9-mvp-staging rollout status deployment/m9-mvp-trawler --timeout=5m
+kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m
+kubectl -n m9sweeper-system rollout status deployment/m9sweeper-trawler --timeout=5m
 ```
 
-**Do not add `--wait` to the initial Helm command.** It can prevent the database initialization hook from running. The release's separate `install-mvp-staging-linux.sh` script still uses that older sequence; use the Helm command above.
+**Do not use `--wait` for the first install.** The database initialization job must run before deployment readiness is checked.
 
 ## Step 4 — Open m9sweeper
 
 ```bash
-kubectl -n m9-mvp-staging port-forward svc/m9-mvp-dash 13000:3000
+kubectl -n m9sweeper-system port-forward svc/m9sweeper-dash 13000:3000
 ```
 
 Open [http://localhost:13000](http://localhost:13000) on the same workstation and sign in using the account from `dash-bootstrap.env`. Add a cluster with trusted Kubernetes credentials, configure a Trivy policy and scan a test image to view findings.
@@ -133,9 +113,9 @@ Open [http://localhost:13000](http://localhost:13000) on the same workstation an
 ## Troubleshooting
 
 ```bash
-kubectl -n m9-mvp-staging get pods,jobs
-kubectl -n m9-mvp-staging get events --sort-by=.metadata.creationTimestamp
-helm status m9-mvp -n m9-mvp-staging
+kubectl -n m9sweeper-system get pods,jobs
+kubectl -n m9sweeper-system get events --sort-by=.metadata.creationTimestamp
+helm status m9sweeper -n m9sweeper-system
 ```
 
 If pods do not start, check their events and make sure the database, message queue, credentials and registry access are correct. Keep the dashboard local unless you have configured a trusted HTTPS ingress. Back up PostgreSQL before upgrades; a Helm rollback does not reverse database schema changes.
