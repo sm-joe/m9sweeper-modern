@@ -1,14 +1,14 @@
-name: Signed Linux release candidate images and Helm artifact
+name: Build and sign m9sweeper release
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Nonproduction candidate version, e.g. v0.1.0-rc6'
+        description: 'Release version, e.g. v0.1.0'
         required: true
-        default: 'v0.1.0-rc6'
+        default: 'v0.1.0'
         type: string
       confirmation:
-        description: 'Type CANDIDATE_ONLY (does not create a production release)'
+        description: 'Type BUILD_RELEASE to build the release package'
         required: true
         type: string
 permissions:
@@ -18,7 +18,7 @@ permissions:
   actions: write
 jobs:
   candidate:
-    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'CANDIDATE_ONLY'
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'BUILD_RELEASE'
     runs-on: ubuntu-latest
     timeout-minutes: 85
     steps:
@@ -31,14 +31,14 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$ ]] || {
-            echo 'Only nonproduction vMAJOR.MINOR.PATCH-rcN candidate tags are permitted' >&2
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo 'Release version must be vMAJOR.MINOR.PATCH' >&2
             exit 2
           }
           test -s ATTRIBUTION.md
           test -s platform/LICENSE
           test -s docs/installation.md
-          echo 'Candidate artifact job is NOT a production acceptance or GitHub release'
+          echo 'Release package build is separate from publication; runtime validation follows'
       - uses: docker/setup-buildx-action@v3
       - name: Authenticate to GitHub Container Registry
         uses: docker/login-action@v3
@@ -124,7 +124,7 @@ jobs:
           test -s "$chart"
           tar -xOzf "$chart" m9sweeper/values.yaml | grep -Fq "tag: "$VERSION"@$DASH_DIGEST"
           tar -xOzf "$chart" m9sweeper/values.yaml | grep -Fq "tag: "$VERSION"@$TRAWLER_DIGEST"
-          printf 'source_commit=%s\nversion=%s\nstatus=nonproduction-candidate\n' "$(git rev-parse HEAD)" "$VERSION" >dist/RELEASE-METADATA.txt
+          printf 'source_commit=%s\nversion=%s\nstatus=release-build\n' "$(git rev-parse HEAD)" "$VERSION" >dist/RELEASE-METADATA.txt
       - name: Verify signed immutable images in rendered candidate Kubernetes workloads
         shell: bash
         env:
@@ -137,10 +137,10 @@ jobs:
           chart="dist/m9sweeper-${VERSION#v}.tgz"
           # Render the actual packaged chart, not a mutable source directory.
           # External Secrets prevent generated bootstrap credentials in CI artifacts.
-          helm template m9-candidate "$chart" \
-            --namespace m9-staging-candidate \
+          helm template m9sweeper "$chart" \
+            --namespace m9sweeper-system \
             --kube-version 1.35.0 \
-            --set global.mvp.enabled=true \
+            --set global.installation.enabled=true \
             --set global.postgres.enabled=false \
             --set global.rabbitmq.enabled=false \
             --set-string dash.existingSecret=external-dash-env \
@@ -150,7 +150,7 @@ jobs:
           python3 tools/security/verify_candidate_workload_digests.py \
             dist/RENDERED-CANDIDATE.yaml "$VERSION" "$DASH_DIGEST" "$TRAWLER_DIGEST"
           if grep -Eq 'kind: StatefulSet|name: .*rabbitmq' dist/RENDERED-CANDIDATE.yaml; then
-            echo 'Public MVP candidate unexpectedly contains a legacy bundled database/broker' >&2
+            echo 'Release chart unexpectedly contains bundled legacy database/broker' >&2
             exit 1
           fi
       - name: Generate source dependency SPDX SBOM
@@ -188,7 +188,7 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 30
-      - name: Dispatch exact-source independent native Linux install acceptance
+      - name: Dispatch independent Kubernetes installation tests
         if: success()
         shell: bash
         env:
