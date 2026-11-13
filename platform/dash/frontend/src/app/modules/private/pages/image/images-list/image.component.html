@@ -32,6 +32,10 @@
       </div>
     </div>
 
+    <div *ngIf="imageLoadError" role="alert" class="mb-xs-3">
+      Unable to load cluster images. The Kubernetes inventory or image API is unavailable.
+      <button type="button" mat-raised-button color="primary" (click)="retryImageLoad()">Retry images</button>
+    </div>
     <mat-card class="scrollable-table-card">
       <div class="table-wrapper">
         <mat-table class="table-with-link-rows" [dataSource]="dataSource" id="imagesTable" matSort  matSortActive="date" matSortDisableClear matSortDirection="desc">

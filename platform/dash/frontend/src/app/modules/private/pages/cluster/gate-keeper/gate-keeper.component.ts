@@ -26,6 +26,7 @@ export class GateKeeperComponent implements OnInit {
   displayedColumns: string[] = ['name', 'description', 'constraints', 'enforced'];
   gatekeeperInstallationStatus: {status: boolean, message: string};
   gatekeeperStatusLoaded = false;
+  gatekeeperLoadError = false;
   gatekeeperInstallation: Partial<IKubernetesServiceObject>;
 
   constructor(
@@ -47,7 +48,7 @@ export class GateKeeperComponent implements OnInit {
       .pipe(take(1))
       .subscribe({
         next: response => {
-          console.log('loadGatekeeperInformation', response);
+          this.gatekeeperLoadError = false;
           this.gatekeeperStatusLoaded = true;
           this.gatekeeperInstallationStatus = {
             message: response.message, status: response.status,
@@ -55,10 +56,13 @@ export class GateKeeperComponent implements OnInit {
           this.gatekeeperInstallation = response.data?.gatekeeperResource;
           this.setConstraintTemplates(response.data?.constraints);
         },
-        error: err => {
-          if (this.gatekeeperStatusLoaded) {
-            this.setConstraintTemplates();
-          }
+        error: () => {
+          this.gatekeeperLoadError = true;
+          this.gatekeeperStatusLoaded = true;
+          this.gatekeeperInstallationStatus = {
+            status: false, message: 'Unavailable'
+          };
+          this.gatekeeperTemplates = new MatTableDataSource<IGatekeeperConstraintTemplate>([]);
         },
       });
   }
@@ -77,17 +81,25 @@ export class GateKeeperComponent implements OnInit {
       .pipe(take(1))
       .subscribe({
         next: data => {
+          this.gatekeeperLoadError = false;
           this.gatekeeperConstraintTemplates = data;
           this.gatekeeperTemplates = new MatTableDataSource<IGatekeeperConstraintTemplate>(data);
           this.gatekeeperTemplates.paginator = this.paginator;
         },
         error: err => {
-          console.error(err);
+          this.gatekeeperLoadError = true;
           this.gatekeeperConstraintTemplates = null;
           this.gatekeeperTemplates = new MatTableDataSource<IGatekeeperConstraintTemplate>([]);
           this.gatekeeperTemplates.paginator = this.paginator;
         }
       });
+  }
+
+  retryGatekeeperLoad() {
+    this.gatekeeperLoadError = false;
+    this.gatekeeperStatusLoaded = false;
+    this.loadGatekeeperInformation();
+    this.loadGateKeeperConstraintTemplates();
   }
 
   openInstallWizard() {

@@ -45,6 +45,7 @@ export class ImageComponent implements OnInit, AfterViewInit, OnDestroy {
   limit = this.getLimitFromLocalStorage() ? Number(this.getLimitFromLocalStorage()) : 10;
   page = 0;
   totalCount = 0;
+  imageLoadError = false;
   cve: string;
   onlyRunning = false;
   userIsAdmin = false;
@@ -94,7 +95,13 @@ export class ImageComponent implements OnInit, AfterViewInit, OnDestroy {
           : this.searchImages();
       }),
       takeUntil(this.unsubscribe$)
-    ).subscribe(resp => this.onSearchSuccess(resp), () => {});
+    ).subscribe({
+      next: resp => this.onSearchSuccess(resp),
+      error: () => {
+        this.imageLoadError = true;
+        this.alertService.danger('Unable to load images for this cluster. Check the Kubernetes API connection and retry.');
+      }
+    });
   }
 
   searchImages(name = '', cve= '', onlyRunning = false): Observable<IServerResponse<{totalCount: number, list: IImage[]}>> {
@@ -103,9 +110,11 @@ export class ImageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onSearchSuccess(response: IServerResponse<{totalCount: number, list: IImage[]}>): void {
-    if (!response?.success) {
+    if (!response?.success || !Array.isArray(response.data?.list)) {
+      this.imageLoadError = true;
       return;
     }
+    this.imageLoadError = false;
     this.dataSource = new MatTableDataSource(response.data.list);
     this.totalCount = response.data.totalCount;
   }
@@ -117,7 +126,17 @@ export class ImageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.searchImages().pipe(take(1)).subscribe(resp => {
       this.updateImageSearch();
       return this.onSearchSuccess(resp);
-    }, () => {});
+    }, () => {
+      this.imageLoadError = true;
+      this.alertService.danger('Unable to refresh cluster images. Check the Kubernetes API connection and retry.');
+    });
+  }
+
+  retryImageLoad(): void {
+    this.searchImages().pipe(take(1)).subscribe({
+      next: response => this.onSearchSuccess(response),
+      error: () => { this.imageLoadError = true; }
+    });
   }
 
   openImageCreateDialog() {

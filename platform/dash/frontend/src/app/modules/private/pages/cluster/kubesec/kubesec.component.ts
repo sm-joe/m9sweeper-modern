@@ -29,6 +29,7 @@ export class KubesecComponent implements OnInit, OnDestroy {
   selectedPodNames = [];
   currentPods = [];
   loadingPods = false;
+  namespaceLoadError = false;
   selectedNamespaces: string[];
   clusterId: number;
   currentNamespaces: any[];
@@ -80,13 +81,21 @@ export class KubesecComponent implements OnInit, OnDestroy {
   getNamespaces() {
     this.kubesecService.listNamespaces(this.clusterId).pipe(takeUntil(this.unsubscribe$)).subscribe(list => {
       if (list) {
+        this.namespaceLoadError = false;
         this.currentNamespaces = list.items;
       } else {
+        this.namespaceLoadError = true;
         this.alertService.danger('Could not get namespaces');
       }
     }, error => {
+      this.namespaceLoadError = true;
       this.alertService.danger('Could not get namespaces');
     });
+  }
+
+  retryNamespaceLoad(): void {
+    this.namespaceLoadError = false;
+    this.getNamespaces();
   }
 
   public onFileChange(event: any) {
