@@ -35,6 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate active workflow files and Kubernetes Secret contract
+        run: |
+          ruby -r yaml -e 'Dir[".github/workflows/*.{yml,yaml}"].each { |p| YAML.parse_file(p) }'
+          python3 -m unittest tools.security.test_mvp_preinstall_secrets
       - name: Validate upstream product modules and UI routes
         run: |
           python3 tools/import-platform/verify.py
