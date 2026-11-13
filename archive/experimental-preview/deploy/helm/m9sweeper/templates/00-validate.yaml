@@ -1,9 +1,0 @@
-{{- if not .Values.global.existingSecret }}{{ fail "global.existingSecret required" }}{{ end }}
-{{- if or .Values.global.jwtSecret .Values.global.apiKey .Values.dash.init.superAdminPassword }}
-{{- if not .Values.global.security.allowInlineSecrets }}{{ fail "Inline secrets prohibited; use global.existingSecret and keep values empty" }}{{ end }}
-{{- end }}
-{{- range $name := list "dash" "backend" "trawler" }}
-{{- $image := index $.Values $name "image" }}
-{{- if not $image.repository }}{{ fail (printf "%s.image.repository must be set to a built image" $name) }}{{ end }}
-{{- if and (not $image.digest) (not $image.tag) }}{{ fail (printf "%s.image.tag or .digest is required" $name) }}{{ end }}
-{{- end }}
