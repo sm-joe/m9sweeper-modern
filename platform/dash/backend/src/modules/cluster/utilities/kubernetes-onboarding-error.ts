@@ -10,6 +10,8 @@ export function classifyKubernetesOnboardingError(error: any): {message: string;
     message = 'Kubernetes external exec credentials cannot be used by the Dash container.';
   else if (/Invalid kubeconfig|Kubeconfig.*(CA|current context|certificate authority)|trusted cluster CA|TLS verification.*bypass/i.test(reason))
     message = 'Kubeconfig is incomplete or has invalid trusted Kubernetes CA data.';
+  else if (/service.account token not yet provisioned/i.test(reason))
+    message = 'Kubernetes service-account token is not ready; check the m9sweeper Secret and Kubernetes token controller.';
   else if (status === 401) message = 'Kubernetes authentication failed (401); update credentials.';
   else if (status === 403) message = 'Kubernetes authorization denied (403); check service-account and RBAC provisioning permissions.';
   else if (status === 404) message = 'Kubernetes API returned 404; inspect API endpoint and configured namespace.';
