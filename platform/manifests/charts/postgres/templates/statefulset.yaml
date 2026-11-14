@@ -1,4 +1,4 @@
-{{- if and .Release.IsUpgrade .Values.persistence.enabled (not .Values.persistence.acknowledgeDataMountMigration) -}}
+{{- if and .Release.IsUpgrade (not .Values.global.installation.enabled) .Values.persistence.enabled (not .Values.persistence.acknowledgeDataMountMigration) -}}
 {{- fail "PostgreSQL PGDATA PVC mount is changing. Back up and test restoration before upgrading; set postgresql.persistence.acknowledgeDataMountMigration=true ONLY in verified staging." -}}
 {{- end }}
 ---
