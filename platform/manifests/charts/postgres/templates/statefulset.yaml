@@ -66,11 +66,32 @@ spec:
 {{ toYaml .Values.resources | indent 10 }}
         env:
         - name: POSTGRES_PASSWORD
+{{- if and .Values.global.installation.enabled .Values.postgresql.existingSecret }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.postgresql.existingSecret | quote }}
+              key: DATABASE_CONNECTION_PASSWORD
+{{- else }}
           value: {{ .Values.postgresql.password | quote }}
+{{- end }}
         - name: POSTGRES_USER
+{{- if and .Values.global.installation.enabled .Values.postgresql.existingSecret }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.postgresql.existingSecret | quote }}
+              key: DATABASE_CONNECTION_USERNAME
+{{- else }}
           value: {{ .Values.postgresql.username | quote }}
+{{- end }}
         - name: POSTGRES_DB
+{{- if and .Values.global.installation.enabled .Values.postgresql.existingSecret }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.postgresql.existingSecret | quote }}
+              key: DATABASE_CONNECTION_DATABASE
+{{- else }}
           value: {{ .Values.postgresql.database | quote }}
+{{- end }}
         {{- if .Values.postgresql.initdbArgs }}
         - name: POSTGRES_INITDB_ARGS
           value: {{ .Values.postgresql.initdbArgs | quote }}
