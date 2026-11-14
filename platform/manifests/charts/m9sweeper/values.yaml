@@ -4,10 +4,10 @@
 # Global Config #
 #################
 global:
-  # Standard installation uses existing database, broker and Kubernetes Secrets.
+  # Standard installation can provision its PostgreSQL and RabbitMQ dependencies.
   installation:
     enabled: false
-  # A postgres DB is required, you can either have this chart deploy a minimal postgres DB for you, or bring your own
+  # PostgreSQL is installed by this chart unless using an external service.
   postgres:
     # set to false to use an external postgres DB
     enabled: true
@@ -18,7 +18,7 @@ global:
     # database: postgres
     # port: "5432"
 
-  # RabbitMQ is required, you can either have this chart deploy a minimal rabbit instance, or bring your own
+  # RabbitMQ is installed by this chart unless using an external service.
   rabbitmq:
     # set to false to use external rabbitmq
     enabled: true
@@ -144,3 +144,28 @@ trawler:
       cpu: 200m
       memory: 256Mi
 
+
+# Bundled dependencies for a standard installation.
+# Database and broker credentials are loaded from dash.existingSecret,
+# not stored as plaintext in Helm values or release history.
+postgresql:
+  image:
+    repository: postgres
+    tag: "17"
+  postgresql:
+    existingSecret: m9-dash-env
+  volumePermissions:
+    image:
+      tag: bookworm-slim
+rabbitmq:
+  image:
+    repository: rabbitmq
+    tag: "4.4-management"
+  existingSecret: m9-dash-env
+  persistence:
+    size: 5Gi
+  securityContext:
+    fsGroup: 999
+    runAsGroup: 999
+    runAsNonRoot: true
+    runAsUser: 999
