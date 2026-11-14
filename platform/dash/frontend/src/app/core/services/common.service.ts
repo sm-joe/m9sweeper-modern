@@ -10,7 +10,7 @@ export class CommonService {
 
   constructor(private httpClient: HttpClient) { }
 
-  getBaseUrl(): Observable<IServerResponse<{baseUrl: string}>> {
+  getBaseUrl(): Observable<IServerResponse<{baseUrl: string; reportIngestionUrl: string | null}>> {
     return this.httpClient.get(`common/get-config`);
   }
 }
