@@ -25,7 +25,7 @@ if not email or not password:
 
 def sql(statement):
     result = subprocess.run(
-        ["kubectl", "-n", namespace, "exec", "-i", "deployment/ci-postgres",
+        ["kubectl", "-n", namespace, "exec", "-i", "statefulset/m9sweeper-postgresql",
          "--", "psql", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"],
         input=statement, text=True, capture_output=True, check=False, timeout=40)
     if result.returncode:

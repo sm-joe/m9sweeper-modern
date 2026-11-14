@@ -1,14 +1,24 @@
 {{/*
-Standard installation profile. Legacy/default umbrella deployment is retained for
-existing integrations and older Helm values.
+Standard installation profile. PostgreSQL 17 and RabbitMQ 4.4 may be
+provided by this chart or as external services.
 External Secret values are references, not raw secret values in Helm history.
 */}}
 {{- if (dig "installation" "enabled" false .Values.global) }}
 {{- if .Values.global.postgres.enabled }}
-{{- fail "Installation profile: disable the bundled legacy PostgreSQL chart (global.postgres.enabled=false); configure an external supported PostgreSQL 17 deployment via the external Dash Secret" }}
+{{- if not (regexMatch "^17([.-]|$)" (toString .Values.postgresql.image.tag)) }}
+{{- fail "Installation profile: bundled PostgreSQL must use version 17" }}
+{{- end }}
+{{- if ne (toString .Values.postgresql.postgresql.existingSecret) (toString .Values.dash.existingSecret) }}
+{{- fail "Installation profile: PostgreSQL credentials Secret must match dash.existingSecret" }}
+{{- end }}
 {{- end }}
 {{- if .Values.global.rabbitmq.enabled }}
-{{- fail "Installation profile: disable the bundled legacy RabbitMQ chart (global.rabbitmq.enabled=false); configure an external supported RabbitMQ deployment via Dash and Trawler Secrets" }}
+{{- if not (regexMatch "^4[.]4([.-]|$)" (toString .Values.rabbitmq.image.tag)) }}
+{{- fail "Installation profile: bundled RabbitMQ must use version 4.4" }}
+{{- end }}
+{{- if ne (toString .Values.rabbitmq.existingSecret) (toString .Values.dash.existingSecret) }}
+{{- fail "Installation profile: RabbitMQ credentials Secret must match dash.existingSecret" }}
+{{- end }}
 {{- end }}
 {{- if not (and .Values.dash.existingSecret .Values.dash.init.existingSecret .Values.trawler.existingSecret) }}
 {{- fail "Installation profile: dash.existingSecret, dash.init.existingSecret and trawler.existingSecret must reference pre-created Kubernetes Secrets" }}

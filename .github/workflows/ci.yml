@@ -298,6 +298,28 @@ jobs:
           print("PASS: unique release-scoped ClusterRole and ClusterRoleBinding:", expected)
           PY
           done
+      - name: Render bundled PostgreSQL and RabbitMQ installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          helm template m9sweeper platform/manifests/charts/m9sweeper \
+            -n m9sweeper-system --kube-version 1.35.0 \
+            --set global.installation.enabled=true \
+            --set global.postgres.enabled=true \
+            --set global.rabbitmq.enabled=true \
+            --set-string dash.existingSecret=m9-dash-env \
+            --set-string dash.init.existingSecret=m9-init-env \
+            --set-string trawler.existingSecret=m9-trawler-env \
+            --set-string "dash.image.tag=v0.1.2@sha256:$(printf 'a%.0s' {1..64})" \
+            --set-string "trawler.image.tag=v0.1.2@sha256:$(printf 'b%.0s' {1..64})" \
+            > /tmp/m9-bundled.yaml
+          grep -Fq 'image: "postgres:17"' /tmp/m9-bundled.yaml
+          grep -Fq 'image: "rabbitmq:4.4-management"' /tmp/m9-bundled.yaml
+          grep -Fq 'm9sweeper-postgresql.m9sweeper-system.svc.cluster.local' /tmp/m9-bundled.yaml
+          grep -Fq 'm9sweeper-rabbitmq.m9sweeper-system.svc.cluster.local' /tmp/m9-bundled.yaml
+          grep -Fq 'key: DATABASE_CONNECTION_PASSWORD' /tmp/m9-bundled.yaml
+          grep -Fq 'key: RABBITMQ_USER_PASSWORD' /tmp/m9-bundled.yaml
+          python3 tools/security/check_postgres_persistence_layout.py /tmp/m9-bundled.yaml
       - name: Verify real PostgreSQL StatefulSet persists PGDATA on its PVC
         shell: bash
         run: |

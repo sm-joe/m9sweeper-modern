@@ -1,10 +1,13 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ if .Values.global.installation.enabled }}StatefulSet{{ else }}Deployment{{ end }}
 metadata:
   name: {{ include "rabbitmq.fullname" . }}
   labels:
     {{- include "rabbitmq.labels" . | nindent 4 }}
 spec:
+{{- if .Values.global.installation.enabled }}
+  serviceName: {{ include "rabbitmq.fullname" . }}
+{{- end }}
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
@@ -41,6 +44,19 @@ spec:
               name: {{ include "rabbitmq.fullname" . }}
           {{- end }}
           {{- end }}
+          {{- if and .Values.global.installation.enabled .Values.existingSecret }}
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret | quote }}
+                  key: RABBITMQ_USER_NAME
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret | quote }}
+                  key: RABBITMQ_USER_PASSWORD
+          {{- end }}
           ports:
             - containerPort: {{ .Values.service.port }}
           {{- with .Values.livenessProbe }}
@@ -53,6 +69,11 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+{{- if .Values.global.installation.enabled }}
+          volumeMounts:
+            - name: rabbitmq-data
+              mountPath: /var/lib/rabbitmq
+{{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -65,3 +86,14 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
+{{- if .Values.global.installation.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: rabbitmq-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size | default "5Gi" | quote }}
+{{- end }}

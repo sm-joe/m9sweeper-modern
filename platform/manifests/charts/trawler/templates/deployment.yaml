@@ -63,6 +63,10 @@ spec:
           command: ["trawler"]
 {{- end }}
           env:
+{{- if and .Values.global.installation.enabled .Values.global.rabbitmq.enabled }}
+            - name: RABBITMQ_HOSTNAME
+              value: {{ printf "%s-rabbitmq.%s.svc.cluster.local" .Release.Name .Release.Namespace | quote }}
+{{- end }}
             - name: DEBUG
               value: "{{ .Values.enableDebugLogs | ternary 1 0 | toString }}"
             - name: TRAWLER_RUN_MODE

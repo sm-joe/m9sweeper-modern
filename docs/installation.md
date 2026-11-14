@@ -4,29 +4,29 @@
 
 ## Requirements
 
-Kubernetes 1.35, Helm 3, kubectl, GitHub CLI, PostgreSQL 17 and RabbitMQ 4.4. Make sure the database and message queue are reachable from Kubernetes before installing.
+Kubernetes 1.35, Helm 3, kubectl, GitHub CLI and a default persistent StorageClass. The chart includes PostgreSQL 17 and RabbitMQ 4.4; existing external services are optional.
 
 ## Step 1 — Download
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.1 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
+gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
 ```
 
 ## Step 2 — Configure
 
-Create three files in a private directory, such as `/secure/`, and replace the examples with your own credentials and real server addresses. Use `umask 077` when creating them. Never commit these files.
+Create three files in a private directory, such as `/secure/`, and replace the example credentials. The bundled PostgreSQL and RabbitMQ Kubernetes addresses below match the standard release. Use `umask 077` when creating them. Never commit these files.
 
 **`/secure/dash-runtime.env`** — database and message queue:
 
 ```dotenv
 SECURITY_JWT_SECRET=replace-with-a-long-random-secret
-DATABASE_CONNECTION_HOST=postgres.example.internal
+DATABASE_CONNECTION_HOST=m9sweeper-postgresql.m9sweeper-system.svc.cluster.local
 DATABASE_CONNECTION_PORT=5432
 DATABASE_CONNECTION_DATABASE=postgres
 DATABASE_CONNECTION_USERNAME=m9sweeper
 DATABASE_CONNECTION_PASSWORD=replace-with-database-password
-RABBITMQ_HOST_NAME=rabbitmq.example.internal
+RABBITMQ_HOST_NAME=m9sweeper-rabbitmq.m9sweeper-system.svc.cluster.local
 RABBITMQ_HOST_PORT=5672
 RABBITMQ_PORT=5672
 RABBITMQ_USER_NAME=m9sweeper
@@ -49,7 +49,7 @@ FALCO_API_KEY=replace-with-unique-falco-key
 **`/secure/trawler-runtime.env`** — scanner connection:
 
 ```dotenv
-RABBITMQ_HOSTNAME=rabbitmq.example.internal
+RABBITMQ_HOSTNAME=m9sweeper-rabbitmq.m9sweeper-system.svc.cluster.local
 RABBITMQ_PORT=5672
 RABBITMQ_USERNAME=m9sweeper
 RABBITMQ_PASSWORD=replace-with-rabbitmq-password
@@ -75,9 +75,9 @@ global:
   installation:
     enabled: true
   postgres:
-    enabled: false
+    enabled: true
   rabbitmq:
-    enabled: false
+    enabled: true
 dash:
   existingSecret: m9-dash-env
   init:
@@ -86,14 +86,14 @@ trawler:
   existingSecret: m9-trawler-env
 ```
 
-The chart includes its application image references. Configure database and broker connections through your private Secrets.
+The chart includes its application image references. For bundled PostgreSQL and RabbitMQ, the chart injects the release-local Service hostnames automatically. Keep the passwords and usernames consistent across the Dash and Trawler Secrets.
 
 ## Step 3 — Install
 
 From the directory where you downloaded the release:
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
+helm upgrade --install m9sweeper ./m9sweeper-0.1.2.tgz \
   --namespace m9sweeper-system --values /secure/m9sweeper-values.yaml --timeout 15m
 
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m

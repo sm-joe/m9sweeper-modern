@@ -1,5 +1,12 @@
 # Release notes
 
+## m9sweeper-modern v0.1.2
+
+- Standard Helm installation now provisions PostgreSQL 17 and RabbitMQ 4.4 with persistent volumes when `global.postgres.enabled` and `global.rabbitmq.enabled` are true.
+- Bundled dependencies read credentials from `dash.existingSecret` and Kubernetes Services are automatically wired into Dash and Trawler.
+- Existing external dependency configurations remain available using `enabled: false`.
+- A fresh installation must provide persistent storage and rotate any previously disclosed credentials.
+
 ## m9sweeper-modern v0.1.1
 
 ### Fixes

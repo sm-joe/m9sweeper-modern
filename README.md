@@ -65,13 +65,13 @@ The NestJS API maintains cluster inventory, policies and scan history. Trawler p
 
 - A Kubernetes cluster and `kubectl` (Kubernetes 1.35 is the tested reference environment)
 - Helm 3 and [GitHub CLI](https://cli.github.com/)
-- An existing **PostgreSQL 17** database and **RabbitMQ 4.4** broker accessible from your cluster
+- Persistent storage provisioner (StorageClass) for PostgreSQL 17 and RabbitMQ 4.4, or existing external services
 
 ### 1. Download
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.1 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
+gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
 ```
 
 ### 2. Configure
@@ -94,9 +94,9 @@ global:
   installation:
     enabled: true
   postgres:
-    enabled: false
+    enabled: true
   rabbitmq:
-    enabled: false
+    enabled: true
 dash:
   existingSecret: m9-dash-env
   init:
