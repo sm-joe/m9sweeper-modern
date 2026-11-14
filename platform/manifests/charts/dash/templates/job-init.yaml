@@ -23,6 +23,10 @@ spec:
             - secretRef:
                 name: {{ .Values.existingSecret | default (printf "%s-secrets" (include "dash.fullname" .)) }}
           env:
+{{- if and .Values.global.installation.enabled .Values.global.postgres.enabled }}
+            - name: DATABASE_CONNECTION_HOST
+              value: {{ printf "%s-postgresql.%s.svc.cluster.local" .Release.Name .Release.Namespace | quote }}
+{{- end }}
             - name: CLI_PATH
               value: ./cli.js
       containers:
@@ -34,6 +38,14 @@ spec:
           - "run"
           - "cli:init:all"
         env:
+{{- if and .Values.global.installation.enabled .Values.global.postgres.enabled }}
+          - name: DATABASE_CONNECTION_HOST
+            value: {{ printf "%s-postgresql.%s.svc.cluster.local" .Release.Name .Release.Namespace | quote }}
+{{- end }}
+{{- if and .Values.global.installation.enabled .Values.global.rabbitmq.enabled }}
+          - name: RABBITMQ_HOST_NAME
+            value: {{ printf "%s-rabbitmq.%s.svc.cluster.local" .Release.Name .Release.Namespace | quote }}
+{{- end }}
           - name: FIRST_CLUSTER_GROUP_NAME
             value: {{ .Values.init.clusterGroupName }}
           - name: FIRST_CLUSTER_NAME
