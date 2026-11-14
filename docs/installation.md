@@ -10,7 +10,7 @@ Kubernetes 1.35, Helm 3, kubectl, GitHub CLI and a default persistent StorageCla
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
 ```
 
 ## Step 2 — Configure
@@ -93,7 +93,7 @@ The chart includes its application image references. For bundled PostgreSQL and 
 From the directory where you downloaded the release:
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.2.tgz \
+helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
   --namespace m9sweeper-system --values /secure/m9sweeper-values.yaml --timeout 15m
 
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m
