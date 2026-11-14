@@ -1,7 +1,7 @@
 image:
   repository: rabbitmq
   pullPolicy: Always
-  tag: "3.8.34-alpine"
+  tag: "4.4-management"
 
 service:
   type: ClusterIP
@@ -9,6 +9,9 @@ service:
   port: 5672
 
 replicaCount: 1
+existingSecret: ""
+persistence:
+  size: 5Gi
 
 resources:
   limits:
