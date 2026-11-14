@@ -3,6 +3,7 @@
     <ng-template matStepLabel>Create Job</ng-template>
 
     <p *ngIf="!reportEndpointReady" role="alert" class="mat-error">{{reportEndpointError}}</p>
+    <p *ngIf="reportEndpointReady" role="note">Clone the public scanner chart repository before running this Helm command. <code>git</code> is required. </p>
     <p *ngIf="reportEndpointReady" role="note">The secure kube-hunter report relay forwards findings over verified HTTPS with <code>X-API-Key</code>. Create an existing Kubernetes Secret named <code>m9sweeper-kube-hunter-relay-auth</code> in namespace <code>m9sweeper-system</code> containing key <code>apiKey</code>. The header token must be rotated and granted access to this cluster. Never store the API key in a URL, Helm value, command, or browser history. The relay expects a trusted CA for <code>{{backendUrl}}</code>.</p>
     <div class="modal-content-left-align-no-margin" *ngIf="reportEndpointReady">
       <h3>Choose whether to run kube-hunter periodically or manually</h3>
@@ -32,7 +33,8 @@
         </div>
 
         <div >
-          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter ./platform/manifests/charts/kube-hunter \
+          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">git clone --depth 1 https://github.com/sm-joe/m9sweeper-modern.git m9sweeper-scanner-charts
+helm upgrade --install kube-hunter ./m9sweeper-scanner-charts/platform/manifests/charts/kube-hunter \
   -n m9sweeper-system --create-namespace \
   --set reportRelay.enabled=true \
   --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \
@@ -71,7 +73,8 @@
         </div>
 
         <div >
-          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter ./platform/manifests/charts/kube-hunter \
+          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">git clone --depth 1 https://github.com/sm-joe/m9sweeper-modern.git m9sweeper-scanner-charts
+helm upgrade --install kube-hunter ./m9sweeper-scanner-charts/platform/manifests/charts/kube-hunter \
   -n m9sweeper-system --create-namespace \
   --set reportRelay.enabled=true \
   --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \
