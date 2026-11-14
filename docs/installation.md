@@ -4,13 +4,13 @@
 
 ## Requirements
 
-Kubernetes 1.35, Helm 3, kubectl, GitHub CLI, PostgreSQL 17 and RabbitMQ 4.4. Make sure the database and message queue are reachable from Kubernetes before installing.
+Kubernetes 1.35, Helm 3, kubectl, GitHub CLI and a default persistent StorageClass. The chart includes PostgreSQL 17 and RabbitMQ 4.4; existing external services are optional.
 
 ## Step 1 — Download
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.1 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
+gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
 ```
 
 ## Step 2 — Configure
@@ -75,9 +75,9 @@ global:
   installation:
     enabled: true
   postgres:
-    enabled: false
+    enabled: true
   rabbitmq:
-    enabled: false
+    enabled: true
 dash:
   existingSecret: m9-dash-env
   init:
