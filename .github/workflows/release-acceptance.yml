@@ -99,6 +99,35 @@ jobs:
             --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$chart"
           printf '%s\n' "$chart" > /tmp/m9-mvp-chart-path
           echo 'PASS: downloaded Helm chart verified'
+      - name: Verify downloaded standalone scanner chart archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ inputs.release_version }}"
+          for scanner in kube-bench kube-hunter; do
+            chart="dist/$scanner-${version#v}.tgz"
+            bundle="dist/$scanner.sigstore.json"
+            test -s "$chart" && test -s "$bundle"
+            cosign verify-blob --bundle "$bundle" \
+              --certificate-identity 'https://github.com/sm-joe/m9sweeper-modern/.github/workflows/release-build.yml@refs/heads/main' \
+              --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' "$chart"
+            helm show chart "$chart" >/dev/null
+          done
+          helm template kube-bench "dist/kube-bench-${version#v}.tgz" \
+            --namespace m9sweeper-system --kube-version 1.35.0 \
+            --set-string provider=commonjob \
+            --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
+            --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
+            --set cronjob.enabled=false >/tmp/kube-bench-standalone.yaml
+          helm template kube-hunter "dist/kube-hunter-${version#v}.tgz" \
+            --namespace m9sweeper-system --kube-version 1.35.0 \
+            --set reportRelay.enabled=true \
+            --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \
+            --set-string reportRelay.targetUrl=https://scanner.example.internal/api/kubehunter/hunter/1 \
+            --set cronjob.enabled=true >/tmp/kube-hunter-standalone.yaml
+          grep -q 'kind: Job' /tmp/kube-bench-standalone.yaml
+          grep -q 'kind: CronJob' /tmp/kube-hunter-standalone.yaml
+          echo 'PASS: independent signed scanner charts render valid Jobs and CronJobs'
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25.2'
