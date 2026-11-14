@@ -23,6 +23,7 @@ permissions:
 jobs:
   candidate:
     # Push-triggered builds are single-purpose and require an explicit commit marker.
+    # A matching docs change in the same release commit starts exact-SHA platform CI.
     # Routine edits to this workflow cannot silently publish or overwrite a release.
     if: >-
       github.ref == 'refs/heads/main' &&
