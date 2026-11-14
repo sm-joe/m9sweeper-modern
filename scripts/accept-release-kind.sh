@@ -42,12 +42,12 @@ admin_email='mvp-ci@example.com'
 admin_password="$(secret)"
 cat >"$scratch/dash.env" <<EOF
 SECURITY_JWT_SECRET=$jwt
-DATABASE_CONNECTION_HOST=ci-postgres
+DATABASE_CONNECTION_HOST=m9sweeper-postgresql
 DATABASE_CONNECTION_PORT=5432
 DATABASE_CONNECTION_DATABASE=postgres
 DATABASE_CONNECTION_USERNAME=postgres
 DATABASE_CONNECTION_PASSWORD=$db_password
-RABBITMQ_HOST_NAME=ci-rabbitmq
+RABBITMQ_HOST_NAME=m9sweeper-rabbitmq
 RABBITMQ_HOST_PORT=5672
 RABBITMQ_PORT=5672
 RABBITMQ_USER_NAME=m9
@@ -64,107 +64,22 @@ KUBE_BENCH_API_KEY=$bench_api_key
 FALCO_API_KEY=$falco_api_key
 EOF
 cat >"$scratch/trawler.env" <<EOF
-RABBITMQ_HOSTNAME=ci-rabbitmq
+RABBITMQ_HOSTNAME=m9sweeper-rabbitmq
 RABBITMQ_PORT=5672
 RABBITMQ_USERNAME=m9
 RABBITMQ_PASSWORD=$broker_password
 RABBITMQ_QUEUE_NAME=trawler_queue
 M9SWEEPER_API_KEY=$trawler_api_key
 EOF
-kubectl -n "$namespace" create secret generic ci-postgres-secret --from-literal=password="$db_password" >/dev/null
-kubectl -n "$namespace" create secret generic ci-rabbitmq-secret --from-literal=password="$broker_password" >/dev/null
 kubectl -n "$namespace" create secret generic m9-dash-env --from-env-file="$scratch/dash.env" >/dev/null
 kubectl -n "$namespace" create secret generic m9-init-env --from-env-file="$scratch/init.env" >/dev/null
 kubectl -n "$namespace" create secret generic m9-trawler-env --from-env-file="$scratch/trawler.env" >/dev/null
-# Isolated ephemeral test databases intentionally use emptyDir; production
-# deployment must use supported persistence and backup/restore separately.
-cat >"$scratch/deps.yaml" <<'EOF'
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ci-postgres
-spec:
-  replicas: 1
-  selector:
-    matchLabels: {app: ci-postgres}
-  template:
-    metadata:
-      labels: {app: ci-postgres}
-    spec:
-      containers:
-        - name: postgres
-          image: postgres:17-alpine
-          ports: [{containerPort: 5432}]
-          env:
-            - {name: POSTGRES_USER, value: postgres}
-            - {name: POSTGRES_DB, value: postgres}
-            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef: {name: ci-postgres-secret, key: password}
-          volumeMounts:
-            - {name: pgdata, mountPath: /var/lib/postgresql/data}
-          readinessProbe:
-            exec:
-              command: [sh, -c, "pg_isready -U postgres -d postgres"]
-            periodSeconds: 5
-      volumes:
-        - name: pgdata
-          emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ci-postgres
-spec:
-  selector: {app: ci-postgres}
-  ports: [{port: 5432, targetPort: 5432}]
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ci-rabbitmq
-spec:
-  replicas: 1
-  selector:
-    matchLabels: {app: ci-rabbitmq}
-  template:
-    metadata:
-      labels: {app: ci-rabbitmq}
-    spec:
-      containers:
-        - name: rabbitmq
-          image: rabbitmq:4.4-management-alpine
-          ports: [{containerPort: 5672}]
-          env:
-            - {name: RABBITMQ_DEFAULT_USER, value: m9}
-            - name: RABBITMQ_DEFAULT_PASS
-              valueFrom:
-                secretKeyRef: {name: ci-rabbitmq-secret, key: password}
-          readinessProbe:
-            exec:
-              command: [sh, -c, "rabbitmq-diagnostics -q check_running"]
-            periodSeconds: 10
-      volumes: []
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ci-rabbitmq
-spec:
-  selector: {app: ci-rabbitmq}
-  ports: [{port: 5672, targetPort: 5672}]
-EOF
-kubectl -n "$namespace" apply -f "$scratch/deps.yaml" >/dev/null
-kubectl -n "$namespace" rollout status deployment/ci-postgres --timeout=8m
-kubectl -n "$namespace" rollout status deployment/ci-rabbitmq --timeout=8m
-
 export M9_MVP_PREFLIGHT=YES M9_EXPECTED_KUBE_CONTEXT=kind-m9-mvp-ci
 python3 tools/security/mvp_preinstall_secrets.py --namespace "$namespace"
 
 values=(--set global.installation.enabled=true
-        --set global.postgres.enabled=false
-        --set global.rabbitmq.enabled=false
+        --set global.postgres.enabled=true
+        --set global.rabbitmq.enabled=true
         --set-string dash.existingSecret=m9-dash-env
         --set-string dash.init.existingSecret=m9-init-env
         --set-string trawler.existingSecret=m9-trawler-env
@@ -192,8 +107,9 @@ python3 - "$scratch/render.yaml" <<'PY'
 from pathlib import Path
 import sys
 docs = Path(sys.argv[1]).read_text()
-if 'kind: StatefulSet' in docs or 'ci-postgres-secret' in docs:
-    raise SystemExit('MVP chart unexpectedly includes legacy database resources')
+for required in ('name: m9sweeper-postgresql', 'name: m9sweeper-rabbitmq', 'kind: StatefulSet'):
+    if required not in docs:
+        raise SystemExit('Bundled dependency missing from Helm release: '+required)
 if 'kind: Deployment' not in docs:
     raise SystemExit('MVP chart has no Deployment')
 print('PASS: downloaded Helm candidate renders using external dependencies')
@@ -208,6 +124,9 @@ echo 'Installing actual signed candidate to disposable native Linux Kind'
 helm upgrade --install "$release" "$M9_MVP_CHART" -n "$namespace" "${values[@]}" \
   --timeout 10m
 echo 'PASS: Helm install and post-install initialization hook completed'
+kubectl -n "$namespace" rollout status statefulset/m9sweeper-postgresql --timeout=5m
+kubectl -n "$namespace" rollout status statefulset/m9sweeper-rabbitmq --timeout=5m
+kubectl -n "$namespace" get pvc
 kubectl -n "$namespace" rollout status deployment/m9sweeper-dash --timeout=5m
 kubectl -n "$namespace" rollout status deployment/m9sweeper-trawler --timeout=5m
 kubectl -n "$namespace" get pods -o wide
