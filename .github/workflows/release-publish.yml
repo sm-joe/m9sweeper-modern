@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: Version to publish (e.g. v0.1.0)
+        description: Version to publish (e.g. v0.1.1)
         type: string
         required: true
-        default: v0.1.0
+        default: v0.1.1
       source_sha:
         description: Exact successful source SHA
         type: string
@@ -124,6 +124,12 @@ jobs:
           test -s "dist/m9sweeper-${expected_version#v}.tgz" || {
             echo 'Exact versioned Helm package missing' >&2; exit 1
           }
+          for scanner in kube-bench kube-hunter; do
+            test -s "dist/$scanner-${expected_version#v}.tgz" || {
+              echo "Missing independently installable $scanner chart" >&2; exit 1
+            }
+            test -s "dist/$scanner.sigstore.json"
+          done
       - name: Verify OCI and Helm artifact signatures before release
         shell: bash
         run: |
@@ -136,6 +142,12 @@ jobs:
           cosign verify-blob --bundle dist/chart.sigstore.json \
             --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
             "${charts[0]}"
+          version='${{ inputs.release_version }}'
+          for scanner in kube-bench kube-hunter; do
+            cosign verify-blob --bundle "dist/$scanner.sigstore.json" \
+              --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
+              "dist/$scanner-${version#v}.tgz"
+          done
           for name in dash trawler; do
             image="$(sed -n "s/^$name=//p" dist/IMAGE-DIGESTS.txt)"
             [[ "$image" =~ ^ghcr.io/sm-joe/m9sweeper-(dash|trawler)@sha256:[a-f0-9]{64}$ ]]
@@ -154,7 +166,7 @@ jobs:
           version="${{ inputs.release_version }}"
           gh release create "$version" \
             dist/*.tgz dist/SHA256SUMS dist/IMAGE-DIGESTS.txt \
-            dist/chart.sigstore.json dist/m9sweeper-source.spdx.json \
+            dist/*.sigstore.json dist/m9sweeper-source.spdx.json \
             dist/RELEASE-METADATA.txt dist/INSTALL.md \
             --target "$SOURCE_SHA" \
             --title "m9sweeper-modern $version" \

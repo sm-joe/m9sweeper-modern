@@ -1,6 +1,10 @@
 # Optional pre-created Kubernetes Secret; must supply all env vars expected
 # by Dash and the init Job. Helm will not create/update this Secret.
 existingSecret: ""
+# Optional callback origin reachable from scanner Pods. Defaults automatically
+# to the Dash ClusterIP service URL in the release namespace.
+# Set to a trusted HTTPS ingress if enabling kube-hunter's HTTPS-only report relay.
+scannerReportIngestionUrl: ""
 
 image:
   registry: ghcr.io
