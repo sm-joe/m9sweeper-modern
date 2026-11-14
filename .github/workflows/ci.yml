@@ -313,14 +313,17 @@ jobs:
             --set-string "dash.image.tag=v0.1.2@sha256:$(printf 'a%.0s' {1..64})" \
             --set-string "trawler.image.tag=v0.1.2@sha256:$(printf 'b%.0s' {1..64})" \
             > /tmp/m9sweeper-bundled.yaml
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          manifest = Path('/tmp/m9sweeper-bundled.yaml').read_text()
-          docs = manifest.split('\n---')
-          def resource(kind, name):
-              matches = [doc for doc in docs
-                         if re.search(rf'(?m)^kind: {kind}
+          grep -q 'image: "postgres:17"' /tmp/m9sweeper-bundled.yaml
+          grep -q 'image: "rabbitmq:4.4-management"' /tmp/m9sweeper-bundled.yaml
+          grep -q 'name: m9sweeper-postgresql' /tmp/m9sweeper-bundled.yaml
+          grep -q 'name: m9sweeper-rabbitmq' /tmp/m9sweeper-bundled.yaml
+          grep -q 'key: DATABASE_CONNECTION_PASSWORD' /tmp/m9sweeper-bundled.yaml
+          grep -q 'key: RABBITMQ_USER_PASSWORD' /tmp/m9sweeper-bundled.yaml
+          grep -q 'm9sweeper-postgresql.m9sweeper-system.svc.cluster.local' /tmp/m9sweeper-bundled.yaml
+          grep -q 'm9sweeper-rabbitmq.m9sweeper-system.svc.cluster.local' /tmp/m9sweeper-bundled.yaml
+          python3 tools/security/check_postgres_persistence_layout.py /tmp/m9sweeper-bundled.yaml
+          echo 'PASS: bundled core dependencies and credential/DNS wiring'
+      - name: Verify real PostgreSQL StatefulSet persists PGDATA on its PVC
         shell: bash
         run: |
           set -euo pipefail
