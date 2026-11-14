@@ -10,7 +10,7 @@ Kubernetes 1.35, Helm 3, kubectl, GitHub CLI and a default persistent StorageCla
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
+gh release download v0.1.1 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
 ```
 
 ## Step 2 — Configure
@@ -93,7 +93,7 @@ The chart includes its application image references. For bundled PostgreSQL and 
 From the directory where you downloaded the release:
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
+helm upgrade --install m9sweeper ./m9sweeper-0.1.1.tgz \
   --namespace m9sweeper-system --values /secure/m9sweeper-values.yaml --timeout 15m
 
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m
@@ -124,3 +124,47 @@ helm status m9sweeper -n m9sweeper-system
 If pods do not start, check their events and make sure the database, message queue, credentials and registry access are correct. Keep the dashboard local unless you have configured a trusted HTTPS ingress. Back up PostgreSQL before upgrades; a Helm rollback does not reverse database schema changes.
 
 For problems, [open an issue](https://github.com/sm-joe/m9sweeper-modern/issues) with redacted logs. See [Security](../SECURITY.md) for private vulnerability reporting.
+
+## Scanner reports and standalone Helm charts
+
+The Dash Helm deployment automatically sets `SCANNER_REPORT_INGESTION_URL` to its own
+cluster-local Service origin, such as
+`http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000`.
+This endpoint is reachable from Kubernetes Jobs in the same cluster; a local
+browser URL or port-forward (`localhost`) is not a scanner callback.
+
+To install kube-bench, first create a namespace-local Secret with the
+authorized kube-bench scanner API key stored in key `apiKey`.
+The key must have permission to submit reports for the selected cluster.
+Then run, for example:
+
+```bash
+helm upgrade --install kube-bench \
+  https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.1/kube-bench-0.1.1.tgz \
+  -n m9sweeper-system \
+  --set-string provider=commonjob \
+  --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
+  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
+  --set cronjob.enabled=false
+```
+
+Use `kubectl -n m9sweeper-system get jobs,pods` and
+`kubectl -n m9sweeper-system logs job/<job-name>` to inspect actual execution.
+Closing the wizard alone does not launch a scan.
+
+**kube-hunter differs:** the header-authenticated report relay requires trusted HTTPS.
+Configure a real ingress or TLS gateway that routes to Dash and is reachable from
+Kubernetes Pods. Set `dash.scannerReportIngestionUrl` to that HTTPS origin
+in your private values file, then upgrade the umbrella Helm release.
+Use a trusted certificate or `reportRelay.caSecret` for your private CA.
+The kube-hunter chart is independently available at:
+
+```text
+https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.1/kube-hunter-0.1.1.tgz
+```
+
+Do not use a bare `/api/kubehunter/hunter/<cluster-id>` path or a
+browser-only localhost URL as `reportRelay.targetUrl`; it must be a full
+trusted HTTPS URL. Generate the exact target via the UI after setting the HTTPS
+origin. Both scanner charts are included as versioned release assets, not
+inside the umbrella Helm chart or an operator's current working directory.
