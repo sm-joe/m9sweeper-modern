@@ -70,11 +70,14 @@ public class DockerImage {
                     .append('/');
         }
 
-        builder.append(this.name)
-                .append(":")
-                .append(this.tag);
+        builder.append(this.name);
+        // Digest-only references are repository@sha256:..., not repository:@sha256:...
+        if (this.tag != null && !this.tag.startsWith("@sha256:")) {
+            builder.append(":");
+        }
+        builder.append(this.tag);
 
-        if (includeHash && !this.hasTempHash()) {
+        if (includeHash && !this.hasTempHash() && (this.tag == null || !this.tag.contains("@sha256:"))) {
             builder.append("@sha256:")
                     .append(this.hash);
         }

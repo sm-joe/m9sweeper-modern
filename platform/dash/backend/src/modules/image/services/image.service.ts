@@ -83,7 +83,7 @@ export class ImageService implements OnModuleInit, OnModuleDestroy {
     }
 
     async checkIfImageAlreadyExists(imageDto: ImageDto, clusterId: number): Promise<boolean> {
-      const imageAsString = imageDto.image = imageDto.url + '/' + imageDto.name + ':' + imageDto.tag;
+      const imageAsString = imageDto.image = imageDto.url + '/' + imageDto.name + (imageDto.tag.startsWith('@sha256:') ? '' : ':') + imageDto.tag;
       const listOfImages = await this.imageDao.loadImage({'i.image': imageAsString, 'i.cluster_id': clusterId, 'i.docker_image_id': imageDto.dockerImageId});
       return !!listOfImages?.length;
     }

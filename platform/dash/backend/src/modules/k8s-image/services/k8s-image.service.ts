@@ -227,24 +227,36 @@ export class K8sImageService {
      * @param image
      */
     formatDockerImageUrl(image: string): string {
-        const splitOnColon = image.split(':');
-        let imageTag = '';
-        if (splitOnColon.length > 1) {
-            imageTag = splitOnColon[splitOnColon.length - 1];
+        // Kubernetes Pod specs can use repository:tag@sha256:<manifest-digest>.
+        // Splitting on every ':' confuses the digest for a tag and queues
+        // nonexistent references like repository:<64-hex-digest>.
+        const imageName = image.trim();
+        if (!imageName) {
+            throw new Error('Container image reference must not be empty');
         }
-        if (!imageTag) { imageTag = 'latest'; }
-        const splitOnSlash = splitOnColon[0].split('/');
-        let containerRegistry = this.DEFAULT_DOCKER_REGISTRY;
-        if (splitOnSlash[0].split('.').length > 1) {
-            containerRegistry = splitOnSlash.shift();
+        const digest = imageName.match(/@sha256:[a-fA-F0-9]{64}$/);
+        const repositoryAndTag = digest
+            ? imageName.slice(0, -digest[0].length)
+            : imageName;
+        const lastSlash = repositoryAndTag.lastIndexOf('/');
+        const tagSeparator = repositoryAndTag.lastIndexOf(':');
+        const hasTag = tagSeparator > lastSlash;
+        const repository = hasTag
+            ? repositoryAndTag.slice(0, tagSeparator)
+            : repositoryAndTag;
+        const tag = hasTag ? repositoryAndTag.slice(tagSeparator + 1) : '';
+        if (!repository || (hasTag && !tag)) {
+            throw new Error('Invalid container image reference');
         }
-        let containerPath = '';
-        while (splitOnSlash.length > 1) {
-            containerPath += `${splitOnSlash.shift()}/`;
-        }
-        containerPath += splitOnSlash.shift();
-
-        return `${containerRegistry}/${containerPath}:${imageTag}`
+        const firstSegment = repository.split('/')[0];
+        const hasRegistry = firstSegment.includes('.') ||
+            firstSegment.includes(':') || firstSegment === 'localhost';
+        const qualifiedRepository = hasRegistry
+            ? repository
+            : this.DEFAULT_DOCKER_REGISTRY + '/' + repository;
+        // A digest-only reference remains exact (no invented :latest tag).
+        return qualifiedRepository + (tag ? ':' + tag : (digest ? '' : ':latest')) +
+            (digest ? digest[0] : '');
     }
 
     async enqueueScan(imageHash: string, clusterId: number): Promise<void> {
@@ -255,31 +267,24 @@ export class K8sImageService {
     }
 
     parseDockerImageUrl(url: string): {host: string; path: string; imageName: string; tag: string;} {
-        let host = 'index.docker.io';
-        let tag = '';
-        let imageName = '';
-
-        const t1 = url.split('/');
-
-        if (t1.length > 1 && t1[0]) {
-            const matches = t1[0].match(/^((?:https?:\/\/)?[^./]+(?:\.[^./]+)+(?:\/.*)?)/i);
-            if (matches && matches[0]) {
-                host = matches[0];
-                t1.shift();
-            }
+        const firstSlash = url.indexOf('/');
+        const host = firstSlash >= 0 ? url.slice(0, firstSlash) : this.DEFAULT_DOCKER_REGISTRY;
+        const repositoryAndReference = firstSlash >= 0 ? url.slice(firstSlash + 1) : url;
+        const lastSlash = repositoryAndReference.lastIndexOf('/');
+        const imageComponent = repositoryAndReference.slice(lastSlash + 1);
+        const path = lastSlash >= 0 ? repositoryAndReference.slice(0, lastSlash) : '';
+        const digest = imageComponent.match(/@sha256:[a-fA-F0-9]{64}$/);
+        const withoutDigest = digest
+            ? imageComponent.slice(0, -digest[0].length)
+            : imageComponent;
+        const tagSeparator = withoutDigest.lastIndexOf(':');
+        const imageName = tagSeparator >= 0 ? withoutDigest.slice(0, tagSeparator) : withoutDigest;
+        // Digest-only images use an @sha256: reference rather than a fake tag.
+        const tag = (tagSeparator >= 0 ? withoutDigest.slice(tagSeparator + 1) : '') +
+            (digest ? digest[0] : '');
+        if (!imageName || !tag) {
+            throw new Error('Invalid formatted container image reference');
         }
-
-        if (t1[t1.length -1] && t1[t1.length -1].includes(':')) {
-            const t2 = t1[t1.length -1].split(':');
-            imageName = t2[0];
-            if (t2[1]) {
-                tag = t2[1];
-            }
-            t1.pop();
-        }
-
-        let path = t1.join('/');
-
         return {host, path, imageName, tag};
     }
 }

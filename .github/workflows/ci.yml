@@ -310,8 +310,8 @@ jobs:
             --set-string dash.existingSecret=m9-dash-env \
             --set-string dash.init.existingSecret=m9-init-env \
             --set-string trawler.existingSecret=m9-trawler-env \
-            --set-string "dash.image.tag=v0.1.2@sha256:$(printf 'a%.0s' {1..64})" \
-            --set-string "trawler.image.tag=v0.1.2@sha256:$(printf 'b%.0s' {1..64})" \
+            --set-string "dash.image.tag=v0.1.0@sha256:$(printf 'a%.0s' {1..64})" \
+            --set-string "trawler.image.tag=v0.1.0@sha256:$(printf 'b%.0s' {1..64})" \
             > /tmp/m9-bundled.yaml
           grep -Fq 'image: "postgres:17"' /tmp/m9-bundled.yaml
           grep -Fq 'image: "rabbitmq:4.4-management"' /tmp/m9-bundled.yaml

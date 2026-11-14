@@ -31,4 +31,31 @@ class KubernetesImageReferenceTest {
                 .build();
         assertEquals("docker.io/busybox:1.36", image.buildFullPath(true, false));
     }
+    @Test
+    void pinnedTagAndManifestDigestMustRemainExactRemoteReference() {
+        String manifest = "a".repeat(64);
+        DockerImage image = new DockerImageBuilder(3)
+                .withName("sm-joe/m9sweeper-trawler")
+                .withTag("v0.1.0@sha256:" + manifest)
+                .withHash("b".repeat(64))
+                .withRegistry(new DockerRegistryBuilder("ghcr.io", false, "", null).build())
+                .build();
+        assertEquals("ghcr.io/sm-joe/m9sweeper-trawler:v0.1.0@sha256:" + manifest,
+                image.buildFullPath(true, false));
+        assertEquals(image.buildFullPath(true, false), image.buildFullPath(true, true));
+    }
+
+    @Test
+    void digestOnlyReferenceHasNoSyntheticColon() {
+        String manifest = "a".repeat(64);
+        DockerImage image = new DockerImageBuilder(4)
+                .withName("sm-joe/m9sweeper-trawler")
+                .withTag("@sha256:" + manifest)
+                .withHash("b".repeat(64))
+                .withRegistry(new DockerRegistryBuilder("ghcr.io", false, "", null).build())
+                .build();
+        assertEquals("ghcr.io/sm-joe/m9sweeper-trawler@sha256:" + manifest,
+                image.buildFullPath(true, false));
+    }
+
 }
