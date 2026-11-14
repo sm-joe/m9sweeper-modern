@@ -320,6 +320,24 @@ jobs:
           grep -Fq 'key: DATABASE_CONNECTION_PASSWORD' /tmp/m9-bundled.yaml
           grep -Fq 'key: RABBITMQ_USER_PASSWORD' /tmp/m9-bundled.yaml
           python3 tools/security/check_postgres_persistence_layout.py /tmp/m9-bundled.yaml
+          grep -Fq 'name: SCANNER_REPORT_INGESTION_URL' /tmp/m9-bundled.yaml
+          grep -Fq 'http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000' /tmp/m9-bundled.yaml
+          echo 'PASS: scanner report ingestion defaults to release-local Dash Service'
+          helm template kube-bench platform/manifests/charts/kube-bench \
+            -n m9sweeper-system --kube-version 1.35.0 \
+            --set-string provider=commonjob \
+            --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
+            --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
+            --set cronjob.enabled=false >/tmp/m9-bench-job.yaml
+          helm template kube-hunter platform/manifests/charts/kube-hunter \
+            -n m9sweeper-system --kube-version 1.35.0 \
+            --set reportRelay.enabled=true \
+            --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \
+            --set-string reportRelay.targetUrl=https://scanner.example.internal/api/kubehunter/hunter/1 \
+            --set cronjob.enabled=true >/tmp/m9-hunter-cronjob.yaml
+          grep -q 'kind: Job' /tmp/m9-bench-job.yaml
+          grep -q 'kind: CronJob' /tmp/m9-hunter-cronjob.yaml
+          echo 'PASS: kube-bench Job and secure kube-hunter CronJob render'
       - name: Verify real PostgreSQL StatefulSet persists PGDATA on its PVC
         shell: bash
         run: |
