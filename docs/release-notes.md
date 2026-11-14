@@ -2,6 +2,8 @@
 
 ## m9sweeper-modern v0.1.0
 
+Initial consolidated public release of the actively maintained Kubernetes security scanner.
+
 m9sweeper is packaged as a Helm installation with PostgreSQL 17, RabbitMQ 4.4, the Angular dashboard, NestJS backend and Java Trivy scanning worker.
 
 ### Highlights
