@@ -92,6 +92,10 @@ spec:
 {{- end }}
             - name: SERVER_BASE_URL
               value: "{{ .Values.global.baseUrl }}"
+            # Kubernetes Jobs must report to the in-cluster API Service, not
+            # the operator's browser localhost/port-forward address.
+            - name: SCANNER_REPORT_INGESTION_URL
+              value: {{ .Values.scannerReportIngestionUrl | default (printf "http://%s.%s.svc.cluster.local:%v" (include "dash.fullname" .) .Release.Namespace .Values.service.port) | quote }}
           envFrom:
             - secretRef:
                 name: {{ .Values.existingSecret | default (printf "%s-secrets" (include "dash.fullname" .)) }}
