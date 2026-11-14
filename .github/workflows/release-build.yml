@@ -1,5 +1,9 @@
 name: Build and sign m9sweeper release
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-build.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -18,7 +22,12 @@ permissions:
   actions: write
 jobs:
   candidate:
-    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'BUILD_RELEASE'
+    # Push-triggered builds are single-purpose and require an explicit commit marker.
+    # Routine edits to this workflow cannot silently publish or overwrite a release.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.confirmation == 'BUILD_RELEASE') ||
+       (github.event_name == 'push' && contains(github.event.head_commit.message, '[release:v0.1.0]')))
     runs-on: ubuntu-latest
     timeout-minutes: 85
     steps:
