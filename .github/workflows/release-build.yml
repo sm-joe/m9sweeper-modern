@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version, e.g. v0.1.0'
+        description: 'Release version, e.g. v0.1.1'
         required: true
-        default: 'v0.1.0'
+        default: 'v0.1.1'
         type: string
       confirmation:
         description: 'Type BUILD_RELEASE to build the release package'
@@ -28,7 +28,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       ((github.event_name == 'workflow_dispatch' && inputs.confirmation == 'BUILD_RELEASE') ||
-       (github.event_name == 'push' && contains(github.event.head_commit.message, '[release:v0.1.0]')))
+       (github.event_name == 'push' && contains(github.event.head_commit.message, '[release:v0.1.1]')))
     runs-on: ubuntu-latest
     timeout-minutes: 85
     steps:
@@ -38,7 +38,7 @@ jobs:
       - name: Validate candidate version and release scope
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.0' }}
+          VERSION: ${{ inputs.version || 'v0.1.1' }}
         run: |
           set -euo pipefail
           [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
@@ -64,7 +64,7 @@ jobs:
           file: ./platform/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/sm-joe/m9sweeper-dash:${{ inputs.version || 'v0.1.0' }}
+          tags: ghcr.io/sm-joe/m9sweeper-dash:${{ inputs.version || 'v0.1.1' }}
           provenance: mode=max
           sbom: true
       - name: Build and publish Java trawler candidate with OCI provenance and SBOM
@@ -75,7 +75,7 @@ jobs:
           file: ./platform/trawler/Dockerfile.jvm
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/sm-joe/m9sweeper-trawler:${{ inputs.version || 'v0.1.0' }}
+          tags: ghcr.io/sm-joe/m9sweeper-trawler:${{ inputs.version || 'v0.1.1' }}
           provenance: mode=max
           sbom: true
       - uses: sigstore/cosign-installer@v3
@@ -101,7 +101,7 @@ jobs:
       - name: Package Helm values pinned to verified OCI image digests
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.0' }}
+          VERSION: ${{ inputs.version || 'v0.1.1' }}
           DASH_DIGEST: ${{ steps.dash.outputs.digest }}
           TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
         run: |
@@ -135,10 +135,23 @@ jobs:
           tar -xOzf "$chart" m9sweeper/values.yaml | grep -Fq "tag: "$VERSION"@$DASH_DIGEST"
           tar -xOzf "$chart" m9sweeper/values.yaml | grep -Fq "tag: "$VERSION"@$TRAWLER_DIGEST"
           printf 'source_commit=%s\nversion=%s\nstatus=release-build\n' "$(git rev-parse HEAD)" "$VERSION" >dist/RELEASE-METADATA.txt
+      - name: Package independently installable scanner charts
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version || 'v0.1.1' }}
+        run: |
+          set -euo pipefail
+          version="${VERSION#v}"
+          for scanner in kube-bench kube-hunter; do
+            helm lint "platform/manifests/charts/$scanner"
+            helm package "platform/manifests/charts/$scanner" --version "$version" --app-version "$version" --destination dist
+            test -s "dist/$scanner-$version.tgz"
+            helm show chart "dist/$scanner-$version.tgz" >/dev/null
+          done
       - name: Verify signed immutable images in rendered candidate Kubernetes workloads
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.0' }}
+          VERSION: ${{ inputs.version || 'v0.1.1' }}
           DASH_DIGEST: ${{ steps.dash.outputs.digest }}
           TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
         run: |
@@ -173,16 +186,22 @@ jobs:
       - name: Sign chart and package installation instructions
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.0' }}
+          VERSION: ${{ inputs.version || 'v0.1.1' }}
         run: |
           set -euo pipefail
           chart="dist/m9sweeper-${VERSION#v}.tgz"
           cp docs/installation.md dist/INSTALL.md
           python3 -m json.tool dist/m9sweeper-source.spdx.json >/dev/null
           cosign sign-blob --yes --bundle dist/chart.sigstore.json "$chart"
+          for scanner in kube-bench kube-hunter; do
+            cosign sign-blob --yes --bundle "dist/$scanner.sigstore.json" "dist/$scanner-${VERSION#v}.tgz"
+          done
           identity='https://github.com/sm-joe/m9sweeper-modern/.github/workflows/release-build.yml@refs/heads/main'
           issuer='https://token.actions.githubusercontent.com'
           cosign verify-blob --bundle dist/chart.sigstore.json --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$chart"
+          for scanner in kube-bench kube-hunter; do
+            cosign verify-blob --bundle "dist/$scanner.sigstore.json" --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "dist/$scanner-${VERSION#v}.tgz"
+          done
           (cd dist && sha256sum ./*.tgz m9sweeper-source.spdx.json INSTALL.md > SHA256SUMS && sha256sum -c SHA256SUMS)
       - name: Upload immutable-digest candidate manifest, chart and evidence
         uses: actions/upload-artifact@v4
@@ -201,7 +220,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           gh workflow run release-acceptance.yml --ref main \
-            -f release_version='${{ inputs.version || 'v0.1.0' }}' \
+            -f release_version='${{ inputs.version || 'v0.1.1' }}' \
             -f source_sha="$GITHUB_SHA" \
             -f candidate_run_id="$GITHUB_RUN_ID" \
             -f confirmation=ACCEPT_CANDIDATE
