@@ -268,6 +268,36 @@ jobs:
             >/tmp/m9-digest-pinned-render.yaml
           python3 tools/security/verify_candidate_workload_digests.py \
             /tmp/m9-digest-pinned-render.yaml "$version" "$dash_digest" "$trawler_digest"
+      - name: Ensure cluster-scoped RBAC names cannot collide with an existing installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          for spec in "m9sweeper m9sweeper-system" "another-release another-namespace"; do
+            read -r release namespace <<<"$spec"
+            helm template "$release" platform/manifests/charts/m9sweeper \
+              --namespace "$namespace" --kube-version 1.35.0 \
+              --set global.installation.enabled=true \
+              --set global.postgres.enabled=false \
+              --set global.rabbitmq.enabled=false \
+              --set-string dash.existingSecret=external-dash-env \
+              --set-string trawler.existingSecret=external-trawler-env \
+              --set-string dash.init.existingSecret=external-init-env \
+              --set-string "dash.image.tag=v0.1.1@sha256:$(printf 'a%.0s' {1..64})" \
+              --set-string "trawler.image.tag=v0.1.1@sha256:$(printf 'b%.0s' {1..64})" \
+              > "/tmp/rbac-$release.yaml"
+            python3 - "$release" "$namespace" "/tmp/rbac-$release.yaml" <<'PY'
+          import re, sys
+          release, namespace, path = sys.argv[1:]
+          docs = open(path).read().split("---")
+          expected = f"{release}-{namespace}"
+          for kind in ("ClusterRole", "ClusterRoleBinding"):
+              matches = [doc for doc in docs if re.search(rf"(?m)^kind: {kind}$", doc)]
+              assert len(matches) == 1, f"Expected one {kind}; got {len(matches)}"
+              assert re.search(rf"(?m)^  name: {re.escape(expected)}$", matches[0]), (kind, expected)
+          assert re.search(rf"(?m)^  name: {re.escape(expected)}$", next(doc for doc in docs if re.search(r"(?m)^kind: ClusterRoleBinding$", doc)))
+          print("PASS: unique release-scoped ClusterRole and ClusterRoleBinding:", expected)
+          PY
+          done
       - name: Verify real PostgreSQL StatefulSet persists PGDATA on its PVC
         shell: bash
         run: |
