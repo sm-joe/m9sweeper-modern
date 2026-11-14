@@ -36,7 +36,7 @@ service:
 ## Postgresql values
 postgresql:
   username: postgres
-  password: postgres
+  password: "" # provide Secret credentials when installing the standard chart
   database: postgres
   existingSecret: ""
   port: 5432
