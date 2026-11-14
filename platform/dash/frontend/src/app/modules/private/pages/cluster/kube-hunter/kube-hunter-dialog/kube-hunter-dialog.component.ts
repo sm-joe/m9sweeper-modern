@@ -57,7 +57,7 @@ export class KubeHunterDialogComponent implements OnInit {
           const url = new URL(endpoint || '');
           if (url.protocol !== 'https:' || url.username || url.password ||
               url.search || url.hash || url.pathname !== '/' ||
-              /^(localhost|127(?:\.\d{1,3}){3}|\[::1\]|0\.0\.0\.0)$/i/.test(url.hostname)) {
+              /^(localhost|127(?:\.\d{1,3}){3}|\[::1\]|0\.0\.0\.0)$/i.test(url.hostname)) {
             throw new Error('A trusted HTTPS report-ingestion origin is required');
           }
           this.backendUrl = url.origin;
