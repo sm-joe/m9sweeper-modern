@@ -20,7 +20,7 @@
   <mat-step>
     <ng-template matStepLabel>Create Job</ng-template>
     <p *ngIf="!reportEndpointReady" role="alert" class="mat-error">{{reportEndpointError}}</p>
-    <p *ngIf="reportEndpointReady" role="note">The callback URL uses the Dash Kubernetes Service and works independently of browser port-forwarding. Clone the public scanner chart repository before running the displayed Helm command. <code>git</code> is required. </p>
+    <p *ngIf="reportEndpointReady" role="note">The callback URL uses the Dash Kubernetes Service and works independently of browser port-forwarding. The Helm command downloads the signed-release scanner chart directly; no source checkout is required. </p>
     <p *ngIf="reportEndpointReady" role="note">Create a Kubernetes Secret named <code>m9sweeper-kube-bench-api-key</code> in namespace <code>m9sweeper-system</code>, containing the scanner API key under <code>apiKey</code>. The generated Job sends it as an HTTP header; no API key is included in the URL or Helm command. See the release documentation for a file-based Secret creation example.</p>
 
     <div class="modal-content-left-align-no-margin">
@@ -63,8 +63,7 @@
         </div>
       </div>
       <div>
-        <textarea matInput [cdkTextareaAutosize]="true" #run class="code-snippet w-100" readonly>git clone --depth 1 https://github.com/sm-joe/m9sweeper-modern.git m9sweeper-scanner-charts
-helm upgrade --install kube-bench ./m9sweeper-scanner-charts/platform/manifests/charts/kube-bench \
+        <textarea matInput [cdkTextareaAutosize]="true" #run class="code-snippet w-100" readonly>helm upgrade --install kube-bench https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.1/kube-bench-0.1.1.tgz \
   -n m9sweeper-system --create-namespace \
   --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}' \
   --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
@@ -91,8 +90,7 @@ helm upgrade --install kube-bench ./m9sweeper-scanner-charts/platform/manifests/
         </div>
       </div>
       <div >
-        <textarea #cliCommand class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">git clone --depth 1 https://github.com/sm-joe/m9sweeper-modern.git m9sweeper-scanner-charts
-helm upgrade --install kube-bench ./m9sweeper-scanner-charts/platform/manifests/charts/kube-bench \
+        <textarea #cliCommand class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-bench https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.1/kube-bench-0.1.1.tgz \
   -n m9sweeper-system --create-namespace \
   --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}' \
   --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
