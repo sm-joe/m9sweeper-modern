@@ -10,7 +10,7 @@ Kubernetes 1.35, Helm 3, kubectl, GitHub CLI, PostgreSQL 17 and RabbitMQ 4.4. Ma
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
+gh release download v0.1.1 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
 ```
 
 ## Step 2 — Configure
@@ -111,6 +111,9 @@ kubectl -n m9sweeper-system port-forward svc/m9sweeper-dash 13000:3000
 Open [http://localhost:13000](http://localhost:13000) on the same workstation and sign in using the account from `dash-bootstrap.env`. Add a cluster with trusted Kubernetes credentials, configure a Trivy policy and scan a test image to view findings.
 
 ## Troubleshooting
+
+If Helm reports that a cluster-wide `ClusterRole` already exists, inspect the existing role and its bindings with `kubectl get clusterrole m9sweeper -o yaml` and `kubectl get clusterrolebindings`. The current chart creates a unique role named `m9sweeper-m9sweeper-system` instead of taking ownership of another installation's role. Do not delete existing cluster-scoped resources without first checking which service accounts depend on them.
+
 
 ```bash
 kubectl -n m9sweeper-system get pods,jobs

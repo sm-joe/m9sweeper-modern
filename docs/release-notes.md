@@ -1,5 +1,12 @@
 # Release notes
 
+## m9sweeper-modern v0.1.1
+
+### Fixes
+
+- ClusterRole and ClusterRoleBinding names now include the Helm release and namespace, preventing conflicts with pre-existing `m9sweeper` cluster roles during installation.
+- The existing cluster-wide role is not modified or automatically adopted.
+
 ## m9sweeper-modern v0.1.0
 
 m9sweeper-modern brings container and Kubernetes security scanning into a single web dashboard. The release packages the Angular and NestJS application, Java Trawler scanner, and Helm charts for Kubernetes installation.
