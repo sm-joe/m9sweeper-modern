@@ -143,7 +143,19 @@ jobs:
           set -euo pipefail
           version="${VERSION#v}"
           for scanner in kube-bench kube-hunter; do
-            helm lint "platform/manifests/charts/$scanner"
+            if [[ "$scanner" == kube-bench ]]; then
+              helm lint "platform/manifests/charts/$scanner" \
+                --set-string provider=commonjob \
+                --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
+                --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
+                --set cronjob.enabled=false
+            else
+              helm lint "platform/manifests/charts/$scanner" \
+                --set reportRelay.enabled=true \
+                --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \
+                --set-string reportRelay.targetUrl=https://scanner.example.internal/api/kubehunter/hunter/1 \
+                --set cronjob.enabled=false
+            fi
             helm package "platform/manifests/charts/$scanner" --version "$version" --app-version "$version" --destination dist
             test -s "dist/$scanner-$version.tgz"
             helm show chart "dist/$scanner-$version.tgz" >/dev/null
