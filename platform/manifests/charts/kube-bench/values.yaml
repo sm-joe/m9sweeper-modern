@@ -14,6 +14,12 @@
 
 provider: "commonjob"
 
+# EKS worker-node checks only; this is not a complete EKS CIS audit.
+# Keep Job and CronJob on the same reviewed profile. Change only after
+# verifying the selected benchmark exists in the bundled kube-bench image.
+eks:
+  benchmark: "eks-1.2.0"
+
 #### URL of your kube-bench api of app to send reports
 reportsurl: ""
 
