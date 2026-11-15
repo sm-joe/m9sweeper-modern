@@ -60,7 +60,10 @@ public class Trawler extends AbstractCommand implements Runnable {
         TrawlerConfiguration.getInstance();
 
         // Launch the trawler command or its subcommands
-        new CommandLine(new Trawler()).execute(args);
+        int exitCode = new CommandLine(new Trawler()).execute(args);
+        if (exitCode != 0) {
+            System.exit(exitCode);
+        }
     }
 
     /**
@@ -171,13 +174,13 @@ public class Trawler extends AbstractCommand implements Runnable {
         try {
             return factory.newConnection();
         } catch (IOException | TimeoutException e) {
-            e.printStackTrace();
+            System.err.println("RabbitMQ startup connection failed (" + e.getClass().getSimpleName() + ")");
             if (retry > 0) {
                 System.out.println("Error: Connection timed out to RabbitMQ server. Retrying....");
                 Thread.sleep(factory.getNetworkRecoveryInterval());
                 return getAmpqConnection(factory, --retry);
             }
-            throw new RuntimeException("Failed to connect to RabbitMQ");
+            throw new IllegalStateException("Trawler cannot connect to RabbitMQ after startup retries", e);
         }
     }
 
@@ -336,10 +339,15 @@ public class Trawler extends AbstractCommand implements Runnable {
                     }
                 }
             }, consumerTag -> {});
-        } catch (IOException | InterruptedException e) {
-            System.out.println("Error: Connection timed out to RabbitMQ server. Please check your configuration and try again.");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Trawler startup interrupted", e);
+        } catch (IOException e) {
+            throw new IllegalStateException("Trawler RabbitMQ startup failed", e);
         } catch (Exception e) {
-            e.printStackTrace();  // something else failed
+            // Picocli returns a nonzero exit status, allowing the Kubernetes
+            // restart policy to recover instead of retaining a dead scanner.
+            throw new IllegalStateException("Trawler startup failed", e);
         }
     }
 }
