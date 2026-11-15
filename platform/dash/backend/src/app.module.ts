@@ -101,6 +101,9 @@ const myFormatter = info => {
     RouterModule.register(routes),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, 'public'),
+      // SPA fallback must never return index.html for unmatched backend APIs.
+      // Express 5 / Nest 11 require named wildcard path segments.
+      exclude: ['/api', '/api/{*path}', '/auth', '/auth/{*path}', '/common', '/common/{*path}'],
     }),
     HttpModule,
     SharedModule,
