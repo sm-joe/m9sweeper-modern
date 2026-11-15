@@ -1,0 +1,22 @@
+name: Trawler JVM fast checks
+on:
+  pull_request:
+    paths:
+      - 'platform/trawler/**'
+      - '.github/workflows/trawler-fast.yml'
+permissions:
+  contents: read
+jobs:
+  trawler-jvm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: platform/trawler/pom.xml
+      - name: Run original Java scanner tests
+        run: mvn -B -ntp -f platform/trawler/pom.xml test
