@@ -59,6 +59,7 @@
       </div>
     </div>
 
+    <p *ngIf="loadError" role="alert" class="mat-error">{{loadError}}</p>
     <div class="row" id="past-audits-table">
       <div class="col-xs-12">
         <mat-card class="scrollable-table-card">

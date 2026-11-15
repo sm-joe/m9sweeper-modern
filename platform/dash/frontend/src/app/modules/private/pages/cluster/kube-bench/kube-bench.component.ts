@@ -28,8 +28,9 @@ export class KubeBenchComponent implements OnInit {
   isSuperAdmin = false;
   firstRun = true;
 
-  reportCount: number;
-  page: number;
+  reportCount = 0;
+  loadError = '';
+  page = 0;
   limit = this.getLimitFromLocalStorage() ? Number (this.getLimitFromLocalStorage()) : 20;
 
 
@@ -80,22 +81,33 @@ export class KubeBenchComponent implements OnInit {
 
   }
 
-  async getAllBenchReportsByCluster(clusterId: number, limit?: number, page?: number) {
-      return this.kubeBenchService.getAllBenchReportsByCluster(this.clusterId, this.limit, this.page)
+  getAllBenchReportsByCluster(clusterId: number, limit?: number, page?: number) {
+      this.loadError = '';
+      return this.kubeBenchService.getAllBenchReportsByCluster(clusterId, limit ?? this.limit, page ?? this.page)
         .pipe(take(1))
         .subscribe(rtrn => {
-          // The API returns the data sorted
-          this.lastRun = rtrn.list[0]?.resultsJson;
-          this.datasource = rtrn.list;
-          this.getOurAdvice(rtrn.list[0]?.createdAt || -1);
+          // The backend response interceptor wraps the report list under `data`.
+          const payload = rtrn;
+          if (!payload || !Array.isArray(payload.list)) {
+            this.loadError = 'The kube-bench API returned an unexpected response; verify the deployed Dash image.';
+            this.datasource = [];
+            this.reportCount = 0;
+            this.getOurAdvice(-1);
+            return;
+          }
+          this.lastRun = payload.list[0]?.resultsJson;
+          this.datasource = payload.list;
+          this.getOurAdvice(payload.list[0]?.createdAt || -1);
           if (this.isSuperAdmin) {
             for (const row of this.datasource) {
               row.superAdmin = true;
             }
           }
-          this.reportCount = rtrn.reportCount;
+          this.reportCount = payload.reportCount;
         }, e => {
           this.datasource = [];
+          this.reportCount = 0;
+          this.loadError = `Unable to load kube-bench reports for cluster ${clusterId} (HTTP ${e.status || 'network error'}). Check cluster access and the API response.`;
           if (e.status === 404) {
             this.ourAdvice = 'Run kube-bench to ensure your clusters meet CIS security standards!';
             this.benchmarkStatus = 'No Reports Found';
