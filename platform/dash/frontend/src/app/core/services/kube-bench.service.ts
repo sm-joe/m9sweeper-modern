@@ -10,16 +10,16 @@ export class KubeBenchService {
 
   constructor(private httpClient: HttpClient) { }
 
-  getKubeBenchReportById(id: number): Observable<IKubeBenchReport> {
-    return this.httpClient.get<IKubeBenchReport>(`/api/kube-bench/${id}`);
+  getKubeBenchReportById(id: number): Observable<{success: boolean; message: string; data: IKubeBenchReport}> {
+    return this.httpClient.get<{success: boolean; message: string; data: IKubeBenchReport}>(`/api/kube-bench/${id}`);
   }
 
   getAllBenchReportsByCluster(clusterId: number, limit?: number, page?: number):
-    Observable<{reportCount: number, list: IKubeBenchReport[]}> {
+    Observable<{success: boolean; message: string; data: {reportCount: number; list: IKubeBenchReport[]}}> {
     let params: HttpParams = new HttpParams();
     params = params.set('limit', String(limit));
     params = params.set('page', String(page));
-    return this.httpClient.get<{reportCount: number, list: IKubeBenchReport[]}>(`/api/kube-bench/cluster/${clusterId}`, {params});
+    return this.httpClient.get<{success: boolean; message: string; data: {reportCount: number; list: IKubeBenchReport[]}}> (`/api/kube-bench/cluster/${clusterId}`, {params});
   }
 
   getConfigFileList(): Observable<{data: {name: string, value: string}[], success: boolean}> {
