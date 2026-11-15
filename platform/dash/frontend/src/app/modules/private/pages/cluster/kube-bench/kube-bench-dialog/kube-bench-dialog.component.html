@@ -101,7 +101,8 @@
   </div>
 
   <div class="next-button">
-    <button mat-raised-button [matDialogClose]="true" [disabled]="!reportEndpointReady" color="primary">Done</button>
+    <p role="note">This wizard only generates the Helm command. Copy and execute it in your terminal to start the audit; closing this dialog does not run a scan.</p>
+    <button mat-raised-button [matDialogClose]="true" [disabled]="!reportEndpointReady" color="primary">Close wizard</button>
   </div>
 
   </mat-step>
