@@ -25,7 +25,7 @@ function Read-Database {
     if ($LASTEXITCODE -ne 0) { throw "Read-only PostgreSQL query failed: $result" }
     return (($result | Out-String).Trim())
 }
-$pods = Check-Kubectl @('-n', $Namespace, 'get', 'pods', '-o', 'wide')
+$pods = Check-Kubectl -Arguments @('-n', $Namespace, 'get', 'pods', '-o', 'wide')
 Write-Host '=== Kubernetes pod readiness ==='
 $pods
 Write-Host '=== Cluster and inventory ==='
@@ -47,9 +47,9 @@ Write-Host $runs
 $evidence = Read-Database "SELECT count(*) FROM image_scan_results r JOIN image_scan_runs s ON s.id=r.scan_run_id WHERE s.cluster_id=$ClusterId AND s.status='completed';"
 Write-Host "Persisted completed scan policy results: $evidence"
 Write-Host '=== RabbitMQ broker ==='
-$connections = Check-Kubectl @('-n', $Namespace, 'exec', 'm9sweeper-rabbitmq-0', '--', 'rabbitmqctl', '-q', 'list_connections', 'name', 'state')
+$connections = Check-Kubectl -Arguments @('-n', $Namespace, 'exec', 'm9sweeper-rabbitmq-0', '--', 'rabbitmqctl', '-q', 'list_connections', 'name', 'state')
 Write-Host $connections
-$queues = Check-Kubectl @('-n', $Namespace, 'exec', 'm9sweeper-rabbitmq-0', '--', 'rabbitmqctl', '-q', 'list_queues', 'name', 'messages_ready', 'messages_unacknowledged', 'consumers')
+$queues = Check-Kubectl -Arguments @('-n', $Namespace, 'exec', 'm9sweeper-rabbitmq-0', '--', 'rabbitmqctl', '-q', 'list_queues', 'name', 'messages_ready', 'messages_unacknowledged', 'consumers')
 Write-Host $queues
 Write-Host '=== Falco evidence ==='
 $falco = Read-Database "SELECT count(*) || '|' || COALESCE(MAX(creation_timestamp)::text,'none') FROM project_falco_logs WHERE cluster_id=$ClusterId;"
