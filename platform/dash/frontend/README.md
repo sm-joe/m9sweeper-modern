@@ -1,66 +1,28 @@
-# m9sweeper (Frontend)
+# m9sweeper-modern Angular dashboard
 
-[[Intelletive Consulting](https://www.intelletive.com)]
+The dashboard is an **Angular 22 / TypeScript** application using Angular Material, RxJS and the modern Angular application build system. The NestJS API lives in `../backend/`, and must not be imported into the frontend build as backend DTO source code.
 
+## Linux development
 
-### Packages/Libraries Used for Frontend
-- [Angular 9.2.0](https://angular.io/)
-- [Angular Material](https://material.angular.io/)
-
-### Frontend File Structure
-
+```bash
+cd platform/dash/frontend
+npm ci
+npm run
 ```
-frontend
-|__src
-|   |__app
-|   |__core
-|   |  |_entities
-|   |  |_services
-|   |__modules
-|   |__app.component.html
-|   |__app.component.scss
-|   |__app.component.spec.ts
-|   |__app.component.theme.scss
-|   |__app.component.ts
-|   |__app.module.ts
-|   |__app-routing.module.ts
-|   |__assetes
-|   |__environments
-|   |  |__environment.prod.ts
-|   |  |__environment.ts
-|   |__app-loader.scss
-|   |__favicon.ico
-|   |__index.html
-|   |__main.ts
-|   |__polyfills.ts
-|   |__styles.scss
-|   |__test.ts
-|__angular.json
-|__package.json
-|__README.md
-|__tsconfig.app.json
-|__tsconfig.json
-|__tsconfig.spec.json
-```
-### Core
 
-- Entity related files should be found in entites directory and service related files should be found in services directory
+Select the script appropriate to the checked-out revision. For a production Angular build, run the project's build script (typically `npm run build`); confirm the output path in `angular.json` before publishing anything.
 
-### Modules
-We have two folders under modules directory: private and public. Public contents such as Login, Signup, About pages should be placed under public module. On the other hand, private modules such as dashboard, admin panel etc should be placed in private directory.
+## Application responsibilities
 
-### Assets
+- Authentication and authorization-aware navigation
+- Cluster inventory, image and vulnerability results, policy and exception interfaces
+- Kube-bench, kube-hunter, Kubesec, Falco and Gatekeeper integrations
+- Cluster registration, including validation of trusted Kubernetes API endpoints
 
-All the asset files should go under assets directory. For instance, images.
+## Managed cloud Kubernetes
 
-### Environments
+The administration UI can read an operator-supplied kubeconfig and select a context, but cloud CLI `exec` authentication blocks in EKS, AKS and GKE kubeconfigs **cannot** be executed securely by the released backend. Native workload identity and token refresh in the backend are prerequisites for unattended managed-cluster enrollment; uploading a file in the browser does not provide that identity.
 
-- environment.prod.ts: production environment variables (should not be pushed in repository).
-- environment.ts: development environment variables
+See [Cloud Kubernetes installation and acceptance](../../../../docs/cloud-kubernetes.md) and [Helm installation](../../../../docs/installation.md).
 
-### Running the Frontend
-<code>
-* cd dash/frontend
-* npm install
-* npm start
-</code>
+For new features, keep cloud credential logic in dedicated backend providers and avoid logging kubeconfigs or tokens. Changes must be covered by Angular build tests, backend auth/RBAC tests and real EKS/AKS/GKE acceptance before a public release.
