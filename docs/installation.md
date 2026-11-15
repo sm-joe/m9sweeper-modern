@@ -1,10 +1,10 @@
 # Installation
 
-[Back to README](../README.md) · [Releases](https://github.com/sm-joe/m9sweeper-modern/releases)
+[Back to README](../README.md) · [Cloud Kubernetes (EKS / AKS / GKE)](cloud-kubernetes.md) · [Releases](https://github.com/sm-joe/m9sweeper-modern/releases)
 
 ## Requirements
 
-Kubernetes 1.35, Helm 3, kubectl, GitHub CLI and a default persistent StorageClass. The chart includes PostgreSQL 17 and RabbitMQ 4.4; existing external services are optional.
+Kubernetes 1.35–1.37 (chart declared range; validate each environment), Helm 3, kubectl, GitHub CLI and a working default CSI-backed persistent StorageClass with sufficient node pod capacity in each volume's availability zone. The chart includes PostgreSQL 17 and RabbitMQ 4.4; existing external services are optional.
 
 ## Step 1 — Download
 
@@ -100,7 +100,7 @@ kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-trawler --timeout=5m
 ```
 
-**Do not use `--wait` for the first install.** The database initialization job must run before deployment readiness is checked.
+**Do not use `--wait` for the first install.** The database initialization job must run before deployment readiness is checked. Verify it *actually completed*, and verify the bootstrap administrator exists in the persistent database before calling the install healthy. A ready Dashboard Pod alone does not prove the install succeeded.
 
 ## Step 4 — Open m9sweeper
 
@@ -108,7 +108,7 @@ kubectl -n m9sweeper-system rollout status deployment/m9sweeper-trawler --timeou
 kubectl -n m9sweeper-system port-forward svc/m9sweeper-dash 13000:3000
 ```
 
-Open [http://localhost:13000](http://localhost:13000) on the same workstation and sign in using the account from `dash-bootstrap.env`. Add a cluster with trusted Kubernetes credentials, configure a Trivy policy and scan a test image to view findings.
+Open [http://localhost:13000](http://localhost:13000) on the same workstation and sign in using the account from `dash-bootstrap.env`. Register a cluster only with credentials the backend can actually refresh and validate; the uploaded cloud CLI `exec` kubeconfig workflow is **not yet implemented in the published release**. See [EKS / AKS / GKE requirements and acceptance](cloud-kubernetes.md). Configure a Trivy policy and scan a test image to view findings.
 
 ## Troubleshooting
 
@@ -116,7 +116,10 @@ If Helm reports that a cluster-wide `ClusterRole` already exists, inspect the ex
 
 
 ```bash
-kubectl -n m9sweeper-system get pods,jobs
+kubectl -n m9sweeper-system get pods,jobs,pvc -o wide
+kubectl get nodes -L topology.kubernetes.io/zone
+kubectl get csidriver
+kubectl get storageclass
 kubectl -n m9sweeper-system get events --sort-by=.metadata.creationTimestamp
 helm status m9sweeper -n m9sweeper-system
 ```
@@ -171,6 +174,8 @@ inside the umbrella Helm chart or an operator's current working directory.
 
 ## Amazon EKS staging acceptance
 
+For complete provider-specific prerequisites and explicit restrictions for EKS, AKS and GKE, see [Cloud Kubernetes deployment and acceptance](cloud-kubernetes.md). Native cloud CLI exec-kubeconfig onboarding is a pending backend capability; do not interpret successful local `kubectl` authentication as a successful backend cluster connection.
+
 For an EKS worker-node kube-bench scan, use the standalone chart with `provider=eks` (rather than the Kind-oriented `commonjob`). Its Job and CronJob use the same configurable EKS benchmark. The default baseline is `eks-1.2.0`, and the included kube-bench image is `v0.16.0`. This scans reachable EC2 worker-node configuration only; it is **not** full EKS CIS coverage or a managed-control-plane audit. Fargate-only clusters do not provide worker host paths.
 
 Use a disposable EKS test cluster and first verify `kubectl config current-context`, node types, your PostgreSQL persistent StorageClass, and namespace-scoped secret key names. Never print Secret values in test logs.
@@ -185,12 +190,12 @@ kubectl -n m9sweeper-system get pvc
 After installing the main chart using your existing private values and Secrets, register the EKS cluster through Dashboard and use its *actual* assigned cluster ID. For an already provisioned report Secret with data key `api-key`, the one-shot worker-node report command is:
 
 ```bash
-helm upgrade --install kube-bench ./kube-bench-0.1.2.tgz \\
-  -n m9sweeper-system \\
-  --set-string provider=eks \\
-  --set cronjob.enabled=false \\
-  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \\
-  --set-string reportAuth.keyName=api-key \\
+helm upgrade --install kube-bench ./kube-bench-0.1.2.tgz \
+  -n m9sweeper-system \
+  --set-string provider=eks \
+  --set cronjob.enabled=false \
+  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
+  --set-string reportAuth.keyName=api-key \
   --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/REPLACE_WITH_REAL_CLUSTER_ID
 ```
 

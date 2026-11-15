@@ -166,7 +166,16 @@ export class KubernetesApiService {
      * */
     async buildAndTestServiceAccountConfig(server: string, rawToken: string, context: string, caData?: string): Promise<{valid: boolean, config: string, context?: string}> {
         try {
-            const token = Buffer.from(rawToken, 'base64').toString('utf-8');
+            // Accept both the raw JWT copied from a Kubernetes TokenRequest and the
+            // base64 Secret data token produced by a service-account-token Secret.
+            // Never decode a raw JWT as base64; doing so corrupts the credential.
+            const supplied = String(rawToken || '').trim();
+            const token = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(supplied)
+                ? supplied
+                : Buffer.from(supplied, 'base64').toString('utf-8').trim();
+            if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) {
+                throw new Error('Invalid Kubernetes service-account token format');
+            }
             const config = this.buildServiceAccountConfig(token, server, context, caData);
             const api = this.makeCoreV1ApiFromConfig(config);
             const valid = await this.testApi(api);
@@ -342,7 +351,15 @@ export class KubernetesApiService {
         }
         const execCommand = (config.getCurrentUser() as any)?.exec?.command;
         if (execCommand) {
-            throw new Error('Kubeconfig uses an external exec credential command (' + String(execCommand).split(/[\\/]/).pop() + '). Container onboarding requires credentials available to the backend; configure a supported service-account connection.');
+            // Uploaded kubeconfig exec plugins are untrusted executable input. Do
+            // not run them in the backend or silently use the operator's identity.
+            const executable = String(execCommand).split(/[\\/]/).pop().toLowerCase();
+            const provider = executable === 'aws' ? 'Amazon EKS'
+                : executable === 'kubelogin' || executable === 'az' ? 'Azure AKS'
+                : executable === 'gke-gcloud-auth-plugin' || executable === 'gcloud' ? 'Google GKE'
+                : 'external';
+            throw new Error('Kubeconfig uses an external exec credential command (' + provider +
+                '). Provider workload identity and token refresh are required; uploaded commands are never executed in the backend.');
         }
         // Never trust a cluster API if TLS verification has been bypassed. The
         // outgoing service-account kubeconfig inherits the verified CA instead.

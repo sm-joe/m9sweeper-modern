@@ -88,11 +88,11 @@ It still uses legacy internal RabbitMQ guest authentication, so **do not publish
 or deploy this Compose configuration as a public service**. The services
 communicate through their private Compose network.
 
-On Windows with Podman and a working Compose provider:
+On Linux with Podman and a working Compose provider:
 
-```powershell
+```bash
 cd platform/docker-compose
-Copy-Item .env.sample .env
+cp .env.sample .env
 # Fill in unique cryptographically strong secrets and SUPER_ADMIN_EMAIL
 podman compose config
 podman compose up --build -d
