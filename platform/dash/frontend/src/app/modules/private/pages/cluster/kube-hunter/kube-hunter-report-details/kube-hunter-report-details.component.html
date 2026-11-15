@@ -1,4 +1,7 @@
 <div class="h-xs-100 overflow-xs-auto">
+  <p *ngIf="loading" role="status">Loading kube-hunter report...</p>
+  <p *ngIf="loadError" role="alert" class="mat-error">{{loadError}}</p>
+  <p *ngIf="!loading && !loadError && report && vulnerabilities?.length === 0" role="status">This audit reported no vulnerabilities.</p>
   <div class="m-xs-6">
 
     <div *ngIf="report && cluster">
