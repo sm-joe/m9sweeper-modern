@@ -56,6 +56,10 @@ jobs:
             echo 'v0.1.2 is already published; do not overwrite signed assets' >&2; exit 1;
           fi
           echo 'PASS: exact-source Platform CI and signed build'
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
       - uses: sigstore/cosign-installer@v3
       - name: Download verified artifact and check signed chart/images
         shell: bash
@@ -87,11 +91,6 @@ jobs:
               --certificate-oidc-issuer "$issuer" "$image" >/dev/null
           done
           echo 'PASS: all v0.1.2 Helm archives and immutable OCI digests verified'
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.SOURCE_SHA }}
-          persist-credentials: false
-          clean: false
       - uses: azure/setup-helm@v4
         with:
           version: v3.17.3
