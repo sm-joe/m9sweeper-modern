@@ -85,15 +85,15 @@ export class KubeBenchComponent implements OnInit {
         .pipe(take(1))
         .subscribe(rtrn => {
           // The API returns the data sorted
-          this.lastRun = rtrn.list[0]?.resultsJson;
-          this.datasource = rtrn.list;
-          this.getOurAdvice(rtrn.list[0]?.createdAt || -1);
+          this.lastRun = rtrn.data.list[0]?.resultsJson;
+          this.datasource = rtrn.data.list;
+          this.getOurAdvice(rtrn.data.list[0]?.createdAt || -1);
           if (this.isSuperAdmin) {
             for (const row of this.datasource) {
               row.superAdmin = true;
             }
           }
-          this.reportCount = rtrn.reportCount;
+          this.reportCount = rtrn.data.reportCount;
         }, e => {
           this.datasource = [];
           if (e.status === 404) {
