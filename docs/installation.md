@@ -10,7 +10,7 @@ Kubernetes 1.35, Helm 3, kubectl, GitHub CLI and a default persistent StorageCla
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.1 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
+gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
 ```
 
 ## Step 2 — Configure
@@ -93,7 +93,7 @@ The chart includes its application image references. For bundled PostgreSQL and 
 From the directory where you downloaded the release:
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.1.tgz \
+helm upgrade --install m9sweeper ./m9sweeper-0.1.2.tgz \
   --namespace m9sweeper-system --values /secure/m9sweeper-values.yaml --timeout 15m
 
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m
@@ -135,12 +135,12 @@ browser URL or port-forward (`localhost`) is not a scanner callback.
 
 To install kube-bench, first create a namespace-local Secret with the
 authorized kube-bench scanner API key stored in key `apiKey`.
-The key must have permission to submit reports for the selected cluster.
+The key must have permission to submit reports for the selected cluster. If your preexisting Secret uses `api-key` (instead of `apiKey`), supply `--set-string reportAuth.keyName=api-key` when installing the standalone chart; do not rotate or expose the credential.
 Then run, for example:
 
 ```bash
 helm upgrade --install kube-bench \
-  https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.1/kube-bench-0.1.1.tgz \
+  https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.2/kube-bench-0.1.2.tgz \
   -n m9sweeper-system \
   --set-string provider=commonjob \
   --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
@@ -160,7 +160,7 @@ Use a trusted certificate or `reportRelay.caSecret` for your private CA.
 The kube-hunter chart is independently available at:
 
 ```text
-https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.1/kube-hunter-0.1.1.tgz
+https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.2/kube-hunter-0.1.2.tgz
 ```
 
 Do not use a bare `/api/kubehunter/hunter/<cluster-id>` path or a
@@ -168,3 +168,32 @@ browser-only localhost URL as `reportRelay.targetUrl`; it must be a full
 trusted HTTPS URL. Generate the exact target via the UI after setting the HTTPS
 origin. Both scanner charts are included as versioned release assets, not
 inside the umbrella Helm chart or an operator's current working directory.
+
+## Amazon EKS staging acceptance
+
+For an EKS worker-node kube-bench scan, use the standalone chart with `provider=eks` (rather than the Kind-oriented `commonjob`). Its Job and CronJob use the same configurable EKS benchmark. The default baseline is `eks-1.2.0`, and the included kube-bench image is `v0.16.0`. This scans reachable EC2 worker-node configuration only; it is **not** full EKS CIS coverage or a managed-control-plane audit. Fargate-only clusters do not provide worker host paths.
+
+Use a disposable EKS test cluster and first verify `kubectl config current-context`, node types, your PostgreSQL persistent StorageClass, and namespace-scoped secret key names. Never print Secret values in test logs.
+
+```bash
+helm show chart ./m9sweeper-0.1.2.tgz
+kubectl get nodes -o wide
+kubectl -n m9sweeper-system get secrets
+kubectl -n m9sweeper-system get pvc
+```
+
+After installing the main chart using your existing private values and Secrets, register the EKS cluster through Dashboard and use its *actual* assigned cluster ID. For an already provisioned report Secret with data key `api-key`, the one-shot worker-node report command is:
+
+```bash
+helm upgrade --install kube-bench ./kube-bench-0.1.2.tgz \\
+  -n m9sweeper-system \\
+  --set-string provider=eks \\
+  --set cronjob.enabled=false \\
+  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \\
+  --set-string reportAuth.keyName=api-key \\
+  --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/REPLACE_WITH_REAL_CLUSTER_ID
+```
+
+Use a private HTTPS endpoint rather than the internal HTTP service when the scanner runs outside the namespace/cluster. Do not copy the scanner API key into the URL. A chart Job may be a Helm hook, so inspect `kubectl -n m9sweeper-system get jobs,pods`, `kubectl -n m9sweeper-system describe pod <scanner-pod>`, and Job logs before deciding that the upload succeeded. A successful scan must produce a report visible on the correct Dashboard cluster, not merely a Completed Job.
+
+For v0.1.2, kube-hunter's authenticated report relay still requires an independently trusted HTTPS callback, and live Falco has not completed EKS acceptance. Run each as a separate controlled test; no full AWS/EKS production-certification is claimed.
