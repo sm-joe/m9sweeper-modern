@@ -10,7 +10,7 @@ java = Path("platform/trawler/src/main/java/io/m9sweeper/trawler/Trawler.java").
 identity = Path("platform/dash/backend/src/providers/LoggedInUserFactory.ts").read_text()
 
 start = java.index("private static void notifyQuarantinedScan")
-end = java.index("private Connection getAmpqConnection", start)
+end = java.index("Connection getAmpqConnection", start)
 callback = java[start:end]
 assert 'conn.setRequestProperty("x-api-key"' in callback, (
     "Java DLQ failure callback must send X-API-Key resolved by NestJS"
