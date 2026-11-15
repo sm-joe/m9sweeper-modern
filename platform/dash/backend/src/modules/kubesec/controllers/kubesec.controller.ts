@@ -1,4 +1,5 @@
-import {Body, Controller, Get, InternalServerErrorException, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors} from '@nestjs/common';
+import {BadGatewayException, BadRequestException, Body, Controller, Get, InternalServerErrorException, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors} from '@nestjs/common';
+import {ClusterAccessGuard} from '../../../guards/cluster-access.guard';
 import {KubesecService} from "../services/kubesec.service";
 import {AllowedAuthorityLevels} from "../../../decorators/allowed-authority-levels.decorator";
 import {Authority} from "../../user/enum/Authority";
@@ -16,9 +17,10 @@ export class KubesecController {
     ) {}
 
     @Get('/listnamespaces')
+    @UseGuards(ClusterAccessGuard)
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
     @UseGuards(AuthGuard, AuthorityGuard)
-    async listNamespaces(@Query('cluster') clusterId: number): Promise<V1NamespaceList> {
+    async listNamespaces(@Query('clusterId') clusterId: number): Promise<V1NamespaceList> {
         return await this.kubesecService.listNamespaces(clusterId).catch((err) => {
             console.log(err);
             throw new InternalServerErrorException();
@@ -26,31 +28,32 @@ export class KubesecController {
     }
 
     @Get('/listpods')
+    @UseGuards(ClusterAccessGuard)
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
     @UseGuards(AuthGuard, AuthorityGuard)
     async listPods(
       @Query('cluster') clusterId: number,
       @Query('namespaces') namespaces: string[]
     ): Promise<(V1PodList)[]> {
-        if (namespaces) {
-            // remove "selectAll" (it's not a namespace, it's a value that tells it to return all ns)
-            const index = namespaces.indexOf("selectAll");
-            if (index !== -1) {
-                namespaces.splice(index, 1);
-            }
-            // TODO: if it's "selectAll", use kubectl get pods --all-namespaces instead of individual calls
-
-            const response =  await this.kubesecService.listPods(clusterId, namespaces);
-            if (response.errors.length) {
-              console.log({ method: "KubesecController.listPods", errors: response.errors });
-            }
-            return response.podList;
-        } else {
-            return [];
+        const raw = namespaces as unknown as string | string[];
+        const selected = (Array.isArray(raw) ? raw : raw ? [raw] : [])
+            .filter(namespace => namespace !== 'selectAll');
+        if (selected.length === 0 || selected.length > 100 ||
+            selected.some(namespace => !/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(namespace))) {
+            throw new BadRequestException('Select one or more valid Kubernetes namespaces');
         }
+        const response = await this.kubesecService.listPods(clusterId, [...new Set(selected)]);
+        // Avoid silently displaying "No pods" when the Kubernetes API returned
+        // 401/403, DNS failures, or an invalid namespace.
+        if (response.errors.length) {
+            throw new BadGatewayException(
+                'Could not list pods in one or more namespaces. Check cluster credentials, pod-list RBAC and API connectivity.');
+        }
+        return response.podList;
     }
 
     @Post('/:clusterId')
+    @UseGuards(ClusterAccessGuard)
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
     @UseGuards(AuthGuard, AuthorityGuard)
     async runKubesecForPod(@Param('clusterId') clusterId: number, @Body() podInfo: any) {
