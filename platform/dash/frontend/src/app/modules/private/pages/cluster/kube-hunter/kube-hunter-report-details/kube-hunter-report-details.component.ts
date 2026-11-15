@@ -7,6 +7,7 @@ import {MatTableDataSource} from '@angular/material/table';
 import {ClusterService} from '../../../../../../core/services/cluster.service';
 import {ICluster} from '../../../../../../core/entities/ICluster';
 import {UtilService} from '../../../../../../core/services/util.service';
+import {kubeHunterFindings} from '../../../../../../core/services/kube-hunter-report-parser';
 
 @Component({
   standalone: false,
@@ -23,6 +24,8 @@ export class KubeHunterReportDetailsComponent implements OnInit {
   nodes: any;
   vulnerabilities: IKubeHunterVulnerabilities[];
   issues: {[location: string]: IKubeHunterVulnerabilities[]} = {};
+  loading = true;
+  loadError = '';
 
 
   displayedColumns: string[] = ['severity', 'category', 'vulnerability', 'description', 'additionalInfo'];
@@ -39,23 +42,40 @@ export class KubeHunterReportDetailsComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.kubehunterService
-      .getKubeHunterReportById(this.id)
+    if (!Number.isSafeInteger(this.id) || this.id <= 0) {
+      this.loading = false;
+      this.loadError = 'Invalid kube-hunter report identifier.';
+      return;
+    }
+    this.kubehunterService.getKubeHunterReportById(this.id)
       .pipe(take(1))
-      .subscribe(report => {
-        this.report = report;
-        this.vulnerabilities = JSON.parse(report.vulnerabilities).value.value as IKubeHunterVulnerabilities[];
-        for (const vuln of this.vulnerabilities) {
-          if (this.issues[vuln.location]) {
-            this.issues[vuln.location].push(vuln);
-          } else {
-            this.issues[vuln.location] = [vuln];
+      .subscribe({
+        next: report => {
+          this.loading = false;
+          this.report = report;
+          if (!report || !Number.isSafeInteger(Number(report.clusterId)) || Number(report.clusterId) <= 0) {
+            this.loadError = 'The kube-hunter API returned an invalid report.';
+            return;
           }
-        }
-        this.dateRan = new Date(+report.createdAt).toLocaleDateString();
-        this.getCluster(report.clusterId);
-        this.populateTable();
-    });
+          this.vulnerabilities = kubeHunterFindings(report.vulnerabilities);
+          this.issues = {};
+          this.location = [];
+          for (const vuln of this.vulnerabilities) {
+            const location = String(vuln?.location || 'Unknown location');
+            if (!this.issues[location]) {
+              this.issues[location] = [];
+            }
+            this.issues[location].push(vuln);
+          }
+          this.dateRan = new Date(+report.createdAt).toLocaleDateString();
+          this.getCluster(report.clusterId);
+          this.populateTable();
+        },
+        error: error => {
+          this.loading = false;
+          this.loadError = `Unable to retrieve kube-hunter report (HTTP ${error?.status || 'network error'}).`;
+        },
+      });
   }
 
   populateTable() {

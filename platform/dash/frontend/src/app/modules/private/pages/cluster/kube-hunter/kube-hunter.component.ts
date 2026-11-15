@@ -8,6 +8,7 @@ import {MatTableDataSource} from '@angular/material/table';
 import {MatDialog} from '@angular/material/dialog';
 import {KubeHunterDialogComponent} from './kube-hunter-dialog/kube-hunter-dialog.component';
 import {NgxUiLoaderService} from 'ngx-ui-loader';
+import {parseKubeHunterSection} from '../../../../../core/services/kube-hunter-report-parser';
 
 @Component({
   standalone: false,
@@ -23,6 +24,7 @@ export class KubeHunterComponent implements OnInit, OnDestroy {
   scansExist = false;
   mostRecentVulnerabilities = {low: 0, medium: 0, high: 0};
   receivedResponse = false;
+  loadError = '';
 
   penetrationTestStatusInvalid: boolean;
   penetrationTestText: string;
@@ -56,6 +58,7 @@ export class KubeHunterComponent implements OnInit, OnDestroy {
   }
 
   getReports() {
+    this.loadError = '';
     this.kubeHunterService
       .allReportsForCluster(this.clusterId, this.limit, this.page)
       .pipe(
@@ -68,13 +71,19 @@ export class KubeHunterComponent implements OnInit, OnDestroy {
         this.allReportsForCluster = res?.list || [];
         this.reportCount = res?.reportCount || 0;
         res?.list?.forEach(reports => {
-          reports.nodes = JSON.parse(reports.nodes);
-          reports.services = JSON.parse(reports.services);
-          reports.vulnerabilities = JSON.parse(reports.vulnerabilities);
+          reports.nodes = parseKubeHunterSection(reports.nodes);
+          reports.services = parseKubeHunterSection(reports.services);
+          reports.vulnerabilities = parseKubeHunterSection(reports.vulnerabilities);
         });
         this.populateMessages(res?.list[0]);
         this.populateTable();
       }, (e) => {
+        this.receivedResponse = true;
+        this.scansExist = false;
+        this.allReportsForCluster = [];
+        this.reportCount = 0;
+        this.loadError = `Unable to retrieve kube-hunter reports (HTTP ${e.status || 'network error'}).`;
+        this.populateTable();
         if (e.status === 404) {
           this.ourAdvice = 'Run kube-hunter to find vulnerabilities within your cluster.';
           this.penetrationTestText = 'Unknown';
