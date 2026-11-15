@@ -91,6 +91,7 @@ jobs:
         with:
           ref: ${{ env.SOURCE_SHA }}
           persist-credentials: false
+          clean: false
       - uses: azure/setup-helm@v4
         with:
           version: v3.17.3
