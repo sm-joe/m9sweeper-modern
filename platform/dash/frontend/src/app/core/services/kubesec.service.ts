@@ -10,18 +10,17 @@ export class KubesecService {
   constructor( private httpClient: HttpClient ) {}
 
   listNamespaces(clusterId: number): Observable<any> {
-    return this.httpClient.get(`/api/kubesec/listnamespaces?cluster=${clusterId}`);
+    return this.httpClient.get(`/api/kubesec/listnamespaces?clusterId=${clusterId}`);
   }
 
   listPods(clusterId: number, namespacesArray: string[]): Observable<any> {
-    const params = new HttpParams({
-        fromObject:
-          {
-            'namespaces[]': namespacesArray
-          }
-      }
-    );
-    return this.httpClient.get(`/api/kubesec/listpods?cluster=${clusterId}`, {params});
+    // Express query parsers differ in how they interpret namespaces[].
+    // Send repeated plain "namespaces" keys; NestJS receives a string or array.
+    const params = namespacesArray
+      .filter(namespace => namespace !== 'selectAll')
+      .reduce((query, namespace) => query.append('namespaces', namespace),
+        new HttpParams().set('clusterId', String(clusterId)));
+    return this.httpClient.get('/api/kubesec/listpods', {params});
   }
 
   getKubesecReport(info: any, clusterId: number): Observable<any> {
