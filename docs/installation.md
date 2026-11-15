@@ -176,33 +176,10 @@ trusted HTTPS URL. Generate the exact target via the UI after setting the HTTPS
 origin. Both scanner charts are included as versioned release assets, not
 inside the umbrella Helm chart or an operator's current working directory.
 
-## Amazon EKS staging acceptance
+## Amazon EKS: validated path and scanner fixes
 
-For complete provider-specific prerequisites and explicit restrictions for EKS, AKS and GKE, see [Cloud Kubernetes deployment and acceptance](cloud-kubernetes.md). Native cloud CLI exec-kubeconfig onboarding is a pending backend capability; do not interpret successful local `kubectl` authentication as a successful backend cluster connection.
+Follow the [step-by-step EKS installation guide](eks-installation.md) for **the tested kubeconfig connection**, EBS CSI storage, database initialization, kube-bench, Kubesec pod listing, and kube-hunter HTTPS. Avoid using the published `kube-bench-0.1.2.tgz` archive for one-time EKS Jobs: it contains the invalid `eks-1.0` benchmark. The EKS guide uses the corrected source chart and **reuses scanner keys from the existing `m9-init-env` Secret** rather than instructing users to create missing arbitrary Secrets.
 
-**Published v0.1.2 warning:** its EKS one-time Job embeds invalid `eks-1.0` even though the CronJob uses `eks-1.2.0`. Install the fixed source chart from current main for this scanner until the next signed chart release; see [EKS guide](eks-installation.md). For an EKS worker-node kube-bench scan, use the standalone chart with `provider=eks` (rather than the Kind-oriented `commonjob`). Its Job and CronJob use the same configurable EKS benchmark. The default baseline is `eks-1.2.0`, and the included kube-bench image is `v0.16.0`. This scans reachable EC2 worker-node configuration only; it is **not** full EKS CIS coverage or a managed-control-plane audit. Fargate-only clusters do not provide worker host paths.
+On the real test EKS cluster, kube-bench execution **and its dashboard report** were confirmed by the operator. Kubesec and kube-hunter fixes still require deployment and runtime acceptance. Trivy and Falco EKS acceptance also remain open. These conditions do not block installing the core application, but do block claiming complete production-ready cloud scanner certification.
 
-Use a disposable EKS test cluster and first verify `kubectl config current-context`, node types, your PostgreSQL persistent StorageClass, and namespace-scoped secret key names. Never print Secret values in test logs.
-
-```bash
-helm show chart ./m9sweeper-0.1.2.tgz
-kubectl get nodes -o wide
-kubectl -n m9sweeper-system get secrets
-kubectl -n m9sweeper-system get pvc
-```
-
-After installing the main chart using your existing private values and Secrets, register the EKS cluster through Dashboard and use its *actual* assigned cluster ID. For the already-created bootstrap Secret `m9-init-env`, the one-shot worker-node report command is:
-
-```bash
-helm upgrade --install kube-bench ./kube-bench-0.1.2.tgz \
-  -n m9sweeper-system \
-  --set-string provider=eks \
-  --set cronjob.enabled=false \
-  --set-string reportAuth.existingSecret=m9-init-env \
-  --set-string reportAuth.keyName=KUBE_BENCH_API_KEY \
-  --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/REPLACE_WITH_REAL_CLUSTER_ID
-```
-
-Use a private HTTPS endpoint rather than the internal HTTP service when the scanner runs outside the namespace/cluster. Do not copy the scanner API key into the URL. A chart Job may be a Helm hook, so inspect `kubectl -n m9sweeper-system get jobs,pods`, `kubectl -n m9sweeper-system describe pod <scanner-pod>`, and Job logs before deciding that the upload succeeded. A successful scan must produce a report visible on the correct Dashboard cluster, not merely a Completed Job.
-
-For v0.1.2, kube-hunter's authenticated report relay still requires an independently trusted HTTPS callback, and live Falco has not completed EKS acceptance. Run each as a separate controlled test; no full AWS/EKS production-certification is claimed.
+For other providers, use [the cloud requirements guide](cloud-kubernetes.md) and select your cluster's compatible CSI driver, node topology, identity and networking configuration. AKS and GKE runtime acceptance is currently on hold.
