@@ -13,9 +13,10 @@ describe('KubeBenchReportDetailsComponent', () => {
   };
 
   function create(reportId = '37', response: any = report) {
-    const route: any = {paramMap: of(convertToParamMap({id: reportId}))};
+    const route: any = {parent: {snapshot: {paramMap: convertToParamMap({id: '3'})}}, paramMap: of(convertToParamMap({id: reportId}))};
     const service: any = {
-      getKubeBenchReportById: jasmine.createSpy('getKubeBenchReportById').and.returnValue(of(response))
+      getKubeBenchReportById: jasmine.createSpy('getKubeBenchReportById').and.returnValue(of(response)),
+      getCachedReport: jasmine.createSpy('getCachedReport').and.returnValue(undefined)
     };
     const component = new KubeBenchReportDetailsComponent(route, service);
     component.ngOnInit();
@@ -39,14 +40,45 @@ describe('KubeBenchReportDetailsComponent', () => {
   });
 
   it('shows HTTP errors rather than an empty audit', () => {
-    const route: any = {paramMap: of(convertToParamMap({id: '37'}))};
+    const route: any = {parent: {snapshot: {paramMap: convertToParamMap({id: '3'})}}, paramMap: of(convertToParamMap({id: '37'}))};
     const service: any = {
       getKubeBenchReportById: () => throwError({status: 403}),
+      getCachedReport: () => undefined,
     };
     const component = new KubeBenchReportDetailsComponent(route, service);
     component.ngOnInit();
     expect(component.loading).toBeFalse();
     expect(component.loadError).toContain('HTTP 403');
+  });
+
+  it('renders the already-authorized audit without another HTTP request', () => {
+    const route: any = {
+      parent: {snapshot: {paramMap: convertToParamMap({id: '3'})}},
+      paramMap: of(convertToParamMap({id: '37'}))
+    };
+    const service: any = {
+      getCachedReport: jasmine.createSpy('getCachedReport').and.returnValue(report),
+      getKubeBenchReportById: jasmine.createSpy('getKubeBenchReportById')
+    };
+    const component = new KubeBenchReportDetailsComponent(route, service);
+    component.ngOnInit();
+    expect(component.report.Totals.total_pass).toBe(63);
+    expect(component.loading).toBeFalse();
+    expect(service.getKubeBenchReportById).not.toHaveBeenCalled();
+  });
+
+  it('rejects a cached report belonging to another cluster', () => {
+    const route: any = {
+      parent: {snapshot: {paramMap: convertToParamMap({id: '4'})}},
+      paramMap: of(convertToParamMap({id: '37'}))
+    };
+    const service: any = {
+      getCachedReport: () => report,
+      getKubeBenchReportById: jasmine.createSpy('getKubeBenchReportById').and.returnValue(of(report))
+    };
+    const component = new KubeBenchReportDetailsComponent(route, service);
+    component.ngOnInit();
+    expect(service.getKubeBenchReportById).toHaveBeenCalledWith(37);
   });
 
   it('rejects an invalid audit ID without an API call', () => {
