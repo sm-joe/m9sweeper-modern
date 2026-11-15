@@ -34,7 +34,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: [ "/bin/sh" ]
-          args: [ "-c", "kube-bench run --targets node --benchmark eks-1.0 --json > kube-bench-results.json && wget -S -O - --header \"Content-Type: application/json\"{{ if .Values.reportAuth.existingSecret }} --header \"X-API-Key: $KUBE_BENCH_API_KEY\"{{ end }} --post-file kube-bench-results.json \"{{ .Values.reportsurl }}\"" ]
+          args: [ "-c", "kube-bench run --targets node --benchmark {{ .Values.eks.benchmark }} --json > kube-bench-results.json && wget -S -O - --header \"Content-Type: application/json\"{{ if .Values.reportAuth.existingSecret }} --header \"X-API-Key: $KUBE_BENCH_API_KEY\"{{ end }} --post-file kube-bench-results.json \"{{ .Values.reportsurl }}\"" ]
             {{- with .Values.customArguments }}
 {{ toYaml . | indent 12 }}
             {{- end }}
