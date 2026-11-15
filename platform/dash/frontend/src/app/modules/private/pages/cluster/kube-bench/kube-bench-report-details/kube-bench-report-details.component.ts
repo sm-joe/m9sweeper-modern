@@ -35,6 +35,19 @@ export class KubeBenchReportDetailsComponent implements OnInit {
         this.loadError = 'Invalid kube-bench report identifier.';
         return;
       }
+      // Past Audits already fetched the complete report via the authorized
+      // cluster-scoped endpoint. Render it directly instead of requesting
+      // the same large payload through a second, unreliable API path.
+      const cached = this.kubeBenchService.getCachedReport(reportId);
+      const parentCluster = Number(this.route.parent?.snapshot.paramMap.get('id'));
+      if (cached && cached.clusterId === parentCluster &&
+          Array.isArray(cached.resultsJson?.Controls) &&
+          cached.resultsJson.Controls.length > 0 && cached.resultsJson.Totals) {
+        this.report = cached.resultsJson;
+        this.loading = false;
+        return;
+      }
+      // Direct links and hard reloads still use the original report endpoint.
       this.kubeBenchService.getKubeBenchReportById(reportId)
         .pipe(take(1), timeout(15000))
         .subscribe({
