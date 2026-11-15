@@ -23,6 +23,6 @@ Select the script appropriate to the checked-out revision. For a production Angu
 
 The administration UI can read an operator-supplied kubeconfig and select a context, but cloud CLI `exec` authentication blocks in EKS, AKS and GKE kubeconfigs **cannot** be executed securely by the released backend. Native workload identity and token refresh in the backend are prerequisites for unattended managed-cluster enrollment; uploading a file in the browser does not provide that identity.
 
-See [Cloud Kubernetes installation and acceptance](../../../../docs/cloud-kubernetes.md) and [Helm installation](../../../../docs/installation.md).
+See [Cloud Kubernetes installation and acceptance](../../../docs/cloud-kubernetes.md) and [Helm installation](../../../docs/installation.md).
 
 For new features, keep cloud credential logic in dedicated backend providers and avoid logging kubeconfigs or tokens. Changes must be covered by Angular build tests, backend auth/RBAC tests and real EKS/AKS/GKE acceptance before a public release.
