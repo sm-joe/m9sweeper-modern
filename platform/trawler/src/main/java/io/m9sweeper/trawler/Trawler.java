@@ -170,7 +170,7 @@ public class Trawler extends AbstractCommand implements Runnable {
         }
     }
 
-    private Connection getAmpqConnection(ConnectionFactory factory, int retry) throws InterruptedException {
+    Connection getAmpqConnection(ConnectionFactory factory, int retry) throws InterruptedException {
         try {
             return factory.newConnection();
         } catch (IOException | TimeoutException e) {
