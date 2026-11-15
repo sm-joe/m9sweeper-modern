@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: Version to publish (e.g. v0.1.1)
+        description: Version to publish (e.g. v0.1.2)
         type: string
         required: true
-        default: v0.1.1
+        default: v0.1.2
       source_sha:
         description: Exact successful source SHA
         type: string
@@ -23,6 +23,10 @@ on:
         description: Gate token SIGNED_AND_ACCEPTED
         type: string
         required: true
+      scanner_acceptance:
+        description: Type KUBE_HUNTER_TRIVY_FALCO_VERIFIED only after independent real scanner and UI acceptance
+        type: string
+        required: true
 permissions:
   contents: write
   actions: read
@@ -32,6 +36,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       inputs.confirmation == 'SIGNED_AND_ACCEPTED' &&
+      inputs.scanner_acceptance == 'KUBE_HUNTER_TRIVY_FALCO_VERIFIED' &&
       inputs.source_sha == github.sha &&
       github.repository == 'sm-joe/m9sweeper-modern'
     runs-on: ubuntu-latest
