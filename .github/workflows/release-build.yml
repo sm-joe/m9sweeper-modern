@@ -1,4 +1,5 @@
 name: Build and sign m9sweeper release
+# Rebuild only from the full-CI-passing source after the Trawler parity fix.
 on:
   push:
     branches: [main]
