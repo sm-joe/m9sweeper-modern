@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import {HttpClient, HttpParams} from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import {IKubeBenchReport, IKubeBenchSummary} from '../entities/IKubeBenchReport';
 
 @Injectable({
@@ -10,16 +11,21 @@ export class KubeBenchService {
 
   constructor(private httpClient: HttpClient) { }
 
-  getKubeBenchReportById(id: number): Observable<{success: boolean; message: string; data: IKubeBenchReport}> {
-    return this.httpClient.get<{success: boolean; message: string; data: IKubeBenchReport}>(`/api/kube-bench/${id}`);
+  // Some endpoints return the payload directly while others use the API envelope.
+  // Normalize both shapes at the HTTP boundary so components consume one contract.
+  getKubeBenchReportById(id: number): Observable<IKubeBenchReport> {
+    return this.httpClient.get<IKubeBenchReport | {data: IKubeBenchReport}>(`/api/kube-bench/${id}`)
+      .pipe(map(response => 'data' in response ? response.data : response));
   }
 
   getAllBenchReportsByCluster(clusterId: number, limit?: number, page?: number):
-    Observable<{success: boolean; message: string; data: {reportCount: number; list: IKubeBenchReport[]}}> {
-    let params: HttpParams = new HttpParams();
-    params = params.set('limit', String(limit));
-    params = params.set('page', String(page));
-    return this.httpClient.get<{success: boolean; message: string; data: {reportCount: number; list: IKubeBenchReport[]}}> (`/api/kube-bench/cluster/${clusterId}`, {params});
+    Observable<{reportCount: number; list: IKubeBenchReport[]}> {
+    let params = new HttpParams();
+    if (limit !== undefined) params = params.set('limit', String(limit));
+    if (page !== undefined) params = params.set('page', String(page));
+    type ReportList = {reportCount: number; list: IKubeBenchReport[]};
+    return this.httpClient.get<ReportList | {data: ReportList}>(`/api/kube-bench/cluster/${clusterId}`, {params})
+      .pipe(map(response => 'data' in response ? response.data : response));
   }
 
   getConfigFileList(): Observable<{data: {name: string, value: string}[], success: boolean}> {
