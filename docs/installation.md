@@ -190,12 +190,12 @@ kubectl -n m9sweeper-system get pvc
 After installing the main chart using your existing private values and Secrets, register the EKS cluster through Dashboard and use its *actual* assigned cluster ID. For an already provisioned report Secret with data key `api-key`, the one-shot worker-node report command is:
 
 ```bash
-helm upgrade --install kube-bench ./kube-bench-0.1.2.tgz \\
-  -n m9sweeper-system \\
-  --set-string provider=eks \\
-  --set cronjob.enabled=false \\
-  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \\
-  --set-string reportAuth.keyName=api-key \\
+helm upgrade --install kube-bench ./kube-bench-0.1.2.tgz \
+  -n m9sweeper-system \
+  --set-string provider=eks \
+  --set cronjob.enabled=false \
+  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
+  --set-string reportAuth.keyName=api-key \
   --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/REPLACE_WITH_REAL_CLUSTER_ID
 ```
 
