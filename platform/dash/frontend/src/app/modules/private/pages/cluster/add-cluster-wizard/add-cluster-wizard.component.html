@@ -19,7 +19,7 @@
         Otherwise, we will walk you through setting up all of the components manually.
       </p>
       <p>
-        If you are using a cloud base Kubernetes service, it is recommended that you set up your cluster manually.
+        For EKS, AKS and GKE, kubeconfigs commonly use cloud CLI exec credentials. The current backend cannot authenticate those files automatically. Cloud-native workload identity and refresh are required; do not upload cloud API keys or disable TLS verification. See the cloud Kubernetes installation guide before enrolling a cluster.
       </p>
       <p>
         <mat-radio-group formControlName="automaticClusterInstall" (change)="automaticClusterInstallChange($event)">
@@ -173,7 +173,7 @@
       <h3>Done!</h3>
       <div class="row">
         <span class="col-xs-12 col-md-8 mb-xs-2">
-          Your cluster is set up and being scanned now!
+          Cluster registration completed. Check live inventory synchronization and scanner results before treating this cluster as verified.
         </span>
       </div>
       <div *ngIf="installWebhook === 'manually'">
