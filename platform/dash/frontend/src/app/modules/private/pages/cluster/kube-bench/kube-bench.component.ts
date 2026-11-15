@@ -87,7 +87,7 @@ export class KubeBenchComponent implements OnInit {
         .pipe(take(1))
         .subscribe(rtrn => {
           // The backend response interceptor wraps the report list under `data`.
-          const payload = rtrn?.data;
+          const payload = rtrn;
           if (!payload || !Array.isArray(payload.list)) {
             this.loadError = 'The kube-bench API returned an unexpected response; verify the deployed Dash image.';
             this.datasource = [];
