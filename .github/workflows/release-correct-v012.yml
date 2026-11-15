@@ -1,5 +1,9 @@
 name: Correct release numbering and publish v0.1.2
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-correct-v012.yml'
   workflow_run:
     workflows:
       - Kubernetes release acceptance
@@ -18,13 +22,10 @@ jobs:
   correct-version:
     if: >-
       github.repository == 'sm-joe/m9sweeper-modern' &&
-      ((github.event_name == 'workflow_run' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_sha == 'db16a133bbee494b9c0b2b6a95a70093b43c390d' &&
-        github.event.workflow_run.head_branch == 'main') ||
-       github.event_name == 'workflow_dispatch')
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 85
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: sm-joe/m9sweeper-modern
@@ -33,27 +34,10 @@ jobs:
       OLD_TAG: v0.1.3
       OLD_SOURCE_SHA: 5de2942871ce236209467d7a9cccbde090631908
     steps:
-      - name: Require exact-source CI, signing and Linux Kind acceptance
+      - name: Require exact-source signed candidate and platform CI
         shell: bash
-        env:
-          EVENT_TYPE: ${{ github.event_name }}
-          EVENT_ACCEPTANCE_ID: ${{ github.event.workflow_run.id }}
-          MANUAL_ACCEPTANCE_ID: ${{ inputs.acceptance_run_id }}
         run: |
           set -euo pipefail
-          acceptance_id="$EVENT_ACCEPTANCE_ID"
-          if [[ "$EVENT_TYPE" == workflow_dispatch ]]; then
-            acceptance_id="$MANUAL_ACCEPTANCE_ID"
-          fi
-          [[ "$acceptance_id" =~ ^[1-9][0-9]*$ ]] || { echo 'Invalid acceptance ID' >&2; exit 1; }
-          acceptance="$(gh run view "$acceptance_id" --json name,headSha,status,conclusion)"
-          jq -e --arg sha "$SOURCE_SHA" '
-            .name == "Kubernetes release acceptance"
-            and .headSha == $sha
-            and .status == "completed"
-            and .conclusion == "success"' <<<"$acceptance" >/dev/null || {
-              echo 'Required exact-source native Linux Helm acceptance is not successful' >&2; exit 1;
-            }
           gh run list --workflow ci.yml --limit 100             --json headSha,status,conclusion > /tmp/m9-platform-ci.json
           jq -e --arg sha "$SOURCE_SHA" 'any(.[];
             .headSha == $sha and .status == "completed" and .conclusion == "success")'             /tmp/m9-platform-ci.json >/dev/null || {
@@ -71,7 +55,7 @@ jobs:
           if gh release view "$VERSION" >/dev/null 2>&1; then
             echo 'v0.1.2 is already published; do not overwrite signed assets' >&2; exit 1;
           fi
-          echo 'PASS: exact-source Platform CI, signed build and native Kind acceptance'
+          echo 'PASS: exact-source Platform CI and signed build'
       - uses: sigstore/cosign-installer@v3
       - name: Download verified artifact and check signed chart/images
         shell: bash
@@ -103,6 +87,45 @@ jobs:
               --certificate-oidc-issuer "$issuer" "$image" >/dev/null
           done
           echo 'PASS: all v0.1.2 Helm archives and immutable OCI digests verified'
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+          clean: false
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.2'
+      - name: Install pinned Kind v0.33.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install sigs.k8s.io/kind@v0.33.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Create isolated Kind v1.35.8 cluster
+        shell: bash
+        run: |
+          set -euo pipefail
+          kind create cluster --name m9-mvp-ci \\
+            --image 'kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0' \\
+            --wait 180s
+          test "$(kubectl config current-context)" = kind-m9-mvp-ci
+      - name: Independently install signed v0.1.2 chart and execute real Trivy Kind acceptance
+        shell: bash
+        env:
+          M9_MVP_KIND_CI: APPROVED_GITHUB_CI
+          M9_MVP_CHART: dist/m9sweeper-0.1.2.tgz
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          bash scripts/accept-release-kind.sh
+          echo 'PASS: exact-source signed v0.1.2 Helm installation, auth, Trivy scan and rollback'
+      - name: Clean up disposable Kind
+        if: always()
+        shell: bash
+        run: kind delete cluster --name m9-mvp-ci || true
       - name: Publish v0.1.2 as a normal public GitHub release
         shell: bash
         run: |
