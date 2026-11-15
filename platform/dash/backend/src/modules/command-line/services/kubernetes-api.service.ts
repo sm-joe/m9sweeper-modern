@@ -170,10 +170,10 @@ export class KubernetesApiService {
             // base64 Secret data token produced by a service-account-token Secret.
             // Never decode a raw JWT as base64; doing so corrupts the credential.
             const supplied = String(rawToken || '').trim();
-            const token = /^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(supplied)
+            const token = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(supplied)
                 ? supplied
                 : Buffer.from(supplied, 'base64').toString('utf-8').trim();
-            if (!/^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(token)) {
+            if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) {
                 throw new Error('Invalid Kubernetes service-account token format');
             }
             const config = this.buildServiceAccountConfig(token, server, context, caData);
