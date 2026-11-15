@@ -1,5 +1,9 @@
 # Installation
 
+**Installing on Amazon EKS?** Start with the [complete EKS installation and scanner guide](eks-installation.md). It covers EBS CSI, node availability zones, initial administrator setup, cluster kubeconfig registration, kube-bench reports, Kubesec pods and kube-hunter HTTPS.
+
+For other Kubernetes providers, check [provider storage and identity prerequisites](cloud-kubernetes.md); AKS and GKE runtime acceptance remains on hold.
+
 [Back to README](../README.md) · [Cloud Kubernetes (EKS / AKS / GKE)](cloud-kubernetes.md) · [Releases](https://github.com/sm-joe/m9sweeper-modern/releases)
 
 ## Requirements
@@ -136,9 +140,8 @@ cluster-local Service origin, such as
 This endpoint is reachable from Kubernetes Jobs in the same cluster; a local
 browser URL or port-forward (`localhost`) is not a scanner callback.
 
-To install kube-bench, first create a namespace-local Secret with the
-authorized kube-bench scanner API key stored in key `apiKey`.
-The key must have permission to submit reports for the selected cluster. If your preexisting Secret uses `api-key` (instead of `apiKey`), supply `--set-string reportAuth.keyName=api-key` when installing the standalone chart; do not rotate or expose the credential.
+To install kube-bench, use the existing initialization Secret `m9-init-env` with key `KUBE_BENCH_API_KEY`. Do not create or rotate another scanner key unless you intentionally manage scanner identities separately.
+The key must have permission to submit reports for the selected cluster. Avoid exposing it in Helm values or logs.
 Then run, for example:
 
 ```bash
@@ -147,7 +150,8 @@ helm upgrade --install kube-bench \
   -n m9sweeper-system \
   --set-string provider=commonjob \
   --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
-  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
+  --set-string reportAuth.existingSecret=m9-init-env \
+  --set-string reportAuth.keyName=KUBE_BENCH_API_KEY \
   --set cronjob.enabled=false
 ```
 
@@ -155,7 +159,7 @@ Use `kubectl -n m9sweeper-system get jobs,pods` and
 `kubectl -n m9sweeper-system logs job/<job-name>` to inspect actual execution.
 Closing the wizard alone does not launch a scan.
 
-**kube-hunter differs:** the header-authenticated report relay requires trusted HTTPS.
+**kube-hunter differs:** the header-authenticated report relay requires trusted HTTPS. Reuse `m9-init-env` key `KUBE_HUNTER_API_KEY` with `reportRelay.existingSecret=m9-init-env` and `reportRelay.secretKey=KUBE_HUNTER_API_KEY`; no extra relay Secret is needed.
 Configure a real ingress or TLS gateway that routes to Dash and is reachable from
 Kubernetes Pods. Set `dash.scannerReportIngestionUrl` to that HTTPS origin
 in your private values file, then upgrade the umbrella Helm release.
@@ -172,33 +176,10 @@ trusted HTTPS URL. Generate the exact target via the UI after setting the HTTPS
 origin. Both scanner charts are included as versioned release assets, not
 inside the umbrella Helm chart or an operator's current working directory.
 
-## Amazon EKS staging acceptance
+## Amazon EKS: validated path and scanner fixes
 
-For complete provider-specific prerequisites and explicit restrictions for EKS, AKS and GKE, see [Cloud Kubernetes deployment and acceptance](cloud-kubernetes.md). Native cloud CLI exec-kubeconfig onboarding is a pending backend capability; do not interpret successful local `kubectl` authentication as a successful backend cluster connection.
+Follow the [step-by-step EKS installation guide](eks-installation.md) for **the tested kubeconfig connection**, EBS CSI storage, database initialization, kube-bench, Kubesec pod listing, and kube-hunter HTTPS. Avoid using the published `kube-bench-0.1.2.tgz` archive for one-time EKS Jobs: it contains the invalid `eks-1.0` benchmark. The EKS guide uses the corrected source chart and **reuses scanner keys from the existing `m9-init-env` Secret** rather than instructing users to create missing arbitrary Secrets.
 
-For an EKS worker-node kube-bench scan, use the standalone chart with `provider=eks` (rather than the Kind-oriented `commonjob`). Its Job and CronJob use the same configurable EKS benchmark. The default baseline is `eks-1.2.0`, and the included kube-bench image is `v0.16.0`. This scans reachable EC2 worker-node configuration only; it is **not** full EKS CIS coverage or a managed-control-plane audit. Fargate-only clusters do not provide worker host paths.
+On the real test EKS cluster, kube-bench execution **and its dashboard report** were confirmed by the operator. Kubesec and kube-hunter fixes still require deployment and runtime acceptance. Trivy and Falco EKS acceptance also remain open. These conditions do not block installing the core application, but do block claiming complete production-ready cloud scanner certification.
 
-Use a disposable EKS test cluster and first verify `kubectl config current-context`, node types, your PostgreSQL persistent StorageClass, and namespace-scoped secret key names. Never print Secret values in test logs.
-
-```bash
-helm show chart ./m9sweeper-0.1.2.tgz
-kubectl get nodes -o wide
-kubectl -n m9sweeper-system get secrets
-kubectl -n m9sweeper-system get pvc
-```
-
-After installing the main chart using your existing private values and Secrets, register the EKS cluster through Dashboard and use its *actual* assigned cluster ID. For an already provisioned report Secret with data key `api-key`, the one-shot worker-node report command is:
-
-```bash
-helm upgrade --install kube-bench ./kube-bench-0.1.2.tgz \
-  -n m9sweeper-system \
-  --set-string provider=eks \
-  --set cronjob.enabled=false \
-  --set-string reportAuth.existingSecret=m9sweeper-kube-bench-api-key \
-  --set-string reportAuth.keyName=api-key \
-  --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/REPLACE_WITH_REAL_CLUSTER_ID
-```
-
-Use a private HTTPS endpoint rather than the internal HTTP service when the scanner runs outside the namespace/cluster. Do not copy the scanner API key into the URL. A chart Job may be a Helm hook, so inspect `kubectl -n m9sweeper-system get jobs,pods`, `kubectl -n m9sweeper-system describe pod <scanner-pod>`, and Job logs before deciding that the upload succeeded. A successful scan must produce a report visible on the correct Dashboard cluster, not merely a Completed Job.
-
-For v0.1.2, kube-hunter's authenticated report relay still requires an independently trusted HTTPS callback, and live Falco has not completed EKS acceptance. Run each as a separate controlled test; no full AWS/EKS production-certification is claimed.
+For other providers, use [the cloud requirements guide](cloud-kubernetes.md) and select your cluster's compatible CSI driver, node topology, identity and networking configuration. AKS and GKE runtime acceptance is currently on hold.

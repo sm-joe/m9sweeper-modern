@@ -1,5 +1,7 @@
 # Cloud Kubernetes deployment and acceptance
 
+**EKS is the active validation priority:** see [the full EKS installation and scanner walkthrough](eks-installation.md). AKS/GKE acceptance is intentionally deferred; the provider sections below are infrastructure preparation guidance, not completed runtime tests.
+
 [Main installation](installation.md) · [Project README](../README.md)
 
 This guide targets **Linux** administration environments. The Helm release deploys on Kubernetes, not on the administration host. The installation is **not certified** on Amazon EKS, Azure AKS, or Google GKE until a real cluster completes all acceptance steps below. A successful Helm upgrade, green CI job, or Kind scan is not sufficient.
@@ -41,6 +43,8 @@ kubectl get pods -A -o wide
 Do not uninstall a failed release or delete existing PersistentVolumeClaims as an initial troubleshooting step. Stateful volumes may contain production data.
 
 ## Amazon EKS (EC2 managed node groups)
+
+The detailed, step-by-step installation and known-issue fixes are in [EKS installation](eks-installation.md). On the test cluster, kube-bench reports are confirmed visible in Dashboard; Kubesec and kube-hunter are still under repair/acceptance.
 
 Prerequisites: an EKS cluster, authorized IAM identity, `aws` CLI v2, `kubectl`, Helm 3, nodes of sufficient size, and Amazon EBS CSI with its recommended least-privilege IAM configuration.
 

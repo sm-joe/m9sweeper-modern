@@ -29,6 +29,7 @@ export class KubesecComponent implements OnInit, OnDestroy {
   selectedPodNames = [];
   currentPods = [];
   loadingPods = false;
+  podLoadError = false;
   namespaceLoadError = false;
   selectedNamespaces: string[];
   clusterId: number;
@@ -107,6 +108,9 @@ export class KubesecComponent implements OnInit, OnDestroy {
   getPodsFromSelectedNamespace() {
     this.podFile = null;
     this.loadingPods = true;
+    this.podLoadError = false;
+    this.currentPods = [];
+    this.podForm.controls.podFormControl.setValue([]);
     if (!this.namespaceForm.controls.namespaceFormControl.value || !this.namespaceForm.controls.namespaceFormControl.value.length) {
       this.currentPods = [];
       this.loadingPods = false;
@@ -115,7 +119,7 @@ export class KubesecComponent implements OnInit, OnDestroy {
     // @TODO: implement debouncing (only set currentPods from the most recent API call)
     this.kubesecService.listPods(this.clusterId, this.namespaceForm.controls.namespaceFormControl.value).pipe(take(1)).subscribe(
       (list) => {
-        if (list) {
+        if (Array.isArray(list)) {
           list = list.filter(data => data !== null);
           this.currentPods = [];
           for (const pod of list) {
@@ -126,13 +130,15 @@ export class KubesecComponent implements OnInit, OnDestroy {
             }
           }
         } else {
-          this.alertService.danger('Could not get pods in ' + this.selectedNamespaces);
+          this.podLoadError = true;
+          this.alertService.danger('Could not load pods. Check Kubernetes pod-list permission and cluster connectivity.');
         }
         this.loadingPods = false;
       },
       (error) => {
-        console.log(error);
-        this.alertService.danger('Could not get pods in ' + this.selectedNamespaces);
+        this.podLoadError = true;
+        this.currentPods = [];
+        this.alertService.danger('Could not load pods. Check Kubernetes pod-list permission and cluster connectivity.');
         this.loadingPods = false;
       }
     );
@@ -231,7 +237,7 @@ export class KubesecComponent implements OnInit, OnDestroy {
         this.thing.deselect();
         return false;
       }
-      if (this.podForm.controls.podFormControl.value.length === this.currentPods.length) {
+      if (this.podForm.controls.podFormControl.value?.length === this.currentPods.length) {
         this.thing.select();
       }
     }

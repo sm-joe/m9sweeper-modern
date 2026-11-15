@@ -2,7 +2,7 @@
 {{- $_ := required "reportRelay.targetUrl is required when reportRelay.enabled=true" .Values.reportRelay.targetUrl -}}
 {{- $_ := required "reportRelay.existingSecret is required when reportRelay.enabled=true" .Values.reportRelay.existingSecret -}}
 {{- if not (hasPrefix "https://" .Values.reportRelay.targetUrl) -}}
-{{- fail "reportRelay.targetUrl must be HTTPS, with a trusted certificate" -}}
+{{- fail "reportRelay.targetUrl must be a full trusted HTTPS URL (e.g. https://dash.example.com/api/kubehunter/hunter/1). Configure Dashboard ingress and TLS as described in docs/eks-installation.md; HTTP service URLs and localhost port-forwards cannot carry authenticated scanner reports" -}}
 {{- end }}
 apiVersion: v1
 kind: ConfigMap
