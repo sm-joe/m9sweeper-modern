@@ -8,7 +8,7 @@
 
 **m9sweeper-modern** is an open-source Kubernetes security platform that brings container vulnerability scanning, cluster security insights, policies and reporting into one dashboard. It continues the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) project with a modern application stack and actively maintained Kubernetes integration.
 
-[**Installation**](docs/installation.md) · [**EKS / AKS / GKE guide**](docs/cloud-kubernetes.md) · [**Releases**](https://github.com/sm-joe/m9sweeper-modern/releases) · [**Report an issue**](https://github.com/sm-joe/m9sweeper-modern/issues) · [**Contribute**](CONTRIBUTING.md)
+[**Installation**](docs/installation.md) · [**EKS step-by-step**](docs/eks-installation.md) · [**EKS / AKS / GKE guide**](docs/cloud-kubernetes.md) · [**Releases**](https://github.com/sm-joe/m9sweeper-modern/releases) · [**Report an issue**](https://github.com/sm-joe/m9sweeper-modern/issues) · [**Contribute**](CONTRIBUTING.md)
 
 ## What you can do
 
@@ -124,7 +124,7 @@ kubectl -n m9sweeper-system port-forward service/m9sweeper-dash 13000:3000
 
 Visit **http://localhost:13000** and sign in with your configured administrator account.
 
-See **[Installation & configuration](docs/installation.md)** and **[Cloud Kubernetes: EKS, AKS and GKE](docs/cloud-kubernetes.md)** for cloud storage, identity, cluster access, Linux commands and real-cluster acceptance.\n\n**Cloud authentication status:** The current published release does not yet transparently authenticate an uploaded AWS EKS, Azure AKS or GKE CLI-exec kubeconfig inside the backend. Provider-native workload identity and token refresh must be implemented and validated before cloud onboarding is marked production-ready. Do not mount workstation cloud credentials or enable arbitrary exec plugins in the container.
+See **[EKS installation and tested scanner walkthrough](docs/eks-installation.md)**, **[Installation & configuration](docs/installation.md)** and **[Cloud Kubernetes: EKS, AKS and GKE](docs/cloud-kubernetes.md)** for cloud storage, identity, cluster access, Linux commands and real-cluster acceptance.\n\n**Cloud authentication status:** The current published release does not yet transparently authenticate an uploaded AWS EKS, Azure AKS or GKE CLI-exec kubeconfig inside the backend. Provider-native workload identity and token refresh must be implemented and validated before cloud onboarding is marked production-ready. Do not mount workstation cloud credentials or enable arbitrary exec plugins in the container.
 
 ## Development
 
