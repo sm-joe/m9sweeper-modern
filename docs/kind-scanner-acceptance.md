@@ -60,7 +60,16 @@ The correct end-to-end gate requires a real image scan to complete, persistent p
 
 Falco is a separate real Linux sensor validation, not a synthetic event upload. Kind pods alone do not establish kernel-level detection. First deploy a supported Falco sensor and configure Falcosidekick forwarding, authenticated by a cluster-scoped Falco key. Confirm a *fresh* event for a benign, controlled test container and the matching ID in `project_falco_logs` and the Angular Falco view.
 
-The existing `scripts/verify-falco-live-linux.sh` is intended for native Linux staging and assumes a local Compose PostgreSQL container. Do not run that script unchanged against the Helm installation; use a native Linux staging environment and migrate its database adapter to Kubernetes first. Never claim Falco acceptance based solely on an old database row.
+For Helm-managed PostgreSQL on a native Linux staging machine, use the newly added `scripts/verify-falco-kubernetes-linux.sh` after configuring and approving a disposable test environment:
+
+```bash
+export M9_FALCO_LIVE_TEST=YES M9_FALCO_LINUX_HOST=YES
+export M9_EXPECTED_KUBE_CONTEXT=kind-kind CLUSTER_ID=3
+export M9_FALCO_NAMESPACE=m9sweeper-system
+bash scripts/verify-falco-kubernetes-linux.sh
+```
+
+It creates only a disposable test namespace, reads a benign container file to trigger the explicitly configured sensitive-file rule, and requires a **new** correlated event stored in Helm PostgreSQL. The original `verify-falco-live-linux.sh` remains Compose-only. Do not use either script if the sensor/rule or staging permissions are not already configured. Never claim Falco acceptance based solely on an old database row.
 
 ## Release candidate
 
