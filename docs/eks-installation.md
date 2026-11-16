@@ -50,7 +50,6 @@ kubectl -n m9sweeper-system get pvc -w
 
 Expected: new claims choose `m9sweeper-gp3`; eligible already-created PVCs without a specified `storageClassName` can also acquire the new default. Press Ctrl+C to stop watching. **An explicitly empty `storageClassName: ""` is different and is not retroactively changed.** Existing bound volumes must not be migrated or deleted casually. For EKS Auto Mode the provisioner is `ebs.csi.eks.amazonaws.com` instead; do not use the standard EKS CSI class.
 
-``
 **Node capacity prerequisite:** Check the available pod slots and the AZ for each existing PV. An EBS volume created in `us-east-1a` cannot attach to a node in `us-east-1b`. If a Pod stays Pending with `Too many pods` and `volume node affinity conflict`, add schedulable node capacity **in the PV's zone**, or select correct topology *before* provisioning new volumes.
 
 ```bash
