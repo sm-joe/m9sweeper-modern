@@ -4,7 +4,7 @@
 
     <p *ngIf="!reportEndpointReady" role="alert" class="mat-error">{{reportEndpointError}}</p>
     <p *ngIf="reportEndpointReady" role="note">The Helm command downloads the scanner chart from the public release; no source checkout is required. </p>
-    <p *ngIf="reportEndpointReady" role="note">The secure kube-hunter report relay forwards findings over verified HTTPS with <code>X-API-Key</code>. Create an existing Kubernetes Secret named <code>m9sweeper-kube-hunter-relay-auth</code> in namespace <code>m9sweeper-system</code> containing key <code>apiKey</code>. The header token must be rotated and granted access to this cluster. Never store the API key in a URL, Helm value, command, or browser history. The relay expects a trusted CA for <code>{{backendUrl}}</code>.</p>
+    <p *ngIf="reportEndpointReady" role="note"><strong>Secret prerequisite:</strong> reuse the existing <code>m9-init-env</code> Secret in <code>m9sweeper-system</code> with key <code>KUBE_HUNTER_API_KEY</code>. For a new installation, create it once from your private <code>dash-bootstrap.env</code> file; do not overwrite an existing Secret. Verify with <code>kubectl -n m9sweeper-system get secret m9-init-env</code>. The relay requires the full trusted HTTPS destination <code>{{backendUrl}}/api/kubehunter/hunter/{{clusterId}}</code>; a relative URL or local browser port is invalid. Credentials are injected from Kubernetes, never pasted into Helm values. See <a href="https://github.com/sm-joe/m9sweeper-modern/blob/main/docs/eks-installation.md" target="_blank" rel="noopener noreferrer">EKS scanner installation prerequisites</a>.</p>
     <div class="modal-content-left-align-no-margin" *ngIf="reportEndpointReady">
       <h3>Choose whether to run kube-hunter periodically or manually</h3>
       <mat-radio-group aria-labelledby="cronjob-options-group-label"  [(ngModel)]="cronjobOpt">
@@ -33,10 +33,11 @@
         </div>
 
         <div >
-          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.1/kube-hunter-0.1.1.tgz \
+          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.2/kube-hunter-0.1.2.tgz \
   -n m9sweeper-system --create-namespace \
   --set reportRelay.enabled=true \
-  --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \
+  --set-string reportRelay.existingSecret=m9-init-env \
+  --set-string reportRelay.secretKey=KUBE_HUNTER_API_KEY \
   --set-string reportRelay.targetUrl="{{backendUrl}}/api/kubehunter/hunter/{{clusterId}}" \
   --set cronjob.enabled=false</textarea>
         </div>
@@ -72,10 +73,11 @@
         </div>
 
         <div >
-          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.1/kube-hunter-0.1.1.tgz \
+          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.2/kube-hunter-0.1.2.tgz \
   -n m9sweeper-system --create-namespace \
   --set reportRelay.enabled=true \
-  --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \
+  --set-string reportRelay.existingSecret=m9-init-env \
+  --set-string reportRelay.secretKey=KUBE_HUNTER_API_KEY \
   --set-string reportRelay.targetUrl="{{backendUrl}}/api/kubehunter/hunter/{{clusterId}}" \
   --set-string cronjob.schedule="{{cronjobScheduleOpts[cronjobTime]}}" \
   --set cronjob.enabled=true</textarea>
