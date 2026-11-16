@@ -227,7 +227,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: 1356365625c7a09cb62878ae04c321e54088edec
           persist-credentials: false
       - name: Confirm exact approved release source, acceptance and main ref
         shell: bash
