@@ -24,7 +24,7 @@ export class SecurityAuditKubesecService implements IAuditReportSectionService {
     let overallPassed = 0;
     let overallFailed = 0;
 
-    for (const namespace of cluster.namespaces) {
+    for (const namespace of cluster.namespaces ?? []) {
       const namespaceContent: Content[] = [
         this.pdfHelpers.buildSubHeader(`namespace ${namespace.name}`, { skipToc: true })
       ];
@@ -32,7 +32,7 @@ export class SecurityAuditKubesecService implements IAuditReportSectionService {
       let passed = 0;
       let failed = 0;
       // Runs kubesec on each pod, and build its table
-      for (const pod of namespace.pods) {
+      for (const pod of namespace.pods ?? []) {
         total++;
         const podResults = await this.runKubesecAndBuildTable(cluster.id, namespace.name, pod.name);
         namespaceContent.push(podResults.content);
@@ -93,7 +93,10 @@ export class SecurityAuditKubesecService implements IAuditReportSectionService {
   protected async runKubesecAndBuildTable(clusterId: number, namespace: string, podName: string): Promise<{ content: Content, passed: boolean }> {
     return this.kubesecService.runKubesecByPod(podName, namespace, clusterId)
       .then((kubesecResponse: { data: KubesecScanResults }) => {
-        const results = kubesecResponse?.data[0];
+        const results = kubesecResponse?.data?.[0];
+        if (!results || !results.scoring) {
+          throw new Error('Kubesec did not return a valid scoring result');
+        }
         return {
           content: this.buildKubesecTableForPod(podName, results),
           passed: results?.score > 0
@@ -109,6 +112,9 @@ export class SecurityAuditKubesecService implements IAuditReportSectionService {
 
   buildKubesecTableForPod(podName: string, results: KubesecScanResults): Content {
     const scoring = results?.scoring;
+    if (!scoring) {
+      return {text: `Pod ${podName}: no valid Kubesec scoring data`, style: 'alert'};
+    }
     let rows: TableCell[][] = []
     scoring.passed?.forEach((item: KubesecItem) => {
       rows.push([item.id, item.points, 'Passed', item.reason]);
@@ -123,7 +129,7 @@ export class SecurityAuditKubesecService implements IAuditReportSectionService {
     });
 
     if (!rows?.length) {
-      rows = [[{text: 'No items found', style: 'italics', colSpan: 3 }, {}, {}]];
+      rows = [[{text: 'No items found', style: 'italics', colSpan: 4 }, {}, {}, {}]];
     }
     const table: ContentTable = {
       marginBottom: 10,
