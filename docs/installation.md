@@ -1,5 +1,7 @@
 # Installation
 
+**First Kubernetes installation?** Follow [Start here: install m9sweeper on Kubernetes](getting-started.md), a beginner-friendly Linux walkthrough covering the terminology, tools, storage, setup, login and troubleshooting. Use the detailed sections below as a configuration reference.
+
 **Installing on Amazon EKS?** Start with the [complete EKS installation and scanner guide](eks-installation.md). It covers EBS CSI, node availability zones, initial administrator setup, cluster kubeconfig registration, kube-bench reports, Kubesec pods and kube-hunter HTTPS.
 
 For other Kubernetes providers, check [provider storage and identity prerequisites](cloud-kubernetes.md); AKS and GKE runtime acceptance remains on hold.
