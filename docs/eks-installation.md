@@ -445,13 +445,59 @@ kubectl -n falco logs daemonset/falco -c falco --tail=120
 
 The first pass deliberately disables Falcosidekick, so a missing webhook Secret, bad HTTPS endpoint, or invalid output settings cannot mask a driver or DaemonSet installation error. If the DaemonSet cannot become ready, check `kubectl -n falco describe daemonset falco`, `kubectl -n falco get events --sort-by=.lastTimestamp`, and the Falco Pod init/driver container logs before changing settings. A running Pod is not proof that a security event was captured.
 
-**Falcosidekick follows a separate verification step.** With the Falco chart, `falcosidekick.enabled=true` normally configures Falco's HTTP output automatically; do not additionally point it to an unverified hardcoded Sidekick Service or pass legacy `falco.http_output.*` values. Verify the `m9sweeper-falco-webhook` Secret actually exists in namespace `falco` (Secrets are namespace-scoped) and that its **keys and values match the Falcosidekick chart's documented `config.existingSecret` schema** before enabling it. The separate `m9-init-env` Secret is in `m9sweeper-system` and must not be treated as a cross-namespace Secret. Use HTTPS with proper certificate validation and a real, reachable Dash Falco ingestion endpoint; do not put API keys into Helm CLI arguments, URLs or logs.
+### Create the Falcosidekick webhook Secret (required before enabling Sidekick)
+
+Falco's Modern eBPF driver and rule detection are separately verified on the EKS test cluster. A shell in the `falco-test` Pod produced a Falco **Notice** event with `k8s_pod_name=falco-test` and `k8s_ns_name=falco-test`; CRI-O/Docker socket warnings are harmless when containerd events resolve. This is **Falco detection proof**, not yet proof of delivery to m9sweeper.
+
+The Falcosidekick chart's `falcosidekick.config.existingSecret` expects an existing **Kubernetes Secret containing environment variables** for Falcosidekick (for example, `WEBHOOK_ADDRESS`, `WEBHOOK_CUSTOMHEADERS` and `WEBHOOK_MINIMUMPRIORITY`). The Secret belongs in namespace `falco`, not `m9sweeper-system`; this chart does **not** automatically create `m9sweeper-falco-webhook`. Create it manually once and reuse it for upgrades. Do not put the API key in Helm `--set` arguments, the URL, logs, or a committed values file.
+
+In Windows PowerShell, use the **actual m9sweeper Falco ingestion URL** provided by your deployment (reachable from the Falcosidekick Pod over trusted HTTPS), and the existing authorized Falco scanner API key. The following prepares a **local private env file**; fill the values in a local editor, never in Git. `WEBHOOK_CUSTOMHEADERS` is a comma-separated HTTP header setting for Falcosidekick; use the header required by your m9sweeper endpoint.
 
 ```powershell
-kubectl -n falco get secret m9sweeper-falco-webhook
-helm show values falcosecurity/falco
-kubectl -n falco get svc,pods
+kubectl get namespace falco
+kubectl -n falco get secret m9sweeper-falco-webhook --ignore-not-found
+
+# Only create the file/Secret if it does not already exist.
+$privateFile = Join-Path $env:TEMP "m9sweeper-falco-webhook.env"
+@'
+WEBHOOK_ADDRESS=https://YOUR-TRUSTED-M9SWEEPER-HOST/api/falco/YOUR-CLUSTER-ID
+WEBHOOK_CUSTOMHEADERS=X-API-Key:YOUR-EXISTING-FALCO-API-KEY
+WEBHOOK_MINIMUMPRIORITY=notice
+'@ | Set-Content -Path $privateFile -Encoding utf8
+
+# Edit the file to use the real, confirmed endpoint and key BEFORE creating the Secret.
+notepad $privateFile
+
+kubectl -n falco create secret generic m9sweeper-falco-webhook `
+  --from-env-file=$privateFile
+
+Remove-Item $privateFile
 ```
+
+**Important:** The endpoint above is an **illustrative placeholder, not a verified API route**. Confirm the precise Falco controller path and header against the installed Dash backend before creating the Secret. If the existing Secret was created with different key names, validate them instead of creating a duplicate. To inspect **key names only**, without disclosing values:
+
+```powershell
+kubectl -n falco get secret m9sweeper-falco-webhook `
+  -o go-template='{{range $key, $value := .data}}{{printf "%s\n" $key}}{{end}}'
+```
+
+`WEBHOOK_MINIMUMPRIORITY=error` (in the earlier installation command) **filters out Notice events**, including the confirmed `Terminal shell in container` test. Use `notice` while validating end-to-end delivery, then set the desired alert threshold for ongoing operation. For transport, use HTTPS with certificate checking enabled; do not disable TLS verification.
+
+After confirming the configuration, enable Sidekick without overriding the Falco driver:
+
+```powershell
+helm upgrade falco falcosecurity/falco `
+  --namespace falco --reuse-values `
+  --set falcosidekick.enabled=true `
+  --set-string falcosidekick.config.existingSecret=m9sweeper-falco-webhook `
+  --timeout 10m
+
+kubectl -n falco get pods,svc -o wide
+kubectl -n falco rollout status deployment/falco-falcosidekick --timeout=5m
+kubectl -n falco logs deployment/falco-falcosidekick --since=10m --tail=100
+```
+
+When Sidekick is enabled, the Falco umbrella chart configures HTTP forwarding automatically. Do not additionally configure the old `falco.http_output.url` or legacy `falco.json_output` values. Do not print Secret content to troubleshoot; inspect Key names, Sidekick status, sanitized logs and endpoint responses.
 
 Only after Sidekick is healthy and the endpoint/authentication is verified, enable the integration. **Acceptance:** create or observe a real Falco security event, confirm it is received by Sidekick, accepted by the authenticated m9sweeper endpoint, persisted, and visible under the correct cluster in the Dashboard. A successful Helm install or a `Running` Falco Pod is insufficient to claim m9sweeper Falco acceptance.
 
