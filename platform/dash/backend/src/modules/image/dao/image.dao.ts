@@ -291,7 +291,7 @@ export class ImageDao {
             'c.name as _cluster_name',
             knex.raw('COALESCE(r.id, 0) as "_dockerRegistry_id"'),
             knex.raw(`COALESCE(r.name, '') as "_dockerRegistry_name"`),
-            knex.raw(`COALESCE(r.hostname, '') as "_dockerRegistry_hostname"`),
+            knex.raw(`COALESCE(NULLIF(r.hostname, ''), i.url) as "_dockerRegistry_hostname"`),
             'r.aliases as _dockerRegistry_aliases',
             knex.raw('COALESCE(r.login_required, false) as "_dockerRegistry_loginRequired"'),
             knex.raw(`COALESCE(r.username, '') as "_dockerRegistry_username"`),
