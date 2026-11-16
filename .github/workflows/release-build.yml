@@ -222,6 +222,24 @@ jobs:
           set -euo pipefail
           chart="dist/m9sweeper-${VERSION#v}.tgz"
           cp docs/installation.md dist/INSTALL.md
+          # The repository installation page continues to target the latest
+          # already-published release until this candidate passes acceptance.
+          # Only the candidate's signed INSTALL.md points to its new artifacts.
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          p = Path("dist/INSTALL.md")
+          content = p.read_text()
+          version = os.environ["VERSION"]
+          prior = "v0.1.2"
+          content = content.replace(prior, version)
+          content = content.replace("-0.1.2.tgz", f"-{version[1:]}.tgz")
+          content = content.replace(
+              "Avoid using the published `kube-bench-0.1.2.tgz` archive for one-time EKS Jobs: it contains the invalid `eks-1.0` benchmark. The EKS guide uses the corrected source chart and **reuses scanner keys from the existing `m9-init-env` Secret** rather than instructing users to create missing arbitrary Secrets.",
+              "The downloaded kube-bench chart is checked for EKS one-time Job benchmark `eks-1.2.0`; reuse the existing authorized `m9-init-env` Secret keys."
+          )
+          p.write_text(content)
+          PY
           python3 -m json.tool dist/m9sweeper-source.spdx.json >/dev/null
           cosign sign-blob --yes --bundle dist/chart.sigstore.json "$chart"
           for scanner in kube-bench kube-hunter; do
