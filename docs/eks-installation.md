@@ -1,5 +1,7 @@
 # Install m9sweeper on Amazon EKS
 
+**New to Kubernetes?** Begin with the [step-by-step beginner guide](getting-started.md). It explains Nodes, Pods, PVCs, Secrets, Helm and what each command's output means. Return here for EKS-specific cluster registration and scanner setup.
+
 **Start here for EKS.** This is the current priority and follows the installation and scanner problems found during an actual EKS rollout. The commands use a Linux shell. Other Kubernetes providers use the same Helm installation, but require their own CSI storage and credential configuration; see [Cloud Kubernetes](cloud-kubernetes.md). **AKS and GKE runtime certification is on hold.**
 
 **What is verified on the test EKS cluster:** token-based kubeconfig enrollment, application login, kube-bench execution **and a report visible in Dashboard**. This does **not** yet certify Kubesec, kube-hunter, Trivy or Falco on EKS.
@@ -23,6 +25,32 @@ kubectl get csidriver
 
 **Storage prerequisite:** PostgreSQL and RabbitMQ need working persistent volumes. On standard EKS EC2 nodes, ensure `ebs.csi.aws.com` is installed, has suitable IAM permissions and has a compatible default StorageClass. `kubectl get csidriver ebs.csi.aws.com` must succeed. A StorageClass alone does not install a CSI driver. EKS Auto Mode uses a different EBS provisioner; verify the cluster's actual mode before changing anything. Never delete existing PVCs to fix scheduling.
 
+### Why your PostgreSQL and RabbitMQ PVCs may stay Pending
+
+If you see `pod has unbound immediate PersistentVolumeClaims`, run:
+
+```bash
+kubectl get storageclass
+kubectl get csidriver
+kubectl -n m9sweeper-system get pvc -o wide
+kubectl -n m9sweeper-system describe pvc data-m9sweeper-postgresql-0
+kubectl -n m9sweeper-system describe pvc rabbitmq-data-m9sweeper-rabbitmq-0
+```
+
+**Example observed on EKS:** a `gp2` class existed, but no class was marked `(default)`; both application PVCs had an empty StorageClass column and stayed Pending. The legacy `kubernetes.io/aws-ebs` gp2 provisioner was present alongside the modern EBS CSI driver `ebs.csi.aws.com`. This is not, by itself, proof that CSI is broken: check the PVC events.
+
+For standard EKS EC2 node groups with `ebs.csi.aws.com`, create the dedicated `m9sweeper-gp3` class in the [beginner storage instructions](getting-started.md#step-3--verify-disk-storage-before-installing-m9sweeper). If **no default exists**, and you have authorization to change the cluster's default storage policy, mark it default:
+
+```bash
+kubectl annotate storageclass m9sweeper-gp3 \
+  storageclass.kubernetes.io/is-default-class=true --overwrite
+kubectl get storageclass
+kubectl -n m9sweeper-system get pvc -w
+```
+
+Expected: new claims choose `m9sweeper-gp3`; eligible already-created PVCs without a specified `storageClassName` can also acquire the new default. Press Ctrl+C to stop watching. **An explicitly empty `storageClassName: ""` is different and is not retroactively changed.** Existing bound volumes must not be migrated or deleted casually. For EKS Auto Mode the provisioner is `ebs.csi.eks.amazonaws.com` instead; do not use the standard EKS CSI class.
+
+``
 **Node capacity prerequisite:** Check the available pod slots and the AZ for each existing PV. An EBS volume created in `us-east-1a` cannot attach to a node in `us-east-1b`. If a Pod stays Pending with `Too many pods` and `volume node affinity conflict`, add schedulable node capacity **in the PV's zone**, or select correct topology *before* provisioning new volumes.
 
 ```bash
