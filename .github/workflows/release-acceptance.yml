@@ -125,6 +125,17 @@ jobs:
             --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \
             --set-string reportRelay.targetUrl=https://scanner.example.internal/api/kubehunter/hunter/1 \
             --set cronjob.enabled=true >/tmp/kube-hunter-standalone.yaml
+          helm template kube-bench "dist/kube-bench-${version#v}.tgz" \
+            --namespace m9sweeper-system --kube-version 1.37.0 \
+            --set-string provider=eks --set cronjob.enabled=false \
+            --set-string reportAuth.existingSecret=m9-init-env \
+            --set-string reportAuth.keyName=KUBE_BENCH_API_KEY \
+            --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
+            > /tmp/kube-bench-eks-download.yaml
+          grep -Fq -- '--benchmark eks-1.2.0' /tmp/kube-bench-eks-download.yaml
+          if grep -Fq -- '--benchmark eks-1.0' /tmp/kube-bench-eks-download.yaml; then
+            echo 'Packaged EKS one-time Job uses obsolete benchmark' >&2; exit 1
+          fi
           grep -q 'kind: Job' /tmp/kube-bench-standalone.yaml
           grep -q 'kind: CronJob' /tmp/kube-hunter-standalone.yaml
           echo 'PASS: independent signed scanner charts render valid Jobs and CronJobs'
