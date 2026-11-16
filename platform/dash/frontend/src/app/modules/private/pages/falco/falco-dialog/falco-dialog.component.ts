@@ -16,8 +16,8 @@ export class FalcoDialogComponent implements OnInit {
   reportEndpointReady = false;
   reportEndpointError = 'Scanner report ingestion endpoint is not configured.';
   clusterId: number;
-  level = 'Error';
-  priorityLevels: string [] = ['', 'Emergency', 'Alert', 'Critical', 'Error', 'Warning', 'Notice', 'Informational', 'Debug'];
+  level = 'Notice';
+  priorityLevels: string [] = ['Emergency', 'Alert', 'Critical', 'Error', 'Warning', 'Notice', 'Informational', 'Debug'];
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: { clusterId: number },
