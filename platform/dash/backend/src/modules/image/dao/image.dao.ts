@@ -381,7 +381,7 @@ export class ImageDao {
         clusterId: number, imageHash: string, imageName: string,
         imageTag: string, ecrHostname: string
     ): Promise<number | undefined> {
-        if (!/^\\d{12}\\.dkr\\.ecr(?:-fips)?\\.[a-z0-9-]+\\.amazonaws\\.com(?:\\.cn)?$/.test(ecrHostname) ||
+        if (!/^\d{12}\.dkr\.ecr(?:-fips)?\.[a-z0-9-]+\.amazonaws\.com(?:\.cn)?$/.test(ecrHostname) ||
             !imageHash || !imageName || !imageTag) {
             return undefined;
         }
