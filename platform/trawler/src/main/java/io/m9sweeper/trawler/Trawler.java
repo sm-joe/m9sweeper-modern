@@ -109,6 +109,10 @@ public class Trawler extends AbstractCommand implements Runnable {
 
     static final int MAX_SCAN_DELIVERY_RETRIES = 3;
 
+    static boolean canScanUnconfiguredRegistry(String hostname) {
+        return Trivy.isPrivateEcrHost(hostname);
+    }
+
     static int retryCount(Map<String, Object> headers) {
         if (headers == null) return 0;
         Object count = headers.get("x-m9sweeper-retries");
@@ -258,12 +262,12 @@ public class Trawler extends AbstractCommand implements Runnable {
                         DockerRegistriesResponseDto registries = api.dockerRegistriesControllerGetDockerRegistries(
                                 null, null, "id", "asc",
                                 null, null, payload.getRegistry().getHostname());
-                        if (registries == null || !registries.isSuccess() ||
+                        if (registries == null || !Boolean.TRUE.equals(registries.isSuccess()) ||
                                 registries.getData() == null || registries.getData().getList() == null) {
                             throw new IOException("Registry API returned an incomplete response");
                         }
                         if (registries.getData().getList().isEmpty()) {
-                            if (!Trivy.isPrivateEcrHost(payload.getRegistry().getHostname())) {
+                            if (!canScanUnconfiguredRegistry(payload.getRegistry().getHostname())) {
                                 throw new IOException("No configured registry matching queued image hostname");
                             }
                             // An ECR registry does not need manually stored AWS
