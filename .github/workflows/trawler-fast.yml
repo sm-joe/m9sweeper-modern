@@ -20,3 +20,8 @@ jobs:
           cache-dependency-path: platform/trawler/pom.xml
       - name: Run original Java scanner tests
         run: mvn -B -ntp -f platform/trawler/pom.xml test
+      - name: Verify packaged Java scanner contains STS credential provider
+        run: |
+          mvn -B -ntp -f platform/trawler/pom.xml -DskipTests package
+          jar tf platform/trawler/target/trawler.jar | grep -q '^com/amazonaws/services/securitytoken/AWSSecurityTokenService.class$'
+          jar tf platform/trawler/target/trawler.jar | grep -q '^com/amazonaws/auth/WebIdentityTokenCredentialsProvider.class$'
