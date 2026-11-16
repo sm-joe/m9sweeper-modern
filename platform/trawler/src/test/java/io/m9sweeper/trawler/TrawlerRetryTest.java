@@ -42,4 +42,20 @@ class TrawlerRetryTest {
         assertEquals(0, Trawler.retryCount(Map.of("x-m9sweeper-retries", "n/a")));
         assertEquals(0, Trawler.retryCount(Map.of("x-m9sweeper-retries", -12)));
     }
+    @Test
+    void automaticallyDiscoveredPrivateEcrRegistryCanUsePodIdentity() {
+        org.junit.jupiter.api.Assertions.assertTrue(
+            Trawler.canScanUnconfiguredRegistry("602401143452.dkr.ecr.us-east-1.amazonaws.com"));
+        org.junit.jupiter.api.Assertions.assertTrue(
+            Trawler.canScanUnconfiguredRegistry("123456789012.dkr.ecr.eu-west-1.amazonaws.com"));
+    }
+
+    @Test
+    void missingOrUntrustedRegistriesMustNotBypassRegistryConfiguration() {
+        org.junit.jupiter.api.Assertions.assertFalse(Trawler.canScanUnconfiguredRegistry("docker.io"));
+        org.junit.jupiter.api.Assertions.assertFalse(Trawler.canScanUnconfiguredRegistry(null));
+        org.junit.jupiter.api.Assertions.assertFalse(
+            Trawler.canScanUnconfiguredRegistry("602401143452.dkr.ecr.us-east-1.amazonaws.com.evil.example"));
+    }
+
 }

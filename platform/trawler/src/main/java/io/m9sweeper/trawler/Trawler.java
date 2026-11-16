@@ -17,6 +17,7 @@ import io.m9sweeper.trawler.framework.client.model.DockerRegistriesResponseDto;
 import io.m9sweeper.trawler.framework.client.model.PoliciesByClusterResponse;
 import io.m9sweeper.trawler.framework.queue.Message;
 import io.m9sweeper.trawler.framework.queue.Registry;
+import io.m9sweeper.trawler.scanners.Trivy;
 import picocli.CommandLine;
 
 import java.io.IOException;
@@ -107,6 +108,10 @@ public class Trawler extends AbstractCommand implements Runnable {
     }
 
     static final int MAX_SCAN_DELIVERY_RETRIES = 3;
+
+    static boolean canScanUnconfiguredRegistry(String hostname) {
+        return Trivy.isPrivateEcrHost(hostname);
+    }
 
     static int retryCount(Map<String, Object> headers) {
         if (headers == null) return 0;
@@ -249,33 +254,50 @@ public class Trawler extends AbstractCommand implements Runnable {
                             payload.getImage().getId() + ", run " +
                             (jobRunId instanceof String ? jobRunId : "legacy"));
 
+                    // Kubernetes discovery can create a scan for a private ECR
+                    // registry before that registry is configured in Dashboard.
+                    // Use the queued canonical hostname with Pod IAM in that case.
+                    // API failures are not "registry not found" and must fail shut.
                     try {
                         DockerRegistriesResponseDto registries = api.dockerRegistriesControllerGetDockerRegistries(
                                 null, null, "id", "asc",
                                 null, null, payload.getRegistry().getHostname());
-                        if (registries.getData().getList().isEmpty()) {
-                            throw new RuntimeException("Invalid docker registry");
+                        if (registries == null || !Boolean.TRUE.equals(registries.isSuccess()) ||
+                                registries.getData() == null || registries.getData().getList() == null) {
+                            throw new IOException("Registry API returned an incomplete response");
                         }
-
-                        DockerRegistriesDto registriesDto = registries.getData().getList().get(0);
-
-                        // convert to proper class name (for some reason its defined 2 different ways... go figure)
-                        Registry registry = new Registry();
-                        registry.setId(Long.valueOf(registriesDto.getId().toString()));
-                        registry.setAliases(registriesDto.getAliases());
-                        registry.setHostname(registriesDto.getHostname());
-                        registry.setAuthType(registriesDto.getAuthType());
-                        registry.setName(registriesDto.getName());
-                        registry.setUsername(registriesDto.getUsername());
-                        registry.setPassword(registriesDto.getPassword());
-                        registry.setAuthDetails(registriesDto.getAuthDetails());
-                        registry.setLoginRequired(registriesDto.isLoginRequired());
-
-                        payload.setRegistry(registry);
+                        if (registries.getData().getList().isEmpty()) {
+                            if (!canScanUnconfiguredRegistry(payload.getRegistry().getHostname())) {
+                                throw new IOException("No configured registry matching queued image hostname");
+                            }
+                            // An ECR registry does not need manually stored AWS
+                            // credentials when the Trawler service account uses
+                            // IRSA/Pod Identity. Never change the hostname to Docker Hub.
+                            payload.getRegistry().setLoginRequired(true);
+                            payload.getRegistry().setAuthType("ACR");
+                            System.out.println("Using AWS workload identity for newly discovered private ECR registry");
+                        } else {
+                            DockerRegistriesDto configured = registries.getData().getList().get(0);
+                            Registry registry = new Registry();
+                            registry.setId(Long.valueOf(configured.getId().toString()));
+                            registry.setAliases(configured.getAliases());
+                            registry.setHostname(configured.getHostname());
+                            registry.setAuthType(configured.getAuthType());
+                            registry.setName(configured.getName());
+                            registry.setUsername(configured.getUsername());
+                            registry.setPassword(configured.getPassword());
+                            registry.setAuthDetails(configured.getAuthDetails());
+                            registry.setLoginRequired(configured.isLoginRequired());
+                            payload.setRegistry(registry);
+                        }
                     } catch (Exception e) {
-                        // Invalid registry credentials or API failures must not be mistaken for a scan.
+                        // Report the failing stage without printing registry credentials
+                        // or a potentially sensitive HTTP response body.
+                        System.err.println("Registry lookup failed for queued scan (" +
+                                e.getClass().getSimpleName() + ")");
                         throw new IOException("Registry lookup failed", e);
-                    } 
+                    }
+
 
                     PoliciesByClusterResponse policies = api.policyControllerGetPoliciesByClusterId(
                             new BigDecimal(payload.getCluster().getId()));
