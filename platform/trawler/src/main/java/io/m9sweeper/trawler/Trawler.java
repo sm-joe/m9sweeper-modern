@@ -237,6 +237,7 @@ public class Trawler extends AbstractCommand implements Runnable {
             // Consumer ack happens only after Dash has accepted and persisted the scan result.
             channel.basicQos(1);
             channel.basicConsume(TrawlerConfiguration.getInstance().rabbitmqQueueName(), false, (consumerTag, delivery) -> {
+                String scanStage = "decode";
                 try {
                     ObjectMapper mapper = new ObjectMapper();
 
@@ -254,6 +255,7 @@ public class Trawler extends AbstractCommand implements Runnable {
                             payload.getImage().getId() + ", run " +
                             (jobRunId instanceof String ? jobRunId : "legacy"));
 
+                    scanStage = "registry lookup";
                     // Kubernetes discovery can create a scan for a private ECR
                     // registry before that registry is configured in Dashboard.
                     // Use the queued canonical hostname with Pod IAM in that case.
@@ -299,6 +301,7 @@ public class Trawler extends AbstractCommand implements Runnable {
                     }
 
 
+                    scanStage = "policy lookup";
                     PoliciesByClusterResponse policies = api.policyControllerGetPoliciesByClusterId(
                             new BigDecimal(payload.getCluster().getId()));
                     if (!policies.isSuccess() || policies.getData() == null || policies.getData().isEmpty()) {
@@ -317,6 +320,7 @@ public class Trawler extends AbstractCommand implements Runnable {
                         defaultClient.addDefaultHeader("X-Scan-Run-Id", "");
                     }
                     try {
+                        scanStage = "image scan and result ingestion";
                         new ScanRunner(api, payload, policies.getData()).scan();
                     } catch (NoncompliantException expectedFinding) {
                         // A noncompliant image is a completed scan, not an infrastructure error:
@@ -331,7 +335,7 @@ public class Trawler extends AbstractCommand implements Runnable {
                     int previousRetries = retryCount(delivery.getProperties().getHeaders());
                     int nextRetries = previousRetries + 1;
                     String destination = nextRetries > MAX_SCAN_DELIVERY_RETRIES ? failedQueue : scanQueue;
-                    System.err.println("Queued image scan failed; retry " + nextRetries +
+                    System.err.println("Queued image scan failed at " + scanStage + "; retry " + nextRetries +
                             " routed to " + destination + ": " + e.getClass().getSimpleName());
                     try {
                         Map<String, Object> headers = new HashMap<>();

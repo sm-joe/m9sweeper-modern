@@ -371,6 +371,49 @@ export class ImageDao {
         return knex.insert(imageDto).into('images').returning(['id']);
     }
 
+    /**
+     * Repair a previously discovered Docker Hub fallback for the very same
+     * Kubernetes image digest after the real ECR repository becomes known.
+     * Preserve its image ID and historical scan results. Never change a queued
+     * scan or overwrite an existing canonical image record.
+     */
+    async reconcileLegacyEcrImage(
+        clusterId: number, imageHash: string, imageName: string,
+        imageTag: string, ecrHostname: string
+    ): Promise<number | undefined> {
+        if (!/^\d{12}\.dkr\.ecr(?:-fips)?\.[a-z0-9-]+\.amazonaws\.com(?:\.cn)?$/.test(ecrHostname) ||
+            !imageHash || !imageName || !imageTag) {
+            return undefined;
+        }
+        const knex = await this.databaseService.getConnection();
+        return knex.transaction(async trx => {
+            const canonical = await trx('images')
+                .where({
+                    cluster_id: clusterId, docker_image_id: imageHash,
+                    url: ecrHostname, name: imageName, tag: imageTag
+                }).whereNull('deleted_at').first('id');
+            if (canonical) return canonical.id;
+
+            const previous = await trx('images')
+                .where({
+                    cluster_id: clusterId, docker_image_id: imageHash,
+                    url: 'docker.io', name: imageName, tag: imageTag
+                }).whereNull('deleted_at')
+                .whereNot('scan_queued', true)
+                .forUpdate().first('id');
+            if (!previous) return undefined;
+            const changed = await trx('images')
+                .where({id: previous.id, cluster_id: clusterId, url: 'docker.io'})
+                .whereNot('scan_queued', true)
+                .update({
+                    url: ecrHostname,
+                    image: ecrHostname + '/' + imageName + ':' + imageTag,
+                    updated_at: Date.now()
+                }).returning('id');
+            return changed[0]?.id;
+        });
+    }
+
     async updateImage(updateImageData: ImageCreateDto, searchClause: any): Promise<number> {
         const knex = await this.databaseService.getConnection();
 
