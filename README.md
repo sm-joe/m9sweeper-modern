@@ -8,7 +8,7 @@
 
 **m9sweeper-modern** is an open-source Kubernetes security platform that brings container vulnerability scanning, cluster security insights, policies and reporting into one dashboard. It continues the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) project with a modern application stack and actively maintained Kubernetes integration.
 
-[**Installation**](docs/installation.md) · [**EKS step-by-step**](docs/eks-installation.md) · [**EKS / AKS / GKE guide**](docs/cloud-kubernetes.md) · [**Releases**](https://github.com/sm-joe/m9sweeper-modern/releases) · [**Report an issue**](https://github.com/sm-joe/m9sweeper-modern/issues) · [**Contribute**](CONTRIBUTING.md)
+[**Start here — beginner guide**](docs/getting-started.md) · [**Installation**](docs/installation.md) · [**EKS step-by-step**](docs/eks-installation.md) · [**EKS / AKS / GKE guide**](docs/cloud-kubernetes.md) · [**Releases**](https://github.com/sm-joe/m9sweeper-modern/releases) · [**Report an issue**](https://github.com/sm-joe/m9sweeper-modern/issues) · [**Contribute**](CONTRIBUTING.md)
 
 ## What you can do
 
@@ -60,6 +60,8 @@ flowchart LR
 The NestJS API maintains cluster inventory, policies and scan history. Trawler processes image-scan jobs from RabbitMQ and sends Trivy results back to the API for persistence and display.
 
 ## Installation
+
+**New to Kubernetes?** Follow the [beginner installation walkthrough](docs/getting-started.md) first. It explains each command, storage prerequisites, Secrets, Helm, how to verify success and the specific EKS PVC issue found during testing.
 
 ### Requirements
 

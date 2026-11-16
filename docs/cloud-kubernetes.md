@@ -1,5 +1,7 @@
 # Cloud Kubernetes deployment and acceptance
 
+For a first-time Kubernetes user, start with the [beginner-friendly Linux installation walkthrough](getting-started.md) before choosing provider-specific instructions.
+
 **EKS is the active validation priority:** see [the full EKS installation and scanner walkthrough](eks-installation.md). AKS/GKE acceptance is intentionally deferred; the provider sections below are infrastructure preparation guidance, not completed runtime tests.
 
 [Main installation](installation.md) · [Project README](../README.md)
