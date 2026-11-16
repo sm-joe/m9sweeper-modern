@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
 public class Trivy implements Scanner {
 
     private static final Pattern PRIVATE_ECR_HOST = Pattern.compile(
-            "^([0-9]{12})\\\\.dkr\\\\.ecr(?:-fips)?\\\\.([a-z0-9-]+)\\\\.amazonaws\\\\.com(?:\\\\.cn)?$");
+            "^([0-9]{12})\\.dkr\\.ecr(?:-fips)?\\.([a-z0-9-]+)\\.amazonaws\\.com(?:\\.cn)?$");
 
     public static boolean isPrivateEcrHost(String hostname) {
         return hostname != null && PRIVATE_ECR_HOST.matcher(hostname).matches();
@@ -100,8 +100,8 @@ public class Trivy implements Scanner {
             String region = hostMatch.group(2);
             Map<?, ?> details = registry.getAuthDetails() instanceof Map
                     ? (Map<?, ?>) registry.getAuthDetails() : Collections.emptyMap();
-            String accessKey = String.valueOf(details.getOrDefault("acrAccessKey", ""));
-            String secretKey = String.valueOf(details.getOrDefault("acrSecretKey", ""));
+            String accessKey = details.get("acrAccessKey") == null ? "" : details.get("acrAccessKey").toString();
+            String secretKey = details.get("acrSecretKey") == null ? "" : details.get("acrSecretKey").toString();
             AmazonECRClientBuilder clientBuilder = AmazonECRClientBuilder.standard().withRegion(region);
             if (!accessKey.isEmpty() && !secretKey.isEmpty()) {
                 AWSCredentials staticCredentials = new BasicAWSCredentials(accessKey, secretKey);
