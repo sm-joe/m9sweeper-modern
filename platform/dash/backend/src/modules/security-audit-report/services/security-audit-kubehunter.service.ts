@@ -30,7 +30,17 @@ export class SecurityAuditKubehunterService implements IAuditReportSectionServic
       let totalHigh = 0;
       let totalMed = 0;
       let totalLow = 0;
-      const processed = (JSON.parse(report?.vulnerabilities) as IKubeHunterRawVulnerabilities)?.value?.value;
+      // Reports may contain an empty or older serialization shape.
+      // Do not abort the entire audit export when kube-hunter found no vulnerabilities.
+      let processed: IKHRawResponseVulnerability[] = [];
+      try {
+        const raw = typeof report.vulnerabilities === 'string'
+          ? JSON.parse(report.vulnerabilities) : report.vulnerabilities;
+        const nested = (raw as IKubeHunterRawVulnerabilities)?.value?.value;
+        processed = Array.isArray(nested) ? nested : [];
+      } catch {
+        processed = [];
+      }
       for (const vuln of processed) {
         if (locations[vuln.location]) {
           locations[vuln.location].push(vuln);
@@ -113,7 +123,7 @@ export class SecurityAuditKubehunterService implements IAuditReportSectionServic
         const rows = locationData[location]
           .map(v => (
             [v.severity, v.category, v.vulnerability,
-            v.description, { text: v.avd_reference, link: v.avd_reference, style: 'link' }
+            v.description, v.avd_reference ? { text: v.avd_reference, link: v.avd_reference, style: 'link' } : 'N/A'
           ]));
         const table: ContentTable = {
           marginBottom: 10,
