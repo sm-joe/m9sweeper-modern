@@ -109,6 +109,18 @@ public class Trawler extends AbstractCommand implements Runnable {
 
     static final int MAX_SCAN_DELIVERY_RETRIES = 3;
 
+    static String canonicalPrivateEcrHost(Message payload) {
+        if (payload == null || payload.getImage() == null || payload.getRegistry() == null) return null;
+        String imageHost = payload.getImage().getUrl();
+        String registryHost = payload.getRegistry().getHostname();
+        if (Trivy.isPrivateEcrHost(imageHost)) return imageHost;
+        if (Trivy.isPrivateEcrHost(registryHost) &&
+                (imageHost == null || imageHost.isBlank() || imageHost.equals(registryHost))) {
+            return registryHost;
+        }
+        return null;
+    }
+
     static boolean canScanUnconfiguredRegistry(String hostname) {
         return Trivy.isPrivateEcrHost(hostname);
     }
@@ -255,6 +267,20 @@ public class Trawler extends AbstractCommand implements Runnable {
                             payload.getImage().getId() + ", run " +
                             (jobRunId instanceof String ? jobRunId : "legacy"));
 
+                    scanStage = "registry resolution";
+                    String ecrHost = canonicalPrivateEcrHost(payload);
+                    if (ecrHost != null) {
+                        // Private ECR auth uses workload identity; the registry
+                        // config endpoint is optional and must not block scans.
+                        payload.getRegistry().setHostname(ecrHost);
+                        payload.getRegistry().setLoginRequired(true);
+                        payload.getRegistry().setAuthType("ACR");
+                        payload.getRegistry().setAuthDetails(null);
+                        payload.getRegistry().setUsername(null);
+                        payload.getRegistry().setPassword(null);
+                        System.out.println("Private ECR registry " + ecrHost +
+                                " resolved; using AWS workload identity without registry lookup");
+                    } else {
                     scanStage = "registry lookup";
                     // Kubernetes discovery can create a scan for a private ECR
                     // registry before that registry is configured in Dashboard.
@@ -300,6 +326,8 @@ public class Trawler extends AbstractCommand implements Runnable {
                         throw new IOException("Registry lookup failed", e);
                     }
 
+
+                    }
 
                     scanStage = "policy lookup";
                     PoliciesByClusterResponse policies = api.policyControllerGetPoliciesByClusterId(

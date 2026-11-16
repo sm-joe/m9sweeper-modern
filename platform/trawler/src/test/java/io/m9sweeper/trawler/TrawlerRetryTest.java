@@ -58,4 +58,43 @@ class TrawlerRetryTest {
             Trawler.canScanUnconfiguredRegistry("602401143452.dkr.ecr.us-east-1.amazonaws.com.evil.example"));
     }
 
+    @Test
+    void privateEcrRegistryIsIdentifiedFromEveryQueuedImageWithoutRegistryConfiguration() {
+        io.m9sweeper.trawler.framework.queue.Message job =
+                new io.m9sweeper.trawler.framework.queue.Message();
+        io.m9sweeper.trawler.framework.queue.Image image =
+                new io.m9sweeper.trawler.framework.queue.Image();
+        image.setUrl("602401143452.dkr.ecr.us-east-1.amazonaws.com");
+        image.setName("amazon/aws-network-policy-agent");
+        image.setTag("v1.4.0-eksbuild.1");
+        io.m9sweeper.trawler.framework.queue.Registry registry =
+                new io.m9sweeper.trawler.framework.queue.Registry();
+        registry.setHostname("602401143452.dkr.ecr.us-east-1.amazonaws.com");
+        job.setImage(image);
+        job.setRegistry(registry);
+        assertEquals("602401143452.dkr.ecr.us-east-1.amazonaws.com",
+                Trawler.canonicalPrivateEcrHost(job));
+        image.setName("amazon-k8s-cni");
+        image.setTag("v1.22.4-eksbuild.10");
+        assertEquals("602401143452.dkr.ecr.us-east-1.amazonaws.com",
+                Trawler.canonicalPrivateEcrHost(job));
+    }
+
+    @Test
+    void neverOverrideNonEcrImagesWithAnUnrelatedEcrRegistry() {
+        io.m9sweeper.trawler.framework.queue.Message job =
+                new io.m9sweeper.trawler.framework.queue.Message();
+        io.m9sweeper.trawler.framework.queue.Image image =
+                new io.m9sweeper.trawler.framework.queue.Image();
+        image.setUrl("docker.io");
+        io.m9sweeper.trawler.framework.queue.Registry registry =
+                new io.m9sweeper.trawler.framework.queue.Registry();
+        registry.setHostname("602401143452.dkr.ecr.us-east-1.amazonaws.com");
+        job.setImage(image);
+        job.setRegistry(registry);
+        org.junit.jupiter.api.Assertions.assertNull(Trawler.canonicalPrivateEcrHost(job));
+        image.setUrl("registry.k8s.io");
+        org.junit.jupiter.api.Assertions.assertNull(Trawler.canonicalPrivateEcrHost(job));
+    }
+
 }
