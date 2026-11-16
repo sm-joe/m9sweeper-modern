@@ -73,7 +73,7 @@ The NestJS API maintains cluster inventory, policies and scan history. Trawler p
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
+gh release download v0.1.3 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
 ```
 
 ### 2. Configure
@@ -110,7 +110,7 @@ trawler:
 Install m9sweeper:
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.2.tgz \
+helm upgrade --install m9sweeper ./m9sweeper-0.1.3.tgz \
   --namespace m9sweeper-system \
   --values values.yaml --timeout 15m
 
