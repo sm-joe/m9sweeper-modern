@@ -16,7 +16,7 @@ Kubernetes 1.35–1.37 (chart declared range; validate each environment), Helm 3
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
+gh release download v0.1.3 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
 ```
 
 ## Step 2 — Configure
@@ -99,7 +99,7 @@ The chart includes its application image references. For bundled PostgreSQL and 
 From the directory where you downloaded the release:
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.2.tgz \
+helm upgrade --install m9sweeper ./m9sweeper-0.1.3.tgz \
   --namespace m9sweeper-system --values /secure/m9sweeper-values.yaml --timeout 15m
 
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m
@@ -148,7 +148,7 @@ Then run, for example:
 
 ```bash
 helm upgrade --install kube-bench \
-  https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.2/kube-bench-0.1.2.tgz \
+  https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.3/kube-bench-0.1.3.tgz \
   -n m9sweeper-system \
   --set-string provider=commonjob \
   --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
@@ -169,7 +169,7 @@ Use a trusted certificate or `reportRelay.caSecret` for your private CA.
 The kube-hunter chart is independently available at:
 
 ```text
-https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.2/kube-hunter-0.1.2.tgz
+https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.3/kube-hunter-0.1.3.tgz
 ```
 
 Do not use a bare `/api/kubehunter/hunter/<cluster-id>` path or a
@@ -180,7 +180,7 @@ inside the umbrella Helm chart or an operator's current working directory.
 
 ## Amazon EKS: validated path and scanner fixes
 
-Follow the [step-by-step EKS installation guide](eks-installation.md) for **the tested kubeconfig connection**, EBS CSI storage, database initialization, kube-bench, Kubesec pod listing, and kube-hunter HTTPS. Avoid using the published `kube-bench-0.1.2.tgz` archive for one-time EKS Jobs: it contains the invalid `eks-1.0` benchmark. The EKS guide uses the corrected source chart and **reuses scanner keys from the existing `m9-init-env` Secret** rather than instructing users to create missing arbitrary Secrets.
+Follow the [step-by-step EKS installation guide](eks-installation.md) for **the tested kubeconfig connection**, EBS CSI storage, database initialization, kube-bench, Kubesec pod listing, and kube-hunter HTTPS. Avoid using the published `kube-bench-0.1.3.tgz` archive for one-time EKS Jobs: it contains the invalid `eks-1.0` benchmark. The EKS guide uses the corrected source chart and **reuses scanner keys from the existing `m9-init-env` Secret** rather than instructing users to create missing arbitrary Secrets.
 
 On the real test EKS cluster, kube-bench execution **and its dashboard report** were confirmed by the operator. Kubesec and kube-hunter fixes still require deployment and runtime acceptance. Trivy and Falco EKS acceptance also remain open. These conditions do not block installing the core application, but do block claiming complete production-ready cloud scanner certification.
 
