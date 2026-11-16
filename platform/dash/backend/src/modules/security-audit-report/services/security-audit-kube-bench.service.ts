@@ -24,7 +24,8 @@ export class SecurityAuditKubeBenchService implements IAuditReportSectionService
     const summaryRow = kbReport
       ? [
         cluster.name,
-        format(new Date(+kbReport.createdAt), 'PPP'),
+        kbReport.createdAt && Number.isFinite(+kbReport.createdAt)
+          ? format(new Date(+kbReport.createdAt), 'PPP') : 'N/A',
         kbReport.resultsSummary?.total_pass ?? 0,
         kbReport.resultsSummary?.total_fail ?? 0,
         kbReport.resultsSummary?.total_warn ?? 0,
@@ -80,10 +81,14 @@ export class SecurityAuditKubeBenchService implements IAuditReportSectionService
     const body = [];
     let scannedMessage = '';
 
-    if (report?.resultsJson) {
-      const results = report.resultsJson; // convenience
-      const total = results.Totals.total_pass + results.Totals.total_fail + results.Totals.total_warn;
-      scannedMessage = `${results.Totals.total_pass}/${total} Checks Passed (not a compliance score)`;
+    // Older or partially ingested reports can be missing Totals or Controls.
+    // They must not cause pdfmake to throw while rendering other scanner sections.
+    const results = report?.resultsJson;
+    if (results?.Totals && Array.isArray(results.Controls)) {
+      const total = (Number(results.Totals.total_pass) || 0) +
+        (Number(results.Totals.total_fail) || 0) +
+        (Number(results.Totals.total_warn) || 0);
+      scannedMessage = `${Number(results.Totals.total_pass) || 0}/${total} Checks Passed (not a compliance score)`;
 
       body.push({
         text: 'Assessment limitation: this report displays the benchmark name and detected Kubernetes version as supplied by kube-bench. Compatibility between those versions has NOT been verified by m9sweeper-new. Manual checks (WARN) require human review; PASS counts are not certification.',
@@ -99,9 +104,9 @@ export class SecurityAuditKubeBenchService implements IAuditReportSectionService
         }));
 
         // Inner loop over the tests (ex: 3.2. Kubelet) in the section, creating a table for each.
-        for (const test of section.tests) {
+        for (const test of section.tests ?? []) {
           // Create a table row for each of the individual items tested in this test.
-          const rows = test.results
+          const rows = (test.results ?? [])
             .map(res => {
               const statusCell: Content = {text: res.status};
               switch (res.status) {
@@ -127,7 +132,7 @@ export class SecurityAuditKubeBenchService implements IAuditReportSectionService
               widths: ['auto', '*', 'auto'],
               body: [
                 ['Test', 'Description', 'Pass/Fail'],
-                ...rows
+                ...(rows.length ? rows : [[{text: 'No checks in section', colSpan: 3}, {}, {}]])
               ]
             },
             layout: this.pdfHelpers.coloredTableHeaderLayout()
@@ -144,7 +149,7 @@ export class SecurityAuditKubeBenchService implements IAuditReportSectionService
       }
     } else {
       scannedMessage = 'Unscanned';
-      body.push({text: 'kube-bench scan not run', style: 'italics', marginBottom: 10});
+      body.push({text: report ? 'No valid kube-bench assessment data available' : 'kube-bench scan not run', style: 'italics', marginBottom: 10});
     }
 
     const content = [
