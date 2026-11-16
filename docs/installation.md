@@ -16,7 +16,7 @@ Kubernetes 1.35–1.37 (chart declared range; validate each environment), Helm 3
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
+gh release download v0.1.3 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
 ```
 
 ## Step 2 — Configure
@@ -148,7 +148,7 @@ Then run, for example:
 
 ```bash
 helm upgrade --install kube-bench \
-  https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.2/kube-bench-0.1.2.tgz \
+  https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.3/kube-bench-0.1.2.tgz \
   -n m9sweeper-system \
   --set-string provider=commonjob \
   --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
@@ -169,7 +169,7 @@ Use a trusted certificate or `reportRelay.caSecret` for your private CA.
 The kube-hunter chart is independently available at:
 
 ```text
-https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.2/kube-hunter-0.1.2.tgz
+https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.3/kube-hunter-0.1.2.tgz
 ```
 
 Do not use a bare `/api/kubehunter/hunter/<cluster-id>` path or a
