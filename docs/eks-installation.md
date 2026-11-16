@@ -66,7 +66,7 @@ Follow [the main installation guide](installation.md) to create three private en
 umask 077
 mkdir -p "$HOME/m9sweeper-install"
 cd "$HOME/m9sweeper-install"
-gh release download v0.1.3 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
+gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
 helm show chart ./m9sweeper-0.1.2.tgz
 
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
@@ -134,7 +134,7 @@ Visit `http://localhost:13000` and sign in with `SUPER_ADMIN_EMAIL` and `SUPER_A
 
 ## 4. Add EKS using a self-contained kubeconfig
 
-**Do not upload the `aws eks update-kubeconfig` file to v0.1.3:** it normally uses an `exec: aws` credential helper and the backend intentionally does not execute it. Native unattended cloud identity is a separate P0 feature.
+**Do not upload the `aws eks update-kubeconfig` file to v0.1.2:** it normally uses an `exec: aws` credential helper and the backend intentionally does not execute it. Native unattended cloud identity is a separate P0 feature.
 
 The EKS-tested approach is a bootstrap Kubernetes service-account kubeconfig with a trusted CA and embedded token. **The example below grants broad privileges only during automatic onboarding**; it is not a normal scanning identity. Use it only in an approved test environment or with explicit security approval. Remove it once the dedicated `m9sweeper` scanner identity has been created and confirmed to work. The backend's current automatic workflow creates a separate long-lived token Secret and Kubernetes RBAC; evaluate token rotation and permissions before using it in production.
 
@@ -245,23 +245,26 @@ Use `reportAuth.existingSecret=m9-init-env` with `reportAuth.keyName=KUBE_BENCH_
 
 ## 5. Run kube-bench and see its EKS report
 
-**Verified on the test EKS cluster:** kube-bench worker-node scan and Dashboard report are working. The `v0.1.3` signed scanner chart must pass the release gate checking the EKS one-time Job uses benchmark `eks-1.2.0`, not the obsolete `eks-1.0`. Unlike `v0.1.2`, the corrected `v0.1.3` scanner chart will not require a repository checkout after publication.
+**Verified on EKS:** the scan **and dashboard report** work after fixing two release issues:
 
-The chart does **not** create scanner credentials. Reuse the existing bootstrap `m9-init-env` Secret with key `KUBE_BENCH_API_KEY`; see the scanner API-key prerequisites above.
+- Published `kube-bench-0.1.2.tgz` has a one-shot EKS Job hardcoded to the invalid `eks-1.0` benchmark. Use the corrected **source chart from main** until a newly signed release includes the correction.
+- The standalone chart does **not** automatically create `m9sweeper-kube-bench-api-key`. Reuse the *existing bootstrap* `m9-init-env` Secret directly. Its key is `KUBE_BENCH_API_KEY`, not `api-key` or `apiKey`.
 
 ```bash
+git clone https://github.com/sm-joe/m9sweeper-modern.git "$HOME/m9sweeper-modern"
+cd "$HOME/m9sweeper-modern"
+
 # Replace 1 with the actual Dashboard cluster ID.
 export CLUSTER_ID=1
 kubectl -n "$NAMESPACE" get secret m9-init-env \
   -o go-template='{{if index .data "KUBE_BENCH_API_KEY"}}Scanner key present{{else}}Scanner key missing{{end}}{{"\n"}}'
 
-gh release download v0.1.3 --repo sm-joe/m9sweeper-modern --pattern 'kube-bench-0.1.3.tgz'
-helm template kube-bench ./kube-bench-0.1.3.tgz \
-  --set-string provider=eks --set cronjob.enabled=false \
+helm template kube-bench platform/manifests/charts/kube-bench \
+  --set provider=eks --set cronjob.enabled=false \
   | grep -- '--benchmark'
 
-# One-time worker-node Job.
-helm upgrade --install kube-bench ./kube-bench-0.1.3.tgz \
+# This installs a one-time Job, not a scheduled CronJob.
+helm upgrade --install kube-bench ./platform/manifests/charts/kube-bench \
   -n "$NAMESPACE" \
   --set-string provider=eks \
   --set cronjob.enabled=false \
