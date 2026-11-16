@@ -1,5 +1,21 @@
 # Release notes
 
+## m9sweeper-modern v0.1.3
+
+### Reliability and installation
+
+- Private ECR images scan through the Java Trivy worker using EKS workload credentials. Failed image scans are retried and quarantined rather than stored as completed vulnerability results.
+- Falco installation instructions use the Modern eBPF driver and the current upstream chart; the Angular install dialog supports the pre-created Falcosidekick webhook Secret. The container-shell Notice event was observed on EKS; dashboard ingestion still requires separate acceptance.
+- kube-bench and kube-hunter install dialogs use the latest published scanner charts or, for the known EKS kube-bench benchmark mismatch, the corrected source chart until this new release ships. Scanner setup reuses the existing authorized `m9-init-env` keys.
+- Security Audit PDF generation includes bundled Roboto fonts and the logo, uses correct cluster/tool filters, and tolerates incomplete scanner report data.
+- EKS and scanner installation guides include explicit Secret prerequisites and verification steps.
+
+### Upgrade and evidence
+
+- Preserve your PostgreSQL volumes, RabbitMQ state, existing namespace and scanner Secrets. Take a database backup before any Helm upgrade, and verify the new Dash/Trawler image digests before switching.
+- A normal public release requires independent downloaded-chart installation, an end-to-end scan, and explicit kube-hunter/Falco event-to-dashboard acceptance. Passing source CI alone does not certify these.
+- The chart release process uses separate immutable signed images, Helm archives and an SBOM; see [Installation](installation.md).
+
 ## m9sweeper-modern v0.1.1
 
 ### Scanner setup and report ingestion
