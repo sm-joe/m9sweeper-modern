@@ -1,10 +1,10 @@
 import {Injectable} from '@nestjs/common';
-import * as fs from 'fs';
 import {Content, TDocumentDefinitions} from 'pdfmake/interfaces';
 import {ConfigService} from '@nestjs/config';
 import {assetsConfig} from '../../../config/types/assets-config';
 import {format} from 'date-fns';
-import {ClusterService} from '../../cluster/services/cluster.service';import {PdfMakeService} from '../../shared/services/pdf-make.service';
+import {ClusterService} from '../../cluster/services/cluster.service';
+import {PdfMakeService} from '../../shared/services/pdf-make.service';
 import {SecurityAuditReportPdfHelpersService} from './security-audit-report-pdf-helpers.service';
 import {SecurityAuditClusterService} from './security-audit-cluster.service';
 import {SecurityAuditReportCluster} from '../interfaces/security-audit-report-cluster';
@@ -85,7 +85,7 @@ export class SecurityAuditReportService {
       {
         style: 'body',
           text: [
-        'This security audit report was generated automatically by m9sweeper-new, based on the original Apache-licensed m9sweeper platform. ',
+        'This security audit report was generated automatically by m9sweeper-modern, based on the Apache-licensed m9sweeper platform. ',
         'Scanner results require interpretation and are not a security certification. ',
         'The platform ran Kubernetes security tools to produce this report. ',
         'Each tool will be given a section along with a description of the tool, ',
