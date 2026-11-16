@@ -420,7 +420,44 @@ If the pod label selector does not match, use `kubectl get pods -n m9sweeper-sys
 
 Your `602401143452.dkr.ecr.us-east-1.amazonaws.com` registry serves AWS EKS add-on images. The worker node can pull these images without the Trawler Pod automatically inheriting that permission. After IAM and the scanner image are corrected, launch a **new** scan and confirm `Image scan result accepted by Dash` without preceding scanner exceptions. Do not replay quarantined scan runs.
 
-## 9. Final EKS checklist
+## 9. Falco on EKS: Modern eBPF installation and verification
+
+On recent EKS Amazon Linux nodes, use an up-to-date Falco Helm chart and the **modern eBPF** driver. Do not pin the legacy chart 3.5.0 or set `driver.kind=ebpf`: the legacy probe is not the recommended driver for modern Falco. The kernel release alone does not prove that the eBPF capabilities, BTF data, privileges and chart configuration are correct.
+
+In Windows PowerShell, using the active kubectl context for the EKS cluster:
+
+```powershell
+helm repo add falcosecurity https://falcosecurity.github.io/charts --force-update
+helm repo update
+helm search repo falcosecurity/falco --versions
+helm upgrade --install falco falcosecurity/falco `
+  --namespace falco --create-namespace `
+  --set driver.enabled=true `
+  --set-string driver.kind=modern_ebpf `
+  --set tty=true `
+  --set falcosidekick.enabled=false `
+  --timeout 10m
+
+kubectl -n falco rollout status daemonset/falco --timeout=5m
+kubectl -n falco get pods -o wide
+kubectl -n falco logs daemonset/falco -c falco --tail=120
+```
+
+The first pass deliberately disables Falcosidekick, so a missing webhook Secret, bad HTTPS endpoint, or invalid output settings cannot mask a driver or DaemonSet installation error. If the DaemonSet cannot become ready, check `kubectl -n falco describe daemonset falco`, `kubectl -n falco get events --sort-by=.lastTimestamp`, and the Falco Pod init/driver container logs before changing settings. A running Pod is not proof that a security event was captured.
+
+**Falcosidekick follows a separate verification step.** With the Falco chart, `falcosidekick.enabled=true` normally configures Falco's HTTP output automatically; do not additionally point it to an unverified hardcoded Sidekick Service or pass legacy `falco.http_output.*` values. Verify the `m9sweeper-falco-webhook` Secret actually exists in namespace `falco` (Secrets are namespace-scoped) and that its **keys and values match the Falcosidekick chart's documented `config.existingSecret` schema** before enabling it. The separate `m9-init-env` Secret is in `m9sweeper-system` and must not be treated as a cross-namespace Secret. Use HTTPS with proper certificate validation and a real, reachable Dash Falco ingestion endpoint; do not put API keys into Helm CLI arguments, URLs or logs.
+
+```powershell
+kubectl -n falco get secret m9sweeper-falco-webhook
+helm show values falcosecurity/falco
+kubectl -n falco get svc,pods
+```
+
+Only after Sidekick is healthy and the endpoint/authentication is verified, enable the integration. **Acceptance:** create or observe a real Falco security event, confirm it is received by Sidekick, accepted by the authenticated m9sweeper endpoint, persisted, and visible under the correct cluster in the Dashboard. A successful Helm install or a `Running` Falco Pod is insufficient to claim m9sweeper Falco acceptance.
+
+Falco references: [current chart values](https://github.com/falcosecurity/charts/blob/master/charts/falco/values.yaml), [official Helm guide](https://falco.org/docs/getting-started/deployment/), [Falcosidekick configuration](https://github.com/falcosecurity/falcosidekick/blob/master/README.md).
+
+## 10. Final EKS checklist
 
 - [ ] PostgreSQL and RabbitMQ PVCs Bound, node capacity and PV AZs compatible
 - [ ] Bootstrap Job successful; administrator can sign in
