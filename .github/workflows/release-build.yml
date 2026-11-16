@@ -162,6 +162,22 @@ jobs:
             helm package "platform/manifests/charts/$scanner" --version "$version" --app-version "$version" --destination dist
             test -s "dist/$scanner-$version.tgz"
             helm show chart "dist/$scanner-$version.tgz" >/dev/null
+            if [[ "$scanner" == kube-bench ]]; then
+              helm template kube-bench "dist/$scanner-$version.tgz" \
+                --namespace m9sweeper-system --kube-version 1.37.0 \
+                --set-string provider=eks \
+                --set cronjob.enabled=false \
+                --set-string reportAuth.existingSecret=m9-init-env \
+                --set-string reportAuth.keyName=KUBE_BENCH_API_KEY \
+                --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
+                > /tmp/kube-bench-eks-release-job.yaml
+              grep -Fq -- '--benchmark eks-1.2.0' /tmp/kube-bench-eks-release-job.yaml
+              if grep -Fq -- '--benchmark eks-1.0' /tmp/kube-bench-eks-release-job.yaml; then
+                echo 'Obsolete EKS benchmark in packaged release chart' >&2
+                exit 1
+              fi
+            fi
+
           done
       - name: Verify signed immutable images in rendered candidate Kubernetes workloads
         shell: bash
