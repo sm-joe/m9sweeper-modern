@@ -49,6 +49,17 @@ jobs:
           test -s ATTRIBUTION.md
           test -s platform/LICENSE
           test -s docs/installation.md
+          # Scanner buttons in the published Dash image must never link to
+          # chart archives removed after this release succeeds.
+          for dialog in \
+            platform/dash/frontend/src/app/modules/private/pages/cluster/kube-bench/kube-bench-dialog/kube-bench-dialog.component.html \
+            platform/dash/frontend/src/app/modules/private/pages/cluster/kube-hunter/kube-hunter-dialog/kube-hunter-dialog.component.html; do
+            grep -Fq "releases/download/$VERSION/" "$dialog"
+            if grep -Fq 'releases/download/v0.1.2/' "$dialog"; then
+              echo "Obsolete scanner chart link in $dialog" >&2
+              exit 1
+            fi
+          done
           echo 'Release package build is separate from publication; runtime validation follows'
       - uses: docker/setup-buildx-action@v3
       - name: Authenticate to GitHub Container Registry
