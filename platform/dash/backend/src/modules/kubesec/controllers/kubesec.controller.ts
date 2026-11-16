@@ -32,9 +32,12 @@ export class KubesecController {
     @AllowedAuthorityLevels(Authority.SUPER_ADMIN, Authority.ADMIN, Authority.READ_ONLY)
     @UseGuards(AuthGuard, AuthorityGuard)
     async listPods(
-      @Query('cluster') clusterId: number,
+      @Query('clusterId') clusterId: number,
       @Query('namespaces') namespaces: string[]
     ): Promise<(V1PodList)[]> {
+        if (!Number.isSafeInteger(Number(clusterId)) || Number(clusterId) <= 0) {
+            throw new BadRequestException('Valid cluster ID required');
+        }
         const raw = namespaces as unknown as string | string[];
         const selected = (Array.isArray(raw) ? raw : raw ? [raw] : [])
             .filter(namespace => namespace !== 'selectAll');
