@@ -219,6 +219,30 @@ rm -f "$HOME/m9sweeper-install/eks-onboarding-kubeconfig.yaml"
 
 If the application is installed in a different cluster than the target EKS, use `kubectl --context ...` explicitly for all commands and check the target API endpoint is reachable from the Dashboard Pod. Do not disable TLS verification.
 
+### Scanner API-key Secret prerequisites (kube-bench and kube-hunter)
+
+The standalone scanner charts **do not create scanner credentials**. Standard m9sweeper installations already have a private bootstrap Secret `m9-init-env` in `m9sweeper-system` with `KUBE_BENCH_API_KEY` and `KUBE_HUNTER_API_KEY`. Both scanners can reuse those existing identities, so additional `m9sweeper-kube-bench-api-key` or `m9sweeper-kube-hunter-relay-auth` Secrets are **not necessary**.
+
+For a **new installation only**, first create the private `/secure/dash-bootstrap.env` file described in [Installation](installation.md). It must contain the configured scanner keys that Dash bootstrap uses. Create the bootstrap Secret **once, before installing the scanner chart**:
+
+```bash
+kubectl create namespace m9sweeper-system --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n m9sweeper-system create secret generic m9-init-env \
+  --from-env-file=/secure/dash-bootstrap.env
+```
+
+Do **not** execute `create secret` again on an existing installation, change the values without coordinating them with Dash, or reinitialize the database. Verify the Secret and its expected keys **without printing token values**:
+
+```bash
+kubectl -n m9sweeper-system get secret m9-init-env
+kubectl -n m9sweeper-system get secret m9-init-env \
+  -o go-template='{{if index .data "KUBE_BENCH_API_KEY"}}kube-bench key: present{{else}}kube-bench key: missing{{end}}{{"\n"}}{{if index .data "KUBE_HUNTER_API_KEY"}}kube-hunter key: present{{else}}kube-hunter key: missing{{end}}{{"\n"}}'
+```
+
+Use `reportAuth.existingSecret=m9-init-env` with `reportAuth.keyName=KUBE_BENCH_API_KEY` for kube-bench, and `reportRelay.existingSecret=m9-init-env` with `reportRelay.secretKey=KUBE_HUNTER_API_KEY` for kube-hunter. Both scanner workloads read their keys via Kubernetes Secret references; do not put the API keys into Helm command arguments or URLs.
+
+**Optional dedicated Secret instead:** operators who require a dedicated per-scanner Secret can provision an existing authorized scanner key from a private local file using `kubectl -n m9sweeper-system create secret generic <secret-name> --from-file=apiKey=/secure/<scanner-key-file>`, and set the chart's corresponding Secret name/key value to `apiKey`. Only do this with a valid key already registered and authorized by Dash; merely creating a random Kubernetes Secret does not create a Dash scanner account. Do not put secret files in Git.
+
 ## 5. Run kube-bench and see its EKS report
 
 **Verified on EKS:** the scan **and dashboard report** work after fixing two release issues:
@@ -309,7 +333,7 @@ helm upgrade m9sweeper ./m9sweeper-0.1.2.tgz \
 curl --fail --silent --show-error "https://$DASH_HOST/api/info"
 ```
 
-Then use the existing bootstrap scanner key; no extra `m9sweeper-kube-hunter-relay-auth` Secret is necessary:
+Then use the existing bootstrap scanner key; no extra `m9sweeper-kube-hunter-relay-auth` Secret is necessary (see scanner API-key prerequisites above):
 
 ```bash
 cd "$HOME/m9sweeper-modern"
