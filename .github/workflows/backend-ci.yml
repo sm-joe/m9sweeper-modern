@@ -45,6 +45,15 @@ jobs:
         run: node ../../../tools/security/check_backend_startup.cjs
       - name: Build original NestJS API with SWC
         run: npm run build:api
+      - name: Verify release Webpack build includes PDF fonts and logo
+        run: |
+          npm run build:prod:webpack
+          test -s dist/assets/fonts/Roboto/Roboto-Regular.ttf
+          test -s dist/assets/fonts/Roboto/Roboto-Bold.ttf
+          test -s dist/assets/fonts/Roboto/Roboto-Italic.ttf
+          test -s dist/assets/fonts/Roboto/Roboto-BoldItalic.ttf
+          test -s dist/assets/images/m9sweeper-logo.png
+          echo "PASS: release PDF assets packaged at expected runtime paths"
       - name: Run NestJS Jest unit and regression suites
         run: npm test -- --runInBand
       - name: Check HTTP route authorization inventory
