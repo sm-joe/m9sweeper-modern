@@ -44,4 +44,27 @@ describe('Kubernetes image reference parsing for vulnerability scans', () => {
     expect(parts.tag).not.toBe(digest);
     expect(parts.tag.startsWith('v0.1.2@sha256:')).toBe(true);
   });
+  it('uses canonical EKS ECR repository from the runtime rather than Docker Hub for short addon names', () => {
+    const runtime = '602401143452.dkr.ecr.us-east-1.amazonaws.com/amazon-k8s-cni@sha256:' + digest;
+    const qualified = service.resolveScanImageReference('amazon-k8s-cni:v1.22.4-eksbuild.10', runtime);
+    expect(qualified).toBe('602401143452.dkr.ecr.us-east-1.amazonaws.com/amazon-k8s-cni:v1.22.4-eksbuild.10');
+    expect(service.parseDockerImageUrl(qualified).host).toBe('602401143452.dkr.ecr.us-east-1.amazonaws.com');
+  });
+
+  it('never treats an opaque runtime image config digest as a registry image', () => {
+    expect(service.resolveScanImageReference('amazon-k8s-cni:v1', 'containerd://sha256:' + digest))
+      .toBe('docker.io/amazon-k8s-cni:v1');
+  });
+
+  it('does not let runtime identity replace an explicitly configured image registry', () => {
+    const ecr = '602401143452.dkr.ecr.us-east-1.amazonaws.com/amazon-k8s-cni:v1';
+    expect(service.resolveScanImageReference(ecr, 'example.com/amazon-k8s-cni@sha256:' + digest))
+      .toBe(ecr);
+  });
+
+  it('rejects a mismatched runtime repository when resolving short image names', () => {
+    expect(service.resolveScanImageReference('amazon-k8s-cni:v1', 'evil.example/replaced@sha256:' + digest))
+      .toBe('docker.io/amazon-k8s-cni:v1');
+  });
+
 });

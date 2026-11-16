@@ -330,7 +330,53 @@ kubectl -n "$NAMESPACE" logs job/kube-hunter -c kube-hunter --tail=100
 
 A successful kube-hunter acceptance requires a **new, authenticated report displayed under the correct EKS cluster**, not merely a running Job. Run active penetration scans only against clusters you administer. **Without trusted HTTPS, leave kube-hunter report relay disabled** rather than bypassing TLS checks.
 
-## 8. Final EKS checklist
+## 8. Verify Kubesec and ECR/Trivy after updating images
+
+The fixes for **Kubesec pod listing** and **ECR image scanning** change the Angular/NestJS and Java Trawler source. A successful GitHub build or Helm reinstallation with the **old container images** does **not** deliver these fixes. Deploy newly built images containing these commits before testing.
+
+### Kubesec: find the real source of an empty pod list
+
+1. In the Dashboard, open the EKS cluster and select **Kubesec → Choose pods from your cluster**. Select **default** or **kube-system** (a namespace containing Pods).
+2. First confirm the Kubernetes API has pods:
+
+```bash
+kubectl get pods --all-namespaces
+kubectl auth can-i list pods --all-namespaces \
+  --as=system:serviceaccount:m9sweeper-system:m9sweeper
+```
+
+3. In your browser developer tools, inspect the authenticated request to `/api/kubesec/listpods`. It must send `clusterId=<actual-cluster-id>` and one or more `namespaces=<name>` query parameters. If the response is `400`, `401`, `403` or `502`, fix that error; the UI must not claim "No pods" after an API failure. The corrected NestJS controller now reads `clusterId` (older builds incorrectly read `cluster`).
+4. Select a Pod and run Kubesec. **Acceptance:** available Pods appear, and a real Kubesec report renders.
+
+### Trivy: preserve AWS image registries
+
+**Symptom observed:** `docker.io/amazon-k8s-cni:v1.22.4-eksbuild.10` returns Docker Hub `UNAUTHORIZED`. That name is an EKS system add-on, not a verified Docker Hub image. Do not add Docker Hub credentials to fix a misidentified AWS image.
+
+Check what Kubernetes is actually running:
+
+```bash
+kubectl -n kube-system get daemonset aws-node \
+  -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"  "}{.image}{"\\n"}{end}'
+kubectl -n kube-system get pods -l k8s-app=aws-node -o wide
+kubectl -n m9sweeper-system get serviceaccount trawler-sa
+```
+
+The fixed scanner ingestion uses the **original fully qualified image registry** where present, or a matching canonical registry from Kubernetes runtime `imageID` metadata for short add-on references. It no longer silently drops an image's registry hostname when that registry is absent from Dashboard settings.
+
+**Private ECR needs AWS IAM permissions for the Trawler pod.** A Kubernetes node pulling an ECR image does **not** automatically give the Java Trawler application the same permission. The fixed Trawler obtains a temporary ECR auth token using its pod AWS credentials. Prefer an IAM role associated with `trawler-sa` using EKS Pod Identity or IRSA. Do not paste AWS access keys into Helm values or log output.
+
+For EKS Pod Identity, use the AWS Console's **EKS → your cluster → Access → Pod Identity associations** to associate the `m9sweeper-system/trawler-sa` ServiceAccount with an IAM role. First install the **EKS Pod Identity Agent** add-on if needed. The role must trust `pods.eks.amazonaws.com` for `sts:AssumeRole` and `sts:TagSession` and have ECR read permissions. Start from AWS's `AmazonEC2ContainerRegistryReadOnly` policy, then narrow permission scope to the registries/repositories your organization uses. Cross-account ECR repositories may also need a repository policy. The AWS documentation explains [Pod Identity role association](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-association.html) and [EKS add-on image registries](https://docs.aws.amazon.com/eks/latest/userguide/add-ons-images.html).
+
+After a fresh Trawler deployment, verify it restarted and test a rescan from Dashboard:
+
+```bash
+kubectl -n m9sweeper-system rollout status deployment/m9sweeper-trawler --timeout=5m
+kubectl -n m9sweeper-system logs deployment/m9sweeper-trawler --since=15m --tail=150
+```
+
+**Acceptance:** the requested scan points at the correct ECR repository, returns vulnerability findings or a legitimate empty-vulnerability report, and the new result appears for the correct image in Dashboard. Previous failed scans with incorrect `docker.io` references are historical records; refresh EKS inventory and requeue affected images after the updated backend and scanner are deployed. If a workload uses only a short name and its runtime reports only `containerd://sha256:...`, the actual source registry is ambiguous; inspect the Pod spec and registry configuration instead of guessing an ECR account/region.
+
+## 9. Final EKS checklist
 
 - [ ] PostgreSQL and RabbitMQ PVCs Bound, node capacity and PV AZs compatible
 - [ ] Bootstrap Job successful; administrator can sign in

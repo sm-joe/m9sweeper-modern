@@ -84,7 +84,11 @@ export class K8sImageService {
                   .filter(status => status.name === container.name)
                   .shift();
 
-                const formattedImageName = this.formatDockerImageUrl(name);
+                // EKS add-ons may expose a short Pod-spec image name although the
+                // runtime knows its canonical private ECR repository. Never
+                // redirect an AWS system image to Docker Hub when that verified
+                // repository is available in the container status.
+                const formattedImageName = this.resolveScanImageReference(name, containerStatus?.imageID);
                 const dockerImageDetails: {
                     host: string;
                     path: string;
@@ -112,7 +116,7 @@ export class K8sImageService {
                 k8sImageDto.imageHash = imageHash;
                 k8sImageDto.namespace = pod.metadata.namespace;
                 //k8sImageDto.imageId; // set later
-                k8sImageDto.image = this.formatDockerImageUrl(name);
+                k8sImageDto.image = formattedImageName;
 
                 // Persist to SQL DB (with de-duplication)
                 try {
@@ -257,6 +261,44 @@ export class K8sImageService {
         // A digest-only reference remains exact (no invented :latest tag).
         return qualifiedRepository + (tag ? ':' + tag : (digest ? '' : ':latest')) +
             (digest ? digest[0] : '');
+    }
+
+    /**
+     * When an image is given without a registry, use the canonical repository
+     * reported by the Kubernetes container runtime (if present and matching).
+     * EKS add-ons can otherwise be incorrectly recorded as docker.io/...,
+     * causing Trivy to request a nonexistent or unauthorized Docker Hub image.
+     *
+     * The runtime imageID may instead be containerd://sha256:<config hash>;
+     * that is not a registry manifest and must never be used as a pull URL.
+     * Preserve an explicit registry in the Pod spec unconditionally.
+     */
+    resolveScanImageReference(image: string, imageID?: string): string {
+        const declared = this.formatDockerImageUrl(image);
+        const repoWithoutDigest = image.trim().split('@')[0];
+        const repository = repoWithoutDigest.replace(/:[^/:]*$/, '');
+        const first = repository.split('/')[0];
+        if (first.includes('.') || first.includes(':') || first === 'localhost') {
+            return declared;
+        }
+        const runtimeReference = (imageID || '')
+            .replace(/^(docker-pullable|docker):\/\//, '');
+        const digestMatch = runtimeReference.match(/^(.+)@sha256:[0-9a-fA-F]{64}$/);
+        if (!digestMatch) {
+            return declared;
+        }
+        const runtimeRepository = digestMatch[1];
+        const runtimeHost = runtimeRepository.split('/')[0];
+        if (!runtimeRepository.includes('/') ||
+            !(runtimeHost.includes('.') || runtimeHost.includes(':')) ||
+            runtimeRepository.split('/').pop() !== repository.split('/').pop()) {
+            return declared;
+        }
+        // Keep the tag declared in the workload where one exists.
+        const originalTag = repoWithoutDigest.slice(repository.length);
+        return runtimeRepository + (originalTag.startsWith(':') ? originalTag : '') +
+            (image.includes('@sha256:') ? image.slice(image.indexOf('@sha256:')) :
+                originalTag.startsWith(':') ? '' : digestMatch[0].slice(runtimeRepository.length));
     }
 
     async enqueueScan(imageHash: string, clusterId: number): Promise<void> {
