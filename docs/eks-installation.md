@@ -66,8 +66,8 @@ Follow [the main installation guide](installation.md) to create three private en
 umask 077
 mkdir -p "$HOME/m9sweeper-install"
 cd "$HOME/m9sweeper-install"
-gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
-helm show chart ./m9sweeper-0.1.2.tgz
+gh release download v0.1.3 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
+helm show chart ./m9sweeper-0.1.3.tgz
 
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n "$NAMESPACE" create secret generic m9-dash-env \
@@ -105,7 +105,7 @@ trawler:
 ## 3. Install and verify database initialization
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.2.tgz \
+helm upgrade --install m9sweeper ./m9sweeper-0.1.3.tgz \
   -n "$NAMESPACE" -f /secure/m9sweeper-values.yaml --timeout 15m
 
 kubectl -n "$NAMESPACE" get pods,jobs,pvc -o wide
@@ -247,7 +247,7 @@ Use `reportAuth.existingSecret=m9-init-env` with `reportAuth.keyName=KUBE_BENCH_
 
 **Verified on EKS:** the scan **and dashboard report** work after fixing two release issues:
 
-- Published `kube-bench-0.1.2.tgz` has a one-shot EKS Job hardcoded to the invalid `eks-1.0` benchmark. Use the corrected **source chart from main** until a newly signed release includes the correction.
+- The downloaded `kube-bench-0.1.3.tgz` EKS one-shot Job is checked during release acceptance for the corrected `eks-1.2.0` benchmark.
 - The standalone chart does **not** automatically create `m9sweeper-kube-bench-api-key`. Reuse the *existing bootstrap* `m9-init-env` Secret directly. Its key is `KUBE_BENCH_API_KEY`, not `api-key` or `apiKey`.
 
 ```bash
@@ -264,7 +264,7 @@ helm template kube-bench platform/manifests/charts/kube-bench \
   | grep -- '--benchmark'
 
 # This installs a one-time Job, not a scheduled CronJob.
-helm upgrade --install kube-bench ./platform/manifests/charts/kube-bench \
+helm upgrade --install kube-bench https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.3/kube-bench-0.1.3.tgz \
   -n "$NAMESPACE" \
   --set-string provider=eks \
   --set cronjob.enabled=false \
@@ -326,7 +326,7 @@ dash:
 
 ```bash
 cd "$HOME/m9sweeper-install"
-helm upgrade m9sweeper ./m9sweeper-0.1.2.tgz \
+helm upgrade m9sweeper ./m9sweeper-0.1.3.tgz \
   -n "$NAMESPACE" -f /secure/m9sweeper-values.yaml --timeout 15m
 
 # TLS must validate; do not use curl -k.
