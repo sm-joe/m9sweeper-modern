@@ -376,6 +376,50 @@ kubectl -n m9sweeper-system logs deployment/m9sweeper-trawler --since=15m --tail
 
 **Acceptance:** the requested scan points at the correct ECR repository, returns vulnerability findings or a legitimate empty-vulnerability report, and the new result appears for the correct image in Dashboard. Previous failed scans with incorrect `docker.io` references are historical records; refresh EKS inventory and requeue affected images after the updated backend and scanner are deployed. If a workload uses only a short name and its runtime reports only `containerd://sha256:...`, the actual source registry is ambiguous; inspect the Pod spec and registry configuration instead of guessing an ECR account/region.
 
+### ECR scanner failure: AWS credentials provider chain empty
+
+If Trawler logs say `Unable to load AWS credentials from any provider in the chain` or `aws-java-sdk-sts module must be on the class path`, the scanner has reached the **correct ECR image** but cannot obtain workload credentials. The Java Trawler image must contain AWS SDK v1 **1.12.782 or newer** and the `aws-java-sdk-sts` module. Rebuild and deploy the current scanner image; old images cannot be fixed with IAM alone.
+
+**Do not store an AWS access key in the Trawler Kubernetes Secret.** Instead associate `m9sweeper-system/trawler-sa` with a dedicated IAM role. One supported method is EKS Pod Identity:
+
+1. Confirm `aws eks describe-addon --cluster-name "$EKS_CLUSTER" --addon-name eks-pod-identity-agent --region "$AWS_REGION"` succeeds. If not installed, follow the [EKS Pod Identity setup](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html) with your administrator.
+2. In IAM, create a role whose trust policy allows the service principal `pods.eks.amazonaws.com` actions `sts:AssumeRole` and `sts:TagSession`. Grant ECR token and image-read permissions; `AmazonEC2ContainerRegistryReadOnly` is a starting policy, to be narrowed for your environment.
+3. Set the role ARN in the command below, associate the scanner ServiceAccount, then restart Trawler so the credential environment is injected into the new Pod:
+
+```bash
+export AWS_REGION=us-east-1
+export EKS_CLUSTER=YOUR_EKS_CLUSTER_NAME
+export TRAWLER_IAM_ROLE_ARN=arn:aws:iam::YOUR_AWS_ACCOUNT_ID:role/YOUR_TRAWLER_ECR_READ_ROLE
+
+aws eks create-pod-identity-association \
+  --cluster-name "$EKS_CLUSTER" --region "$AWS_REGION" \
+  --namespace m9sweeper-system --service-account trawler-sa \
+  --role-arn "$TRAWLER_IAM_ROLE_ARN"
+
+kubectl -n m9sweeper-system rollout restart deployment/m9sweeper-trawler
+kubectl -n m9sweeper-system rollout status deployment/m9sweeper-trawler --timeout=5m
+```
+
+**If an association already exists**, inspect it rather than creating a duplicate:
+
+```bash
+aws eks list-pod-identity-associations --cluster-name "$EKS_CLUSTER" \
+  --region "$AWS_REGION" --namespace m9sweeper-system \
+  --service-account trawler-sa
+```
+
+Confirm the Pod really uses the expected ServiceAccount and injected identity variables. This displays **only variable names**, never token values:
+
+```bash
+kubectl -n m9sweeper-system get deployment m9sweeper-trawler \
+  -o jsonpath='{.spec.template.spec.serviceAccountName}{"\\n"}'
+kubectl -n m9sweeper-system get pods -l app.kubernetes.io/name=trawler -o name
+```
+
+If the pod label selector does not match, use `kubectl get pods -n m9sweeper-system` and inspect the Trawler Pod with `kubectl describe pod`. A Pod Identity association normally adds `AWS_CONTAINER_CREDENTIALS_FULL_URI` and `AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE`; **IRSA instead** uses `AWS_ROLE_ARN` and `AWS_WEB_IDENTITY_TOKEN_FILE`. Do not reveal their token contents. AWS's official [SDK minimum versions](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-minimum-sdk.html), [IRSA requirements](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts-minimum-sdk.html) and [Pod Identity guide](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-association.html) explain both methods.
+
+Your `602401143452.dkr.ecr.us-east-1.amazonaws.com` registry serves AWS EKS add-on images. The worker node can pull these images without the Trawler Pod automatically inheriting that permission. After IAM and the scanner image are corrected, launch a **new** scan and confirm `Image scan result accepted by Dash` without preceding scanner exceptions. Do not replay quarantined scan runs.
+
 ## 9. Final EKS checklist
 
 - [ ] PostgreSQL and RabbitMQ PVCs Bound, node capacity and PV AZs compatible
