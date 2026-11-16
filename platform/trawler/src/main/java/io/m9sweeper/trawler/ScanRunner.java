@@ -174,6 +174,15 @@ public class ScanRunner {
                                 .data(o.getExtraData())
                 ).collect(Collectors.toList()))).collect(Collectors.toList());
 
+        // A scanner infrastructure failure is not a completed vulnerability assessment.
+        // Do not post fabricated zero-findings or acknowledge the RabbitMQ delivery.
+        // The consumer will retry and ultimately quarantine this job, preserving its
+        // correlation ID for the Dash failed-scan ledger callback.
+        if (scanResults.stream().anyMatch(ScanResult::isEncounteredError)) {
+            throw new IllegalStateException("Image scan incomplete: at least one scanner failed; " +
+                    "retrying instead of persisting a misleading compliance result");
+        }
+
         saveScanResults(imageTrawlerResultDtos);
     }
 
