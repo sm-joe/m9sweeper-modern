@@ -147,10 +147,19 @@ export class K8sImageService {
                     const existingImageDto = existingImageDtos?.find(image => {
                         return image.id && k8sImageDto.imageHash === image.dockerImageId;
                     });
-                    if (existingImageDto) {
-                        // already exists!
-                        imageIdMapRunningInCluster.setIdRunning(name, k8sImageDto.imageHash, existingImageDto.id);
-                        k8sImageDto.imageId = existingImageDto.id;
+                    // Existing clusters can retain an old docker.io image row
+                    // created before we preserved the actual EKS ECR hostname.
+                    // Reconcile only an exact same-hash, same-name, same-tag
+                    // match, and only when no scan is currently queued.
+                    const repairedImageId = !existingImageDto &&
+                        /^\d{12}\.dkr\.ecr(?:-fips)?\.[a-z0-9-]+\.amazonaws\.com(?:\.cn)?$/.test(dockerImageDetails.host)
+                        ? await this.imageDao.reconcileLegacyEcrImage(
+                            clusterId, imageHash, image.name, image.tag, image.url)
+                        : undefined;
+                    if (existingImageDto || repairedImageId) {
+                        const linkedId = existingImageDto?.id ?? repairedImageId;
+                        imageIdMapRunningInCluster.setIdRunning(name, k8sImageDto.imageHash, linkedId);
+                        k8sImageDto.imageId = linkedId;
                     } else {
                         // new! create it!
                         const savedImage = await this.imageService.createImage(image, clusterId, false);
