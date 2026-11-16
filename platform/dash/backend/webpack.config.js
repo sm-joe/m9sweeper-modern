@@ -28,6 +28,7 @@ module.exports = {
   plugins: [
     new CopyWebpackPlugin({
       patterns: [
+        { from: './src/assets', to: './assets' },
         { from: './src/gatekeeper-templates', to: './gatekeeper-templates' },
         { from: './src/modules/kube-bench/config_files', to: './kube-bench-templates' },
         { from: './src/gatekeeper-templates', to: './src/gatekeeper-templates' },
