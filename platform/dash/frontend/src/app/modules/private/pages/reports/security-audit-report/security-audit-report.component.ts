@@ -67,7 +67,7 @@ export class SecurityAuditReportComponent implements OnInit {
       .pipe(take(1))
       .subscribe({
         next: (resp) => {
-          this.clusters = resp?.data;
+          this.clusters = resp?.data ?? [];
           this.clustersLoaded = true;
         }
       });
@@ -76,8 +76,7 @@ export class SecurityAuditReportComponent implements OnInit {
       .pipe(take(1))
       .subscribe({
         next: val => {
-          val.data.push({ name: 'test', clusterId: 4} as any);
-          for (const ns of val?.data) {
+          for (const ns of val?.data ?? []) {
             if (this.namespaceMap[ns.name]) {
               this.namespaceMap[ns.name].push(ns.clusterId);
             } else {
