@@ -178,12 +178,18 @@ public class ScanRunner {
         // Do not post fabricated zero-findings or acknowledge the RabbitMQ delivery.
         // The consumer will retry and ultimately quarantine this job, preserving its
         // correlation ID for the Dash failed-scan ledger callback.
-        if (scanResults.stream().anyMatch(ScanResult::isEncounteredError)) {
+        if (hasIncompleteScanResults(scanResults)) {
             throw new IllegalStateException("Image scan incomplete: at least one scanner failed; " +
                     "retrying instead of persisting a misleading compliance result");
         }
 
         saveScanResults(imageTrawlerResultDtos);
+    }
+
+    /** A completed report must contain assessments and no scanner execution errors. */
+    static boolean hasIncompleteScanResults(List<ScanResult> results) {
+        return results == null || results.isEmpty() ||
+                results.stream().anyMatch(result -> result == null || result.isEncounteredError());
     }
 
     /** Failure is sticky across a policy's scanners; later successes cannot clear it. */
