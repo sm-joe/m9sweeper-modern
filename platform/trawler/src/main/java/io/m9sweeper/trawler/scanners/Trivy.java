@@ -21,8 +21,25 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.Collections;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Trivy implements Scanner {
+
+    private static final Pattern PRIVATE_ECR_HOST = Pattern.compile(
+            "^([0-9]{12})\\\\.dkr\\\\.ecr(?:-fips)?\\\\.([a-z0-9-]+)\\\\.amazonaws\\\\.com(?:\\\\.cn)?$");
+
+    public static boolean isPrivateEcrHost(String hostname) {
+        return hostname != null && PRIVATE_ECR_HOST.matcher(hostname).matches();
+    }
+
+    public static String privateEcrRegion(String hostname) {
+        Matcher match = PRIVATE_ECR_HOST.matcher(hostname == null ? "" : hostname);
+        if (!match.matches()) throw new IllegalArgumentException("Not an Amazon ECR registry hostname");
+        return match.group(2);
+    }
 
     private ScanConfig config;
     private String rawResults;
@@ -67,39 +84,54 @@ public class Trivy implements Scanner {
                 " for " + config.getPolicy().getName() + ":" + config.getScannerName());
         StringBuilder trivyScanCommandBuilder = new StringBuilder();
 
-        // If registry is Amazon Container Registry, set aws access key and secret key to get token
+        // Private ECR needs a short-lived registry token even when the registry
+        // record was discovered automatically and has no explicit authType.
+        // Prefer the Pod's AWS workload identity (IRSA/Pod Identity) rather than
+        // storing permanent access keys in registry settings.
         DockerRegistry registry = config.getImage().getRegistry();
-        if ("ACR".equals(registry.getAuthType())) {
-
-            String aws_account_id = TrawlerConfiguration.getInstance().dockerImageUrl().split("\\.")[0];
-
-            try {
-                Map<String, Object> authDetails = (Map<String, Object>) registry.getAuthDetails();
-
-                String region = authDetails.getOrDefault("acrDefaultRegion", "").toString();
-                String accessKey = authDetails.getOrDefault("acrAccessKey", "").toString();
-                String secretKey = authDetails.getOrDefault("acrSecretKey", "").toString();
-
-                AWSCredentials awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
-                AmazonECR amazonECR = AmazonECRClientBuilder.standard()
-                        .withRegion(region)
-                        .withCredentials(new AWSStaticCredentialsProvider(awsCredentials))
-                        .build();
-
-                //Get Auth Token for Repository using it's registry Id
-                GetAuthorizationTokenResult authorizationData = amazonECR
-                        .getAuthorizationToken(new GetAuthorizationTokenRequest().withRegistryIds(aws_account_id));
-                String authTokenBase64 = authorizationData.getAuthorizationData().get(0).getAuthorizationToken();
-                byte[] decodedBytes = Base64.getDecoder().decode(authTokenBase64);
-                String decodedString = new String(decodedBytes);
-                String authToken = decodedString.substring(4); // skip AWS: at the start of the string
-
-                trivyScanCommandBuilder.append("export TRIVY_USERNAME=").append(escapeXsi("AWS")).append("; ");
-                trivyScanCommandBuilder.append("export TRIVY_PASSWORD=").append(escapeXsi(authToken)).append("; ");
-            } catch (Exception e) {
-                e.printStackTrace();
+        Map<String, String> scanEnvironment = new HashMap<>();
+        if (isPrivateEcrHost(registry.getHostname()) || "ACR".equals(registry.getAuthType())) {
+            if (!isPrivateEcrHost(registry.getHostname())) {
+                throw new IllegalArgumentException("Amazon ECR authentication requires a valid private ECR hostname");
             }
-
+            Matcher hostMatch = PRIVATE_ECR_HOST.matcher(registry.getHostname());
+            hostMatch.matches();
+            String accountId = hostMatch.group(1);
+            String region = hostMatch.group(2);
+            Map<?, ?> details = registry.getAuthDetails() instanceof Map
+                    ? (Map<?, ?>) registry.getAuthDetails() : Collections.emptyMap();
+            String accessKey = String.valueOf(details.getOrDefault("acrAccessKey", ""));
+            String secretKey = String.valueOf(details.getOrDefault("acrSecretKey", ""));
+            AmazonECRClientBuilder clientBuilder = AmazonECRClientBuilder.standard().withRegion(region);
+            if (!accessKey.isEmpty() && !secretKey.isEmpty()) {
+                AWSCredentials staticCredentials = new BasicAWSCredentials(accessKey, secretKey);
+                clientBuilder.withCredentials(new AWSStaticCredentialsProvider(staticCredentials));
+            }
+            AmazonECR ecr = clientBuilder.build();
+            try {
+                GetAuthorizationTokenResult tokenResult = ecr.getAuthorizationToken(
+                        new GetAuthorizationTokenRequest().withRegistryIds(accountId));
+                if (tokenResult.getAuthorizationData() == null ||
+                        tokenResult.getAuthorizationData().isEmpty()) {
+                    throw new IllegalStateException("ECR returned no registry authorization token");
+                }
+                String decodedToken = new String(Base64.getDecoder().decode(
+                        tokenResult.getAuthorizationData().get(0).getAuthorizationToken()),
+                        java.nio.charset.StandardCharsets.UTF_8);
+                if (!decodedToken.startsWith("AWS:") || decodedToken.length() <= 4) {
+                    throw new IllegalStateException("ECR returned an invalid registry authorization token");
+                }
+                scanEnvironment.put("TRIVY_USERNAME", "AWS");
+                scanEnvironment.put("TRIVY_PASSWORD", decodedToken.substring(4));
+            } catch (Exception e) {
+                // Do not print the AWS token, credentials, or entire HTTP request.
+                throw new IllegalStateException(
+                        "Unable to authenticate to private ECR registry " + registry.getHostname() +
+                        ". Grant the Trawler pod IAM ecr:GetAuthorizationToken and ECR image pull permissions using IRSA/Pod Identity.",
+                        e);
+            } finally {
+                ecr.shutdown();
+            }
         } else if ("GCR".equals(registry.getAuthType())) {
             // Create a temporary auth file for Trivy to use for authentication with GCR
             File gcrAuthFile = File.createTempFile("gcrAuthFile-", ".json");
@@ -163,6 +195,7 @@ public class Trivy implements Scanner {
 
         ProcessBuilder processBuilder = new ProcessBuilder();
         processBuilder.command("bash", "-c", trivyScanCommandBuilder.toString());
+        processBuilder.environment().putAll(scanEnvironment);
         processBuilder.redirectErrorStream(true);
 
         Process process = processBuilder.start();
