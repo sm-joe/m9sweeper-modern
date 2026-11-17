@@ -322,6 +322,11 @@ jobs:
           grep -Fq 'm9sweeper-rabbitmq.m9sweeper-system.svc.cluster.local' /tmp/m9-bundled.yaml
           grep -Fq 'key: DATABASE_CONNECTION_PASSWORD' /tmp/m9-bundled.yaml
           grep -Fq 'key: RABBITMQ_USER_PASSWORD' /tmp/m9-bundled.yaml
+          grep -Fq 'name: m9sweeper-secret-preflight' /tmp/m9-bundled.yaml
+          grep -Fq 'helm.sh/hook: pre-install,pre-upgrade' /tmp/m9-bundled.yaml
+          grep -Fq 'SECRET_TRAWLER' /tmp/m9-bundled.yaml
+          grep -Fq 'preflight.py' /tmp/m9-bundled.yaml
+          echo 'PASS: bundled chart enforces read-only pre-install/pre-upgrade Secret contract'
           python3 tools/security/check_postgres_persistence_layout.py /tmp/m9-bundled.yaml
           grep -Fq 'name: SCANNER_REPORT_INGESTION_URL' /tmp/m9-bundled.yaml
           grep -Fq 'http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000' /tmp/m9-bundled.yaml
