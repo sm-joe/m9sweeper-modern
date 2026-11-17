@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "cli": "node ${CLI_PATH:=./dist/src/cli.js}",
+    "cli": "node ${CLI_PATH:=./cli.js}",
     "prebuild": "rm -rf dist",
     "build:api": "nest build -b swc",
     "build:local": "npm run build:api",
@@ -28,7 +28,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "cli:cluster:sync-all": "node ${CLI_PATH:=./dist/src/cli.js} cluster:sync all",
+    "cli:cluster:sync-all": "node ${CLI_PATH:=./cli.js} cluster:sync all",
     "cli:exceptions:init": "node ${CLI_PATH:=./dist/src/cli.js} exceptions:init",
     "cli:registries:init": "node ${CLI_PATH:=./dist/src/cli.js} registries:init",
     "cli:users:init": "node ${CLI_PATH:=./dist/src/cli.js} users:init",
