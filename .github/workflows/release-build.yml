@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/release-build.yml'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:
     inputs:
       version:
