@@ -8,7 +8,7 @@ import {MatTableDataSource} from '@angular/material/table';
 import {MatDialog} from '@angular/material/dialog';
 import {KubeHunterDialogComponent} from './kube-hunter-dialog/kube-hunter-dialog.component';
 import {NgxUiLoaderService} from 'ngx-ui-loader';
-import {parseKubeHunterSection} from '../../../../../core/services/kube-hunter-report-parser';
+import {kubeHunterFindings, parseKubeHunterSection} from '../../../../../core/services/kube-hunter-report-parser';
 
 @Component({
   standalone: false,
@@ -126,7 +126,7 @@ export class KubeHunterComponent implements OnInit, OnDestroy {
       this.penetrationTestStatusInvalid = false;
       this.penetrationTestText = 'Report Valid';
     }
-    recentScan.vulnerabilities?.value?.value?.forEach(vulnerability => {
+    kubeHunterFindings(recentScan.vulnerabilities).forEach(vulnerability => {
       if (vulnerability.severity === 'low') {
         this.mostRecentVulnerabilities.low += 1;
       } else if (vulnerability.severity === 'medium') {
@@ -136,6 +136,10 @@ export class KubeHunterComponent implements OnInit, OnDestroy {
       }
     });
 }
+
+  countVulnerabilities(report: IKubeHunterReport): number {
+    return kubeHunterFindings(report?.vulnerabilities).length;
+  }
 
   openDialog() {
     const dialog = this.dialog.open(KubeHunterDialogComponent, {
