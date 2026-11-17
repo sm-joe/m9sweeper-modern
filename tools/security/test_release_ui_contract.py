@@ -37,6 +37,9 @@ assert "gh workflow run release-publish.yml" not in acceptance
 upgrade = (ROOT / "scripts/upgrade-release.ps1").read_text(encoding="utf-8")
 workflow = (ROOT / ".github/workflows/release-build.yml").read_text(encoding="utf-8")
 install = (ROOT / "docs/installation.md").read_text(encoding="utf-8")
+assert "ConvertFrom-Json" in upgrade
+assert "Get-ContainerImage" in upgrade
+assert "jsonpath=" not in upgrade, "PowerShell strips nested JSONPath quotes"
 assert "IMAGE-DIGESTS.txt" in upgrade
 assert "--reuse-values" in upgrade
 assert all(f'--set-string", "{component}.image.{field}=' in upgrade

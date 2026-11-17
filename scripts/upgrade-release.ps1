@@ -57,10 +57,20 @@ AssertExit "Trawler rollout"
 
 $dashImage = "ghcr.io/sm-joe/m9sweeper-dash:$dashTag"
 $trawlerImage = "ghcr.io/sm-joe/m9sweeper-trawler:$trawlerTag"
-$liveDash = kubectl -n $Namespace get deployment m9sweeper-dash -o 'jsonpath={.spec.template.spec.containers[?(@.name=="dash")].image}'
-AssertExit "Read Dash image"
-$liveTrawler = kubectl -n $Namespace get deployment m9sweeper-trawler -o 'jsonpath={.spec.template.spec.containers[?(@.name=="trawler")].image}'
-AssertExit "Read Trawler image"
+# PowerShell native-argument handling strips JSONPath's nested quotes.
+# Read the Deployment as JSON instead of using a quoted Kubernetes JSONPath filter.
+function Get-ContainerImage([string]$Deployment, [string]$Container) {
+  $payload = kubectl -n $Namespace get deployment $Deployment -o json
+  AssertExit "Read deployment $Deployment"
+  $resource = $payload | ConvertFrom-Json
+  $matches = @($resource.spec.template.spec.containers | Where-Object { $_.name -eq $Container })
+  if ($matches.Count -ne 1 -or -not $matches[0].image) {
+    throw "Expected exactly one container named $Container in deployment $Deployment"
+  }
+  return [string]$matches[0].image
+}
+$liveDash = Get-ContainerImage "m9sweeper-dash" "dash"
+$liveTrawler = Get-ContainerImage "m9sweeper-trawler" "trawler"
 if ($liveDash -ne $dashImage -or $liveTrawler -ne $trawlerImage) {
   throw "Deployed images differ from release digests. Dash=$liveDash Trawler=$liveTrawler"
 }
