@@ -270,8 +270,8 @@ public class TrawlerConfiguration {
                     "Valid options are standalone or rabbitmq (default).");
         } else if (trawlerRunMode() == TrawlerRunMode.RABBITMQ) {
             // Verify that the RabbitMQ username is not blank
-            if (rabbitmqUsername().isBlank() || rabbitmqUsername().equalsIgnoreCase("guest")) {
-                throw new AssertionError("RABBITMQ_USERNAME is absent or unsupported. Set RABBITMQ_USERNAME in the Trawler environment Secret (Dash uses RABBITMQ_USER_NAME).");
+            if (rabbitmqUsername().isBlank()) {
+                throw new AssertionError("RABBITMQ_USERNAME is blank. Set RABBITMQ_USERNAME in the Trawler environment Secret (Dash uses RABBITMQ_USER_NAME).");
             }
 
             // Verify that the RabbitMQ password is not blank
