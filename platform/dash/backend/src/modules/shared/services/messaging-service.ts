@@ -15,7 +15,8 @@ export class MessagingService {
         try {
             const rChannel = await this.rabbitMQService.getChannel(queueName);
             if (rChannel) {
-                return await rChannel.sendToQueue(queueName, message);
+                // Scan jobs must survive RabbitMQ restarts; queue durability alone does not persist messages.
+                return await rChannel.sendToQueue(queueName, message, {persistent: true});
             }
         } catch (e) {
             this.mineLoggerService.error({label: e.message, data: null}, e, MessagingService.name);
