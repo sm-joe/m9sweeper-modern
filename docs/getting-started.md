@@ -20,6 +20,8 @@ This guide is for people who know little or no Kubernetes. You do **not** need t
 
 **What costs money?** EKS/AKS/GKE nodes, storage volumes, network load balancers, external ingress and cloud resources may incur provider charges. Deleting an application does not always remove retained volumes.
 
+**Credentials:** Use the [installation guide's release-provided credential generator](installation.md#step-2--configure) for new installs. It creates matching Secrets for Dash, the Java Trawler, and RabbitMQ; never copy example passwords verbatim. On upgrades, preserve existing Secrets and PVCs.
+
 **Safety rules:** Do not post kubeconfigs, bearer tokens, API keys or private `.env` files in GitHub issues. Don't delete a database PVC or run `helm uninstall m9sweeper` as a troubleshooting step. A command using `--context` or `kubectl config current-context` determines which cluster receives your changes.
 
 ## Step 1 — Check the required programs
