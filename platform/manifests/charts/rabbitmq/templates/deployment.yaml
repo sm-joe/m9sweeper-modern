@@ -29,6 +29,34 @@ spec:
           runAsGroup: {{ .Values.securityContext.runAsGroup }}
           runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
           runAsUser: {{ .Values.securityContext.runAsUser }}
+{{- if .Values.global.installation.enabled }}
+      # A persisted Erlang cookie with group/other read permissions prevents
+      # RabbitMQ prelaunch. Repair only its mode; preserve the cookie contents
+      # and persisted message database across Helm upgrades.
+      initContainers:
+        - name: fix-erlang-cookie-permissions
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              cookie=/var/lib/rabbitmq/.erlang.cookie
+              if [ -e "$cookie" ]; then
+                chmod 600 "$cookie"
+              fi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.securityContext.runAsGroup }}
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: rabbitmq-data
+              mountPath: /var/lib/rabbitmq
+{{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
