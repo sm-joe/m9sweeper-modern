@@ -66,8 +66,8 @@ For new installations, generate synchronized private credentials with the releas
 umask 077
 mkdir -p "$HOME/m9sweeper-install"
 cd "$HOME/m9sweeper-install"
-gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz' --pattern 'create-install-secrets.py'
-helm show chart ./m9sweeper-0.1.2.tgz
+gh release download --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz' --pattern 'create-install-secrets.py'
+helm show chart "$(find . -maxdepth 1 -type f -name 'm9sweeper-*.tgz' -print -quit)"
 
 # New install only; do not rerun the generator or create Secrets on upgrades.
 export M9_PRIVATE_DIR="$HOME/.config/m9sweeper"
@@ -109,7 +109,7 @@ trawler:
 ## 3. Install and verify database initialization
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.2.tgz \
+helm upgrade --install m9sweeper "$(find . -maxdepth 1 -type f -name 'm9sweeper-*.tgz' -print -quit)" \
   -n "$NAMESPACE" -f $M9_PRIVATE_DIR/m9sweeper-values.yaml --timeout 15m
 
 kubectl -n "$NAMESPACE" get pods,jobs,pvc -o wide
@@ -138,7 +138,7 @@ Visit `http://localhost:13000` and sign in with `SUPER_ADMIN_EMAIL` and `SUPER_A
 
 ## 4. Add EKS using a self-contained kubeconfig
 
-**Do not upload the `aws eks update-kubeconfig` file to v0.1.2:** it normally uses an `exec: aws` credential helper and the backend intentionally does not execute it. Native unattended cloud identity is a separate P0 feature.
+**Do not upload an `aws eks update-kubeconfig` file to the currently described backend:** it normally uses an `exec: aws` credential helper and the backend intentionally does not execute it. Native unattended cloud identity is a separate P0 feature.
 
 The EKS-tested approach is a bootstrap Kubernetes service-account kubeconfig with a trusted CA and embedded token. **The example below grants broad privileges only during automatic onboarding**; it is not a normal scanning identity. Use it only in an approved test environment or with explicit security approval. Remove it once the dedicated `m9sweeper` scanner identity has been created and confirmed to work. The backend's current automatic workflow creates a separate long-lived token Secret and Kubernetes RBAC; evaluate token rotation and permissions before using it in production.
 
@@ -283,7 +283,7 @@ kubectl -n "$NAMESPACE" logs deploy/m9sweeper-trawler --since=10m --tail=100
 
 **Verified on EKS:** the scan **and dashboard report** work after fixing two release issues:
 
-- The downloaded `kube-bench-0.1.2.tgz` EKS one-shot Job is checked during release acceptance for the corrected `eks-1.2.0` benchmark.
+- The downloadable kube-bench EKS Job must render `--benchmark eks-1.2.0` in release acceptance before its command is published.
 - The standalone chart does **not** automatically create `m9sweeper-kube-bench-api-key`. Reuse the *existing bootstrap* `m9-init-env` Secret directly. Its key is `KUBE_BENCH_API_KEY`, not `api-key` or `apiKey`.
 
 ```bash
@@ -300,7 +300,8 @@ helm template kube-bench platform/manifests/charts/kube-bench \
   | grep -- '--benchmark'
 
 # This installs a one-time Job, not a scheduled CronJob.
-helm upgrade --install kube-bench https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.2/kube-bench-0.1.2.tgz \
+gh release download --repo sm-joe/m9sweeper-modern --pattern 'kube-bench-*.tgz'
+helm upgrade --install kube-bench "$(find . -maxdepth 1 -type f -name 'kube-bench-*.tgz' -print -quit)" \
   -n "$NAMESPACE" \
   --set-string provider=eks \
   --set cronjob.enabled=false \
@@ -362,7 +363,7 @@ dash:
 
 ```bash
 cd "$HOME/m9sweeper-install"
-helm upgrade m9sweeper ./m9sweeper-0.1.2.tgz \
+helm upgrade m9sweeper "$(find . -maxdepth 1 -type f -name 'm9sweeper-*.tgz' -print -quit)" \
   -n "$NAMESPACE" -f $M9_PRIVATE_DIR/m9sweeper-values.yaml --timeout 15m
 
 # TLS must validate; do not use curl -k.
