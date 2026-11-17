@@ -103,11 +103,15 @@ public class TrawlerConfiguration {
      * This keeps existing Kubernetes Secrets compatible across Helm upgrades.
      */
     private static String resolvedBrokerSetting(String preferred, String legacy) {
-        String current = dotenv.get(preferred);
-        if (current != null && !current.isBlank()) {
-            return current;
+        return selectBrokerSetting(dotenv.get(preferred), dotenv.get(legacy));
+    }
+
+    // Pure resolver keeps both documented environment spellings testable.
+    static String selectBrokerSetting(String preferred, String legacy) {
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred;
         }
-        return dotenv.get(legacy, "");
+        return legacy == null ? "" : legacy;
     }
 
     /**
