@@ -1,28 +1,37 @@
-# m9sweeper-modern Angular dashboard
+# Angular dashboard
 
-The dashboard is an **Angular 22 / TypeScript** application using Angular Material, RxJS and the modern Angular application build system. The NestJS API lives in `../backend/`, and must not be imported into the frontend build as backend DTO source code.
+The m9sweeper-modern Dashboard uses **Angular 22, TypeScript, Angular Material and RxJS**. The separate NestJS 11 backend serves the production Angular build and owns authorization, cluster connectivity and report persistence.
 
 ## Linux development
 
+From a clean checkout:
+
 ```bash
 cd platform/dash/frontend
-npm ci
-npm run
+npm ci --legacy-peer-deps
+npm run check:client-boundary
+npm run lint
+npm run build:prod
 ```
 
-Select the script appropriate to the checked-out revision. For a production Angular build, run the project's build script (typically `npm run build`); confirm the output path in `angular.json` before publishing anything.
+The Angular application is built into `platform/dash/backend/dist/public/index.html`; do not package a second `browser/` level and do not import NestJS DTO files or backend-only dependencies into the frontend compiler.
 
-## Application responsibilities
+## Product areas
 
-- Authentication and authorization-aware navigation
-- Cluster inventory, image and vulnerability results, policy and exception interfaces
-- Kube-bench, kube-hunter, Kubesec, Falco and Gatekeeper integrations
-- Cluster registration, including validation of trusted Kubernetes API endpoints
+- Dashboard navigation, authenticated routes and role-aware UI
+- Kubernetes cluster and workload inventory
+- Image and vulnerability results, history, policy management and exceptions
+- kube-bench, kube-hunter, Kubesec and Falco reports
+- Cluster registration and scanner settings
 
-## Managed cloud Kubernetes
+## Report-rendering contract
 
-The administration UI can read an operator-supplied kubeconfig and select a context, but cloud CLI `exec` authentication blocks in EKS, AKS and GKE kubeconfigs **cannot** be executed securely by the released backend. Native workload identity and token refresh in the backend are prerequisites for unattended managed-cluster enrollment; uploading a file in the browser does not provide that identity.
+Scanner report APIs use the NestJS `{success, message, data}` envelope. HTTP services normalize responses before components render them. **Asynchronous report pages must always resolve loading, error and empty states**, including timeouts and cluster metadata lookup failures. Guard malformed stored scanner JSON and present clear errors rather than leaving indefinite spinners.
 
-See [Cloud Kubernetes installation and acceptance](../../../docs/cloud-kubernetes.md) and [Helm installation](../../../docs/installation.md).
+A successful scan Job is not proof of UI acceptance. Verify a **newly ingested report** with a matching cluster ID and visible findings.
 
-For new features, keep cloud credential logic in dedicated backend providers and avoid logging kubeconfigs or tokens. Changes must be covered by Angular build tests, backend auth/RBAC tests and real EKS/AKS/GKE acceptance before a public release.
+## Managed Kubernetes authentication
+
+Cloud CLI `exec` helpers in operator kubeconfigs must not be executed by the backend. Credential acquisition, token refresh and Kubernetes authorization belong to trusted server-side components. See [EKS](../../../docs/eks-installation.md), [Installation](../../../docs/installation.md) and [Cloud Kubernetes](../../../docs/cloud-kubernetes.md).
+
+For contributions, run the Angular fast checks and include tests for report loading and response formatting.
