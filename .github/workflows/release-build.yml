@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/release-build.yml'
       - '.github/workflows/ci.yml'
+      - 'scripts/accept-release-kind.sh'
   workflow_dispatch:
     inputs:
       version:
