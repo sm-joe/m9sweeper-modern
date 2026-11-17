@@ -134,7 +134,9 @@ kubectl -n m9sweeper-system port-forward service/m9sweeper-dash 13000:3000
 
 Visit **http://localhost:13000** and sign in with your configured administrator account.
 
-See **[EKS installation and tested scanner walkthrough](docs/eks-installation.md)**, **[Installation & configuration](docs/installation.md)** and **[Cloud Kubernetes: EKS, AKS and GKE](docs/cloud-kubernetes.md)** for cloud storage, identity, cluster access, Linux commands and real-cluster acceptance.\n\n**Cloud authentication status:** The current published release does not yet transparently authenticate an uploaded AWS EKS, Azure AKS or GKE CLI-exec kubeconfig inside the backend. Provider-native workload identity and token refresh must be implemented and validated before cloud onboarding is marked production-ready. Do not mount workstation cloud credentials or enable arbitrary exec plugins in the container.
+See **[EKS installation and tested scanner walkthrough](docs/eks-installation.md)**, **[Installation & configuration](docs/installation.md)** and **[Cloud Kubernetes: EKS, AKS and GKE](docs/cloud-kubernetes.md)** for cloud storage, identity, cluster access, Linux commands and real-cluster acceptance.
+
+**Cloud authentication status:** The current published release does not yet transparently authenticate an uploaded AWS EKS, Azure AKS or GKE CLI-exec kubeconfig inside the backend. Provider-native workload identity and token refresh must be implemented and validated before cloud onboarding is marked production-ready. Do not mount workstation cloud credentials or enable arbitrary exec plugins in the container.
 
 ## Development
 
