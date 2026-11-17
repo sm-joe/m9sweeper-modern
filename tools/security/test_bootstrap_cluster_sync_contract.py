@@ -8,6 +8,8 @@ PACKAGE = ROOT / "platform/dash/backend/package.json"
 SYNC = ROOT / "platform/dash/backend/src/modules/command-line/commands/cluster-sync.command.ts"
 CRON = ROOT / "platform/dash/backend/src/modules/command-line/controllers/cron-jobs.controller.ts"
 CHART = ROOT / "platform/manifests/charts/dash/templates/job-init.yaml"
+SCHEDULED = ROOT / "platform/manifests/charts/dash/templates/cronjob-scrape.yaml"
+VALUES = ROOT / "platform/manifests/charts/dash/values.yaml"
 
 
 class BootstrapClusterSyncContractTests(unittest.TestCase):
@@ -32,6 +34,15 @@ class BootstrapClusterSyncContractTests(unittest.TestCase):
         source = CRON.read_text(encoding="utf-8")
         self.assertIn("this.clusterSyncCommand.syncCluster('all')", source)
         self.assertIn("scrapeJob.start()", source)
+
+    def test_helm_schedules_inventory_without_operator_cli(self):
+        values = VALUES.read_text(encoding="utf-8")
+        cron = SCHEDULED.read_text(encoding="utf-8")
+        self.assertIn('schedule: "*/5 * * * *"', values)
+        self.assertIn('enabled: true', values)
+        self.assertIn('concurrencyPolicy: Forbid', cron)
+        self.assertIn('cli:cluster:sync-all', cron)
+        self.assertNotIn('                - "cluster:sync"', cron)
 
     def test_helm_job_runs_only_bootstrap(self):
         source = CHART.read_text(encoding="utf-8")
