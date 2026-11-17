@@ -20,10 +20,10 @@
   <mat-step>
     <ng-template matStepLabel>Create Job</ng-template>
     <p *ngIf="!reportEndpointReady" role="alert" class="mat-error">{{reportEndpointError}}</p>
-    <p *ngIf="reportEndpointReady" role="note">The callback URL uses the Dash Kubernetes Service and works independently of browser port-forwarding. The v0.1.0 signed scanner archive is independently installable; no source checkout is needed. </p>
+    <p *ngIf="reportEndpointReady" role="note">The callback URL uses the Dash Kubernetes Service and works independently of browser port-forwarding. The v0.1.1 signed scanner archive is independently installable; no source checkout is needed. </p>
     <p *ngIf="reportEndpointReady" role="note"><strong>Secret prerequisite:</strong> reuse the existing <code>m9-init-env</code> Secret in <code>m9sweeper-system</code> with key <code>KUBE_BENCH_API_KEY</code>. For a fresh installation, create it from your private <code>dash-bootstrap.env</code> file. Verify the key exists without printing it; do not create a duplicate key or pass credentials in the command. See <a href="https://github.com/sm-joe/m9sweeper-modern/blob/main/docs/eks-installation.md" target="_blank" rel="noopener noreferrer">EKS scanner installation prerequisites</a>.</p>
 
-    <p *ngIf="selectedProvider === 'eks'" role="note">The v0.1.0 release includes the corrected EKS node benchmark <code>eks-1.2.0</code>. Use the downloadable chart; EKS worker-node checks do not cover all control-plane CIS controls.</p>
+    <p *ngIf="selectedProvider === 'eks'" role="note">The v0.1.1 release includes the corrected EKS node benchmark <code>eks-1.2.0</code>. Use the downloadable chart; EKS worker-node checks do not cover all control-plane CIS controls.</p>
     <div class="modal-content-left-align-no-margin">
       <h3>Choose whether to run kube-bench periodically or manually</h3>
       <mat-radio-group aria-labelledby="cronjob-options-group-label" [(ngModel)]="cronjobOpt">
@@ -64,7 +64,7 @@
         </div>
       </div>
       <div>
-        <textarea matInput [cdkTextareaAutosize]="true" #run class="code-snippet w-100" readonly>helm upgrade --install kube-bench https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.0/kube-bench-0.1.0.tgz \
+        <textarea matInput [cdkTextareaAutosize]="true" #run class="code-snippet w-100" readonly>helm upgrade --install kube-bench https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.1/kube-bench-0.1.1.tgz \
   -n m9sweeper-system --create-namespace \
   --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}' \
   --set-string reportAuth.existingSecret=m9-init-env \
@@ -93,7 +93,7 @@
         </div>
       </div>
       <div >
-        <textarea #cliCommand class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-bench https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.0/kube-bench-0.1.0.tgz \
+        <textarea #cliCommand class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-bench https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.1/kube-bench-0.1.1.tgz \
   -n m9sweeper-system --create-namespace \
   --set-string reportsurl='{{backendUrl}}/api/kube-bench/{{clusterId}}' \
   --set-string reportAuth.existingSecret=m9-init-env \
