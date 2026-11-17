@@ -607,6 +607,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Test Compose credential safety and container contracts
+        run: python3 -m unittest tools.security.test_compose_container_contract -v
       - name: Validate full original product Compose stack with safe local bindings
         run: |
           cp platform/docker-compose/.env.sample platform/docker-compose/.env
@@ -625,6 +627,7 @@ jobs:
           rendered="$(docker compose -f platform/docker-compose/docker-compose.yml --env-file platform/docker-compose/.env config --format json)"
           echo "$rendered" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["services"]["dash"]["environment"]["SCANNER_ALLOW_LEGACY_QUERY_KEYS"] == "false", "Compose must disable URL API keys by default"; print("PASS: scanner API keys are header-only by default")'
           echo "$rendered" | python3 -c 'import json,sys; d=json.load(sys.stdin); expected={"dash":"3000","postgres":"5432","rabbitmq":"5672","kubesec":"6116"}; [(lambda p: (_ for _ in ()).throw(AssertionError(s)) if any(x.get("host_ip") != "127.0.0.1" for x in p) else None)(d["services"][s].get("ports",[])) for s in expected]; print("Compose public bindings: none")'
+          echo "$rendered" | python3 -c 'import json,sys; d=json.load(sys.stdin); services=d["services"]; assert services["postgres"]["image"].startswith("postgres:17"); assert services["rabbitmq"]["image"].startswith("rabbitmq:4.4"); assert services["trawler"]["depends_on"]["dash-init"]["condition"]=="service_completed_successfully"; assert any(m["target"]=="/var/lib/rabbitmq" for m in services["rabbitmq"]["volumes"]); print("PASS: PostgreSQL 17, RabbitMQ 4.4 persistence and initialization-gated Trawler")'
   runtime-integration:
     if: github.event_name != 'pull_request' || github.event.action == 'ready_for_review' || github.event.label.name == 'ci/full'
     runs-on: ubuntu-latest
