@@ -16,95 +16,46 @@ Kubernetes 1.35–1.37 (chart declared range; validate each environment), Helm 3
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.3 --repo sm-joe/m9sweeper-modern --pattern '*.tgz'
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern '*.tgz' --pattern 'create-install-secrets.py'
 ```
 
 ## Step 2 — Configure
 
-Create three files in a private directory, such as `/secure/`, and replace the example credentials. The bundled PostgreSQL and RabbitMQ Kubernetes addresses below match the standard release. Use `umask 077` when creating them. Never commit these files.
-
-**`/secure/dash-runtime.env`** — database and message queue:
-
-```dotenv
-SECURITY_JWT_SECRET=replace-with-a-long-random-secret
-DATABASE_CONNECTION_HOST=m9sweeper-postgresql.m9sweeper-system.svc.cluster.local
-DATABASE_CONNECTION_PORT=5432
-DATABASE_CONNECTION_DATABASE=postgres
-DATABASE_CONNECTION_USERNAME=m9sweeper
-DATABASE_CONNECTION_PASSWORD=replace-with-database-password
-RABBITMQ_HOST_NAME=m9sweeper-rabbitmq.m9sweeper-system.svc.cluster.local
-RABBITMQ_HOST_PORT=5672
-RABBITMQ_PORT=5672
-RABBITMQ_USER_NAME=m9sweeper
-RABBITMQ_USER_PASSWORD=replace-with-rabbitmq-password
-MSG_QUEUE_NAME_IMAGE_SCANNER=trawler_queue
-```
-
-**`/secure/dash-bootstrap.env`** — initial account and scanner credentials:
-
-```dotenv
-CLUSTER_API_KEY=replace-with-unique-random-key
-SUPER_ADMIN_EMAIL=admin@example.com
-SUPER_ADMIN_PASSWORD=replace-with-strong-password
-TRAWLER_API_KEY=replace-with-unique-trawler-key
-KUBE_HUNTER_API_KEY=replace-with-unique-hunter-key
-KUBE_BENCH_API_KEY=replace-with-unique-bench-key
-FALCO_API_KEY=replace-with-unique-falco-key
-```
-
-**`/secure/trawler-runtime.env`** — scanner connection:
-
-```dotenv
-RABBITMQ_HOSTNAME=m9sweeper-rabbitmq.m9sweeper-system.svc.cluster.local
-RABBITMQ_PORT=5672
-RABBITMQ_USERNAME=m9sweeper
-RABBITMQ_PASSWORD=replace-with-rabbitmq-password
-RABBITMQ_QUEUE_NAME=trawler_queue
-M9SWEEPER_API_KEY=replace-with-unique-trawler-key
-```
-
-**These environment-file blocks are templates, not credentials.** Before using them for a **new** installation, replace *every* `replace-with-...` value with an actual private value. For example, generate the RabbitMQ password and Trawler API key once with `openssl rand -hex 32`, then copy each generated value to both of its required locations (do not generate a different value for each file):
-
-| File / Kubernetes Secret | Key | Must equal |
-| --- | --- | --- |
-| `dash-runtime.env` / `m9-dash-env` | `RABBITMQ_USER_NAME` | `trawler-runtime.env` / `m9-trawler-env` → `RABBITMQ_USERNAME` |
-| `dash-runtime.env` / `m9-dash-env` | `RABBITMQ_USER_PASSWORD` | `trawler-runtime.env` / `m9-trawler-env` → `RABBITMQ_PASSWORD` |
-| `dash-bootstrap.env` / `m9-init-env` | `TRAWLER_API_KEY` | `trawler-runtime.env` / `m9-trawler-env` → `M9SWEEPER_API_KEY` |
-
-**Already installed or upgrading? Do not create these Secrets again, reuse the template placeholders, generate replacement keys, or reset the RabbitMQ PVC.** Use the existing authorized API key and broker credentials. The broker persists its account database; even when the Dash and Trawler Secrets match, the actual RabbitMQ user may still have a different stored password. Fix the broker cookie startup error first, then use `rabbitmqctl authenticate_user` to test the configured broker account. A cookie file permission error (`/var/lib/rabbitmq/.erlang.cookie`) is *not* caused by the password examples above.
-
-To check matching Secret data **without printing credentials** from a terminal with access to the existing cluster:
+**New installation:** Download the signed release and its credential setup helper. Generate all three synchronized credential files once. The helper generates cryptographically random passwords and scanner API keys, sets file permissions to 0600, and refuses to overwrite any existing installation files.
 
 ```bash
-ns=m9sweeper-system
-get_data() { kubectl -n "$ns" get secret "$1" -o "jsonpath={.data.$2}"; }
-check_pair() {
-  a="$(get_data "$1" "$2")"
-  b="$(get_data "$3" "$4")"
-  if [ -n "$a" ] && [ "$a" = "$b" ]; then
-    printf 'PASS: %s matches %s\n' "$2" "$4"
-  else
-    printf 'FAIL: missing or different %s / %s\n' "$2" "$4"
-    return 1
-  fi
-}
-check_pair m9-dash-env RABBITMQ_USER_NAME m9-trawler-env RABBITMQ_USERNAME
-check_pair m9-dash-env RABBITMQ_USER_PASSWORD m9-trawler-env RABBITMQ_PASSWORD
-check_pair m9-init-env TRAWLER_API_KEY m9-trawler-env M9SWEEPER_API_KEY
+umask 077
+export M9_PRIVATE_DIR="$HOME/.config/m9sweeper"
+export M9_ADMIN_EMAIL="your-real-admin-email@example.com"
+python3 ./create-install-secrets.py --output-dir "$M9_PRIVATE_DIR"
 ```
 
-The checks compare Kubernetes's base64-encoded Secret data without decoding or displaying the values. **Equal Secret values alone do not prove RabbitMQ is running or that its persisted account accepts the password.**
+Replace the example administrator email with an address you control **before** running the helper. The random administrator password is stored only in the private `dash-bootstrap.env` file; retrieve it on your workstation when first signing in. Do not log or commit that file.
+
+The generated files contain the exact names consumed by Dash, Trawler, PostgreSQL and RabbitMQ:
+
+| Dashboard or bootstrap Secret | Trawler Secret | Requirement |
+| --- | --- | --- |
+| `m9-dash-env:RABBITMQ_USER_NAME` | `m9-trawler-env:RABBITMQ_USERNAME` | Identical broker username |
+| `m9-dash-env:RABBITMQ_USER_PASSWORD` | `m9-trawler-env:RABBITMQ_PASSWORD` | Identical broker password |
+| `m9-dash-env:RABBITMQ_HOST_NAME` | `m9-trawler-env:RABBITMQ_HOSTNAME` | Same broker Service address |
+| `m9-dash-env:MSG_QUEUE_NAME_IMAGE_SCANNER` | `m9-trawler-env:RABBITMQ_QUEUE_NAME` | Same queue |
+| `m9-init-env:TRAWLER_API_KEY` | `m9-trawler-env:M9SWEEPER_API_KEY` | Identical authorized Trawler identity |
+
+**Existing installation or upgrade:** Do not rerun the generator, recreate Secrets, change broker credentials, reset registered scanner API keys, remove the RabbitMQ PVC, or re-run administrator bootstrap. Preserve your existing Helm values and Secrets. Before upgrading, verify Secret key names against the table above and fix any mismatch without changing the underlying authorized values. The Helm pre-install/pre-upgrade hook now rejects missing/mismatched names or known placeholder values *before* application workloads are changed.
+
+A persisted RabbitMQ account can retain its original password independently of Kubernetes Secret data. Matching Secrets alone do not prove authentication; verify the broker with `rabbitmqctl authenticate_user` after RabbitMQ is running. The Erlang cookie must remain owner-only (0600) across upgrades; the bundled RabbitMQ startup hook repairs that permission without replacing the cookie.
 
 Create the Kubernetes namespace and Secrets:
 
 ```bash
 kubectl create namespace m9sweeper-system
-kubectl -n m9sweeper-system create secret generic m9-dash-env --from-env-file=/secure/dash-runtime.env
-kubectl -n m9sweeper-system create secret generic m9-init-env --from-env-file=/secure/dash-bootstrap.env
-kubectl -n m9sweeper-system create secret generic m9-trawler-env --from-env-file=/secure/trawler-runtime.env
+kubectl -n m9sweeper-system create secret generic m9-dash-env --from-env-file="$M9_PRIVATE_DIR/dash-runtime.env"
+kubectl -n m9sweeper-system create secret generic m9-init-env --from-env-file="$M9_PRIVATE_DIR/dash-bootstrap.env"
+kubectl -n m9sweeper-system create secret generic m9-trawler-env --from-env-file="$M9_PRIVATE_DIR/trawler-runtime.env"
 ```
 
-Create **`/secure/m9sweeper-values.yaml`**:
+Create **`$M9_PRIVATE_DIR/m9sweeper-values.yaml`** using the values below. Do not put passwords in Helm values:
 
 ```yaml
 global:
@@ -129,8 +80,8 @@ The chart includes its application image references. For bundled PostgreSQL and 
 From the directory where you downloaded the release:
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.3.tgz \
-  --namespace m9sweeper-system --values /secure/m9sweeper-values.yaml --timeout 15m
+helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
+  --namespace m9sweeper-system --values "$M9_PRIVATE_DIR/m9sweeper-values.yaml" --timeout 15m
 
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-trawler --timeout=5m
@@ -178,7 +129,7 @@ Then run, for example:
 
 ```bash
 helm upgrade --install kube-bench \
-  https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.3/kube-bench-0.1.3.tgz \
+  https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.0/kube-bench-0.1.0.tgz \
   -n m9sweeper-system \
   --set-string provider=commonjob \
   --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
@@ -199,7 +150,7 @@ Use a trusted certificate or `reportRelay.caSecret` for your private CA.
 The kube-hunter chart is independently available at:
 
 ```text
-https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.3/kube-hunter-0.1.3.tgz
+https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.0/kube-hunter-0.1.0.tgz
 ```
 
 Do not use a bare `/api/kubehunter/hunter/<cluster-id>` path or a
@@ -210,7 +161,7 @@ inside the umbrella Helm chart or an operator's current working directory.
 
 ## Amazon EKS: validated path and scanner fixes
 
-Follow the [step-by-step EKS installation guide](eks-installation.md) for **the tested kubeconfig connection**, EBS CSI storage, database initialization, kube-bench, Kubesec pod listing, and kube-hunter HTTPS. Avoid using the published `kube-bench-0.1.3.tgz` archive for one-time EKS Jobs: it contains the invalid `eks-1.0` benchmark. The EKS guide uses the corrected source chart and **reuses scanner keys from the existing `m9-init-env` Secret** rather than instructing users to create missing arbitrary Secrets.
+Follow the [step-by-step EKS installation guide](eks-installation.md) for **the tested kubeconfig connection**, EBS CSI storage, database initialization, kube-bench, Kubesec pod listing, and kube-hunter HTTPS. Avoid using the published `kube-bench-0.1.0.tgz` archive for one-time EKS Jobs: it contains the invalid `eks-1.0` benchmark. The EKS guide uses the corrected source chart and **reuses scanner keys from the existing `m9-init-env` Secret** rather than instructing users to create missing arbitrary Secrets.
 
 On the real test EKS cluster, kube-bench execution **and its dashboard report** were confirmed by the operator. Kubesec and kube-hunter fixes still require deployment and runtime acceptance. Trivy and Falco EKS acceptance also remain open. These conditions do not block installing the core application, but do block claiming complete production-ready cloud scanner certification.
 
