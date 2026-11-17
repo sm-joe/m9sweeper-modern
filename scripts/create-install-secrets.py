@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import os
 import secrets
-import stat
 import sys
 from pathlib import Path
 
@@ -100,7 +99,7 @@ def main() -> int:
     parser.add_argument("--output-dir", required=True, type=Path)
     args = parser.parse_args()
     try:
-        create(args.output_dir.expanduser().resolve())
+        create(args.output_dir.expanduser().absolute())
         return 0
     except (ValueError, FileExistsError, RuntimeError, OSError) as error:
         print(f"FAIL: {error}", file=sys.stderr)
