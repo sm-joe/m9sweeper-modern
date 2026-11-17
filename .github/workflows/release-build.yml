@@ -240,7 +240,7 @@ jobs:
           # The repository installation page continues to target the latest
           # already-published release until this candidate passes acceptance.
           # Only the candidate's signed INSTALL.md points to its new artifacts.
-          grep -Fq 'v0.1.0' dist/INSTALL.md
+          grep -Fq 'gh release download --repo sm-joe/m9sweeper-modern' dist/INSTALL.md
           grep -Fq 'create-install-secrets.py' dist/INSTALL.md
           python3 -m json.tool dist/m9sweeper-source.spdx.json >/dev/null
           cosign sign-blob --yes --bundle dist/chart.sigstore.json "$chart"
