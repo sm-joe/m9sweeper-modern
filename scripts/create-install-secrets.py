@@ -78,6 +78,8 @@ def create(destination: Path) -> None:
     admin_email = os.environ.get("M9_ADMIN_EMAIL", "").strip()
     if not admin_email or "@" not in admin_email or any(c in admin_email for c in "\r\n="):
         raise ValueError("Set M9_ADMIN_EMAIL to your administrator email address")
+    if admin_email.lower().endswith(("@example.com", "@example.invalid", "@example.org")):
+        raise ValueError("Replace the example administrator email with a real address")
     init["SUPER_ADMIN_EMAIL"] = admin_email
     try:
         for path, values in zip(files, (dash, init, worker)):
