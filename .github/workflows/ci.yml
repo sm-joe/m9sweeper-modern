@@ -13,6 +13,9 @@ on:
     paths:
       - 'platform/**'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/release-build.yml'
+      - '.github/workflows/release-acceptance.yml'
+      - '.github/workflows/release-publish.yml'
       - 'tools/import-platform/**'
       - 'tools/integration/**'
       - 'scripts/**'
