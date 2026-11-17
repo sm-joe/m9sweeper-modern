@@ -48,6 +48,20 @@ class ComposeContractTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse(output.exists())
 
+    def test_callback_requires_explicit_pod_reachable_origin(self):
+        example = (COMPOSE / ".env.sample").read_text()
+        compose = (COMPOSE / "docker-compose.yml").read_text()
+        guide = (COMPOSE / "README.md").read_text()
+        self.assertIn("SCANNER_REPORT_INGESTION_URL=", example)
+        self.assertIn("SCANNER_REPORT_BIND_ADDRESS=127.0.0.1", example)
+        self.assertIn("SCANNER_REPORT_BIND_PORT=3000", example)
+        self.assertIn("SCANNER_REPORT_BIND_ADDRESS:-127.0.0.1", compose)
+        self.assertIn("SCANNER_REPORT_BIND_PORT:-3000", compose)
+        self.assertIn("SCANNER_REPORT_INGESTION_URL:-", compose)
+        self.assertIn("m9-callback-probe", guide)
+        self.assertIn("Kubernetes Pod", guide)
+        self.assertIn("kube-hunter requires", guide)
+
     def test_core_application_uses_real_multistage_images(self):
         dash = (ROOT / "platform/Dockerfile").read_text()
         worker = (ROOT / "platform/trawler/Dockerfile.jvm").read_text()
