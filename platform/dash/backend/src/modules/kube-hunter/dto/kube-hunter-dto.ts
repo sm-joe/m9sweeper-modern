@@ -26,11 +26,11 @@ export class KubeHunterDto {
 
     // structure: IKubeHunterRawServices
     @Expose({name: 'services', toPlainOnly: true})
-    @Transform(value => JSON.stringify(value))
+    @Transform(({value}) => typeof value === 'string' ? value : JSON.stringify(value), {toPlainOnly: true})
     services: string;
 
     // structure: IKubeHunterRawVulnerabilities
     @Expose({name: 'vulnerabilities', toPlainOnly: true})
-    @Transform(value => JSON.stringify(value))
+    @Transform(({value}) => typeof value === 'string' ? value : JSON.stringify(value), {toPlainOnly: true})
     vulnerabilities: string;
 }
