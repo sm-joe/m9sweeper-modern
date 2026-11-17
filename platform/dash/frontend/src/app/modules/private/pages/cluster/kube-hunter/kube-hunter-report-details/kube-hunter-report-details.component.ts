@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import {take} from 'rxjs/operators';
+import {take, timeout} from 'rxjs/operators';
 import {ActivatedRoute} from '@angular/router';
 import {IKubeHunterReport, IKubeHunterVulnerabilities} from '../../../../../../core/entities/IKubeHunterReport';
 import {KubeHunterService} from '../../../../../../core/services/kube-hunter.service';
@@ -48,7 +48,7 @@ export class KubeHunterReportDetailsComponent implements OnInit {
       return;
     }
     this.kubehunterService.getKubeHunterReportById(this.id)
-      .pipe(take(1))
+      .pipe(take(1), timeout(15000))
       .subscribe({
         next: report => {
           this.loading = false;
@@ -73,7 +73,9 @@ export class KubeHunterReportDetailsComponent implements OnInit {
         },
         error: error => {
           this.loading = false;
-          this.loadError = `Unable to retrieve kube-hunter report (HTTP ${error?.status || 'network error'}).`;
+          this.loadError = error?.name === 'TimeoutError'
+            ? 'Kube-hunter report request timed out. Check the Dashboard API.'
+            : `Unable to retrieve kube-hunter report (HTTP ${error?.status || 'network error'}).`;
         },
       });
   }
@@ -86,7 +88,10 @@ export class KubeHunterReportDetailsComponent implements OnInit {
   }
 
   getCluster(clusterId: number) {
-    this.clusterService.getClusterById(clusterId).pipe(take(1)).subscribe(cluster => this.cluster = cluster.data);
+    this.clusterService.getClusterById(clusterId).pipe(take(1), timeout(15000)).subscribe({
+      next: cluster => { this.cluster = cluster?.data; },
+      error: () => { this.loadError = 'Kube-hunter report loaded, but cluster details are unavailable.'; }
+    });
   }
 
   showFullDescription(vulnName: string, desc: string) {
