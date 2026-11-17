@@ -6,11 +6,11 @@ export class KubeHunterDto {
     @IsNumber()
     id: number;
 
-    @Expose({name: 'cluster_id', toPlainOnly: true})
+    @Expose({name: 'cluster_id'})
     @IsNumber()
     clusterId: number;
 
-    @Expose({name: 'created_at', toPlainOnly: true})
+    @Expose({name: 'created_at'})
     @IsNumber()
     createdAt: number;
 
@@ -21,7 +21,7 @@ export class KubeHunterDto {
 
     // structure: IKubeHunterRawNodes
     @Expose({name: 'nodes', toPlainOnly: true})
-    @Transform(value => JSON.stringify(value))
+    @Transform(({value}) => typeof value === 'string' ? value : JSON.stringify(value), {toPlainOnly: true})
     nodes: string;
 
     // structure: IKubeHunterRawServices
