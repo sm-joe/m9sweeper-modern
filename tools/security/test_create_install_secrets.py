@@ -18,7 +18,7 @@ class FirstInstallGeneratorTests(unittest.TestCase):
     def test_generates_matching_secrets_without_example_passwords(self):
         with tempfile.TemporaryDirectory() as base:
             root = Path(base) / "m9-private"
-            with patch.dict(os.environ, {"M9_ADMIN_EMAIL": "operator@example.org"}):
+            with patch.dict(os.environ, {"M9_ADMIN_EMAIL": "operator@company.test"}):
                 module.create(root)
             dash = self.read_env(root / "dash-runtime.env")
             init = self.read_env(root / "dash-bootstrap.env")
@@ -30,7 +30,7 @@ class FirstInstallGeneratorTests(unittest.TestCase):
             self.assertEqual(init["TRAWLER_API_KEY"], worker["M9SWEEPER_API_KEY"])
             self.assertGreaterEqual(len(init["TRAWLER_API_KEY"]), 32)
             self.assertNotIn("replace-with-", repr((dash, init, worker)))
-            self.assertEqual(init["SUPER_ADMIN_EMAIL"], "operator@example.org")
+            self.assertEqual(init["SUPER_ADMIN_EMAIL"], "operator@company.test")
             if os.name == "posix":
                 self.assertEqual((root / "dash-runtime.env").stat().st_mode & 0o777, 0o600)
 
@@ -39,11 +39,17 @@ class FirstInstallGeneratorTests(unittest.TestCase):
             root = Path(base)
             before = root / "dash-runtime.env"
             before.write_text("KEEP=existing-value\n")
-            with patch.dict(os.environ, {"M9_ADMIN_EMAIL": "operator@example.org"}):
+            with patch.dict(os.environ, {"M9_ADMIN_EMAIL": "operator@company.test"}):
                 with self.assertRaises(FileExistsError):
                     module.create(root)
             self.assertEqual(before.read_text(), "KEEP=existing-value\n")
             self.assertFalse((root / "trawler-runtime.env").exists())
+
+    def test_rejects_sample_admin_email(self):
+        with tempfile.TemporaryDirectory() as base:
+            with patch.dict(os.environ, {"M9_ADMIN_EMAIL": "your-real-admin-email@example.com"}):
+                with self.assertRaises(ValueError):
+                    module.create(Path(base))
 
     def test_requires_admin_email(self):
         with tempfile.TemporaryDirectory() as base:
