@@ -1,62 +1,57 @@
-# Kind scanner acceptance (Linux)
+# Local Kubernetes scanner verification with Kind
 
-This is a **local integration gate**, not certification for managed cloud Kubernetes. Cloud provider release gates are defined in [Cloud Kubernetes acceptance](cloud-kubernetes.md). Preserve existing PVCs, credentials, scanner keys and historical evidence.
+Use a Linux Kind cluster to exercise the report-ingestion and scanner contracts before testing managed Kubernetes. **Kind checks are not a replacement for live EKS/AKS/GKE validation.**
 
 ## Preflight
-
-Use a Linux shell with `kubectl`, Helm 3, and a Kind cluster. Replace the cluster ID with the actual Dashboard-assigned ID.
 
 ```bash
 set -euo pipefail
 export NAMESPACE=m9sweeper-system
-export CLUSTER_ID=3
+read -r -p 'Dashboard cluster ID: ' CLUSTER_ID
+[[ "$CLUSTER_ID" =~ ^[1-9][0-9]*$ ]] || exit 1
 kubectl config current-context
 kubectl get nodes -o wide
 kubectl -n "$NAMESPACE" get pods,jobs,cronjobs,pvc -o wide
-helm list -n "$NAMESPACE"
+helm status m9sweeper -n "$NAMESPACE"
 ```
 
-### kube-hunter
+Confirm the context is the intended disposable test cluster; scanners should run only against authorized targets.
 
-The report relay requires a complete trusted HTTPS URL, a reachable Dashboard ingress and a pre-existing scanner credential Secret. Do not put keys in URLs or logs.
+## Trivy and inventory
 
 ```bash
-helm get values kube-hunter -n "$NAMESPACE"
-kubectl -n "$NAMESPACE" get jobs,cronjobs | grep -E 'kube-hunter|NAME' || true
-
-helm upgrade --install kube-hunter ./platform/manifests/charts/kube-hunter \
-  -n "$NAMESPACE" \
-  --set cronjob.enabled=false \
-  --set reportRelay.enabled=true \
-  --set-string reportRelay.existingSecret=m9sweeper-kube-hunter-relay-auth \
-  --set-string "reportRelay.targetUrl=https://YOUR-TRUSTED-DASH-HOST/api/kubehunter/hunter/$CLUSTER_ID"
+kubectl -n "$NAMESPACE" exec m9sweeper-rabbitmq-0 -c rabbitmq -- \
+  rabbitmqctl list_queues name messages_ready messages_unacknowledged consumers
+kubectl -n "$NAMESPACE" get jobs --sort-by=.metadata.creationTimestamp
+kubectl -n "$NAMESPACE" logs deployment/m9sweeper-trawler --since=20m --tail=150
 ```
 
-Run the command from a checked-out source tree; for a downloaded release, use the signed standalone kube-hunter Helm archive instead of a source directory. The chart's one-shot Job is a Helm hook. Inspect actual Job and relay logs. Acceptance requires a *new* persisted report associated with the selected cluster, not an old row.
+Verify inventory runs automatically, a real test image is scanned, the queue is acknowledged and the matching CVEs are stored and shown in Angular. Empty queues alone are not proof of successful scans.
 
-### Trivy and Trawler
+## kube-bench
 
-```bash
-kubectl -n "$NAMESPACE" exec m9sweeper-rabbitmq-0 -- rabbitmqctl list_connections name state user
-kubectl -n "$NAMESPACE" exec m9sweeper-rabbitmq-0 -- rabbitmqctl list_queues name messages_ready messages_unacknowledged consumers
-kubectl -n "$NAMESPACE" logs deployment/m9sweeper-trawler --since=10m --tail=100
-```
+Use the published `kube-bench-0.1.0.tgz` archive and the authorized `KUBE_BENCH_API_KEY` from the existing bootstrap Secret, as described in [EKS installation](eks-installation.md#4-kube-bench-eks-node-checks). A Kind cluster uses the suitable Kind/node benchmark rather than the EKS worker profile. Confirm a *new* ingested report under the correct cluster.
 
-Trigger a real authorized image scan in Dashboard. Confirm queue consumption, persisted image scan runs/results, correct tenant association and results visible in Angular. A completed kube-bench report is not evidence of Trivy success.
+## kube-hunter
 
-### Falco live Linux sensor
+Use the published `kube-hunter-0.1.0.tgz` archive, its header-authenticated report relay, an existing scanner key and a **valid HTTPS** endpoint with trusted CA. The [private-cluster HTTPS configuration](eks-installation.md#6-kube-hunter-private-https-without-a-public-domain) can be adapted to Kind. Inspect the actual Job and relay logs and require a fresh report displayed in Dashboard. Never disable TLS verification or put credentials in the URL.
 
-A Kind run without a real Linux kernel sensor does not prove Falco runtime protection. After configuring an approved disposable test namespace, Falco sensor, Falcosidekick and scoped collector key, run:
+## Falco
+
+A Kind cluster without a functional Linux kernel sensor cannot certify runtime detection. With an appropriate Linux host, supported Falco sensor and an authorized test namespace, run the repository's live verification script from the source tree:
 
 ```bash
-export M9_FALCO_LIVE_TEST=YES M9_FALCO_LINUX_HOST=YES
-export M9_EXPECTED_KUBE_CONTEXT=kind-kind CLUSTER_ID=3
+export M9_FALCO_LIVE_TEST=YES
+export M9_FALCO_LINUX_HOST=YES
+export M9_EXPECTED_KUBE_CONTEXT=kind-kind
 export M9_FALCO_NAMESPACE=m9sweeper-system
 bash scripts/verify-falco-kubernetes-linux.sh
 ```
 
-Require a fresh correlated event in PostgreSQL and Dashboard. Do not publish stale rows as proof.
+Confirm a newly generated Falco event arrives through Falcosidekick, persists and appears in the dashboard. This evidence is separate from chart rendering or Pod readiness.
 
-## Release rule
+## Exit criteria
 
-Kind is an early test stage. EKS, AKS and GKE require independent live installation, authentication, PVC/zone, inventory, scanner and upgrade/recovery acceptance. Do not mark a managed-cloud provider as passing until its own evidence exists. The published v0.1.2 artifacts remain immutable; new source changes require a separately signed release.
+The local integration passes only with real authorized scan jobs, authenticated report ingestion and visible findings. The project operator confirmed **EKS acceptance** separately on 17 November 2026; that EKS evidence should not be attributed to a Kind run.
+
+[README](../README.md) · [EKS](eks-installation.md) · [Installation](installation.md)
