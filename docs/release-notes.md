@@ -1,28 +1,42 @@
 # m9sweeper-modern v0.1.0
 
-## Existing v0.1.0 upgrades (immutable image digests)
+m9sweeper-modern restores the original Kubernetes security platform with a modern Angular/NestJS Dashboard, Java Trawler, Trivy scanning and Helm-based deployment.
 
-- Fix the upgrade trap: `helm upgrade --reuse-values` preserves previously stored SHA256-pinned Dash and Trawler image tags, so updating the chart alone does not deploy subsequent fixes. Use the packaged `upgrade-release.ps1` or explicitly override both image tags from the current release `IMAGE-DIGESTS.txt` as documented in `INSTALL.md`.
-- The upgrade script verifies that the running Dash and Trawler deployments match the newly published immutable image digests. It does not regenerate secrets, remove persistent volumes, reset scanner keys, or rerun initialization.
-- Kube-hunter report loading fixes require replacing the Dash image as well as refreshing the chart. A chart upgrade that leaves the old Dash image in place cannot fix the Angular report view.
+## Included
 
-## Installation and reliability
+- **Application:** Angular 22 UI, NestJS 11 API, Java 21 Trawler, PostgreSQL 17 and RabbitMQ 4.4.
+- **Inventory:** Automatic Kubernetes cluster synchronization, image discovery and queued Trivy scanning.
+- **Security integrations:** Trivy, Kubesec, kube-bench, kube-hunter and Falco, with authenticated report persistence and dashboard views.
+- **Security:** API authorization checks, scanner-specific credentials and safer failure behavior.
+- **Packaging:** Published Helm archives for the platform, kube-bench and kube-hunter; image digest manifests, checksums, signature bundles and provenance information.
 
-- The Dashboard, kube-bench and kube-hunter installation instructions discover the current published Helm chart without embedding release-specific archive URLs in the web application.
-- The packaged Dash CLI npm commands use the actual deployed `./cli.js` executable, including cluster inventory synchronization.
-- PostgreSQL initialization fails clearly on authentication, authorization or missing-database errors; transient connection retries are bounded.
-- Bundled PostgreSQL and RabbitMQ retain their own persistent data; upgrades must reuse the original Kubernetes Secrets rather than regenerating passwords.
-- EKS installation instructions identify the Trawler Pod Identity association and IAM ECR pull permissions required before attempting private ECR scans. These permissions must be provided by the cluster administrator.
-- The Falco installation dialog uses the modern eBPF driver and an existing Falcosidekick webhook Secret. Webhook URL, API key and minimum priority are set in the Secret, not in publicly visible Helm flags.
+## Corrected during EKS acceptance
 
-## Security scanner integrations
+- Inventory scheduling reconciles workloads automatically every five minutes.
+- RabbitMQ startup reporting distinguishes transient retry messages from established Trawler queue connections.
+- kube-hunter report retrieval properly unwraps API responses, maps stored report fields, parses historical JSON and exits loading/error states; Angular now updates the view after asynchronous report completion.
+- The published chart pins Dash and Trawler images by immutable digest. **Upgrades must replace both saved image digests**, not just run `helm upgrade --reuse-values` with an old image override.
+- The release includes an updated credential-preserving upgrade script, while the public [installation guide](installation.md#upgrading-an-existing-installation) documents the equivalent **bash** workflow.
+- The EKS instructions include a private HTTPS kube-hunter ingestion gateway that requires no public domain.
 
-The core scanner integrations remain Trivy, kube-bench, Kubesec, kube-hunter and Falco. Scanner Helm commands must refer to charts actually published alongside this release. kube-hunter requires a trusted HTTPS report endpoint and authenticated relay. Falco events are only considered ingested after validating the Falcosidekick webhook and Dash event persistence. Private ECR requires workload IAM identity and any applicable cross-account repository authorization.
+## Operator EKS acceptance — 17 November 2026
+
+The project operator confirmed that an EKS installation works with cluster inventory, Trivy/private ECR, kube-bench, Kubesec, Falco and kube-hunter, including a kube-hunter report **loading and displaying correctly** in the Dashboard. This is a user-confirmed EKS runtime acceptance result, distinct from GitHub Actions CI. Other cloud providers and installations require their own verification.
 
 ## Install and upgrade
 
-Follow `INSTALL.md` and the [EKS guide](https://github.com/sm-joe/m9sweeper-modern/blob/main/docs/eks-installation.md). Generate first-install credentials only for new persistent volumes. Existing installations must reuse the original `m9-dash-env`, `m9-init-env`, `m9-trawler-env`, and their PostgreSQL/RabbitMQ data.
+Follow the [Linux quick start](getting-started.md), [full installation/upgrade guide](installation.md) or [Amazon EKS guide](eks-installation.md).
 
-## Release evidence
+For existing installations, **preserve** the current PostgreSQL/RabbitMQ volumes, service account identities, all three application Secrets and existing cluster registrations. Do not rerun the first-install credential generator. Use the matching chart and `IMAGE-DIGESTS.txt` from the same release publication.
 
-Publication requires successful exact-source Platform CI, signed immutable container and Helm artifacts, downloaded-chart Kubernetes acceptance, and independently reviewed kube-bench, kube-hunter, Trivy/private ECR and Falco end-to-end results. An installable chart or a started scanner Job alone is not evidence that scan reports reached the Dashboard.
+## Known boundaries
+
+- The kube-hunter report relay requires trusted HTTPS and a scoped scanner API key.
+- Private ECR authorization requires appropriate EKS Pod Identity/IRSA and any repository-owner grants.
+- A browser kubeconfig generated by an AWS/Azure/Google CLI may rely on exec credentials that the backend does not execute. Use a supported server-side credential strategy instead of uploading operator cloud secrets.
+- kube-bench worker checks do not provide complete control-plane CIS coverage.
+- AKS and GKE have not been confirmed by the EKS operator acceptance.
+
+## License
+
+[Apache 2.0](../platform/LICENSE) and the upstream/third-party notices in [ATTRIBUTION.md](../ATTRIBUTION.md) apply.
