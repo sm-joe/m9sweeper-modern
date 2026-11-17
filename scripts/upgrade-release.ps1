@@ -36,7 +36,7 @@ $prior = helm get values $Release --namespace $Namespace -o yaml
 AssertExit "Read existing values"
 $prior | Set-Content -Path $backup -Encoding utf8
 
-$args = @(
+$helmArgs = @(
   "upgrade", $Release, $chart,
   "--namespace", $Namespace,
   "--reuse-values",
@@ -48,7 +48,7 @@ $args = @(
   "--set-string", "trawler.image.tag=$trawlerTag",
   "--timeout", "15m"
 )
-& helm @args
+& helm @helmArgs
 AssertExit "Upgrade Helm release"
 kubectl -n $Namespace rollout status deployment/m9sweeper-dash --timeout=5m
 AssertExit "Dash rollout"
