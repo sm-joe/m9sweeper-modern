@@ -1,103 +1,91 @@
 # m9sweeper-modern
 
-**Kubernetes Security for Everyone**
+**Open-source Kubernetes security scanning and visibility.**
 
 [![Release](https://img.shields.io/github/v/release/sm-joe/m9sweeper-modern?label=release)](https://github.com/sm-joe/m9sweeper-modern/releases)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](platform/LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/sm-joe/m9sweeper-modern)](https://github.com/sm-joe/m9sweeper-modern/issues)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](platform/LICENSE)
+[![Issues](https://img.shields.io/github/issues/sm-joe/m9sweeper-modern)](https://github.com/sm-joe/m9sweeper-modern/issues)
 
-**m9sweeper-modern** is an open-source Kubernetes security platform that brings container vulnerability scanning, cluster security insights, policies and reporting into one dashboard. It continues the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) project with a modern application stack and actively maintained Kubernetes integration.
+m9sweeper-modern maintains and modernizes the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) project. It combines workload inventory, vulnerability scanning, policy management and security reports in a single Kubernetes dashboard.
 
-[**Start here — beginner guide**](docs/getting-started.md) · [**Installation**](docs/installation.md) · [**EKS step-by-step**](docs/eks-installation.md) · [**EKS / AKS / GKE guide**](docs/cloud-kubernetes.md) · [**Releases**](https://github.com/sm-joe/m9sweeper-modern/releases) · [**Report an issue**](https://github.com/sm-joe/m9sweeper-modern/issues) · [**Contribute**](CONTRIBUTING.md)
+**Documentation:** [Quick start](docs/getting-started.md) · [Installation and upgrades](docs/installation.md) · [Amazon EKS](docs/eks-installation.md) · [Other managed Kubernetes](docs/cloud-kubernetes.md) · [Release notes](docs/release-notes.md) · [Security](SECURITY.md)
 
-## What you can do
+## Capabilities
 
-- **Discover clusters and workloads** — view Kubernetes clusters, namespaces, deployments, pods and images.
-- **Scan container images** — identify CVEs with Trivy, review severity and track results over time.
-- **Manage security policies** — configure scanning rules, decisions and exceptions.
-- **Understand your security posture** — use dashboards, vulnerability trends and reports.
-- **Connect additional security tools** — Kubesec, kube-bench, kube-hunter, Falco and Gatekeeper integrations are available, with configuration depending on your cluster.
+| Capability | Integration | What you get |
+| --- | --- | --- |
+| Image vulnerability scanning | [Trivy](https://github.com/aquasecurity/trivy) | CVE findings, severity and scan history |
+| Cluster inventory | Kubernetes API | Clusters, namespaces, pods, images and workloads |
+| Kubernetes configuration review | [Kubesec](https://github.com/controlplaneio/kubesec) | Workload configuration findings |
+| CIS checks | [kube-bench](https://github.com/aquasecurity/kube-bench) | Node security benchmark reports |
+| Cluster exposure assessment | [kube-hunter](https://github.com/aquasecurity/kube-hunter) | Authenticated scan reports and findings |
+| Runtime detection | [Falco](https://falco.org/) | Security events and alert history |
+| Policy controls | [OPA Gatekeeper](https://github.com/open-policy-agent/gatekeeper) | Policy decisions, exceptions and review |
 
-## Security tools
+Each scanner requires appropriate access and configuration. A successful Helm installation alone does not demonstrate that a report was ingested.
 
-| Tool | Purpose |
+## Technology
+
+| Layer | Stack |
 | --- | --- |
-| [Trivy](https://github.com/aquasecurity/trivy) | Container image vulnerability scanning |
-| [Kubesec](https://github.com/controlplaneio/kubesec) | Kubernetes manifest security analysis |
-| [kube-bench](https://github.com/aquasecurity/kube-bench) | CIS benchmark assessments |
-| [kube-hunter](https://github.com/aquasecurity/kube-hunter) | Kubernetes penetration testing |
-| [Falco](https://falco.org/) | Runtime security events |
-| [OPA Gatekeeper](https://github.com/open-policy-agent/gatekeeper) | Kubernetes security policies |
-
-## Technology stack
-
-| Layer | Technology |
-| --- | --- |
-| Frontend | Angular 22, TypeScript, Angular Material, RxJS |
-| Backend | NestJS 11, Node.js, TypeScript |
-| Image scanner | Java 21, Maven, Trivy |
+| Dashboard | Angular 22 · TypeScript · Angular Material |
+| API and authorization | NestJS 11 · Node.js · TypeScript |
+| Image scan worker | Java 21 · RabbitMQ · Trivy |
 | Persistence | PostgreSQL 17 |
-| Messaging | RabbitMQ 4.4 |
-| Deployment | Kubernetes, Helm 3 |
-| Testing & automation | Jest, Playwright, GitHub Actions, Kind |
+| Packaging | Helm 3 · Kubernetes 1.35–1.37 |
+| Quality | Jest · Playwright · Kind · GitHub Actions |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Browser["Web browser"] --> Dashboard["Angular dashboard"]
-    Dashboard --> API["NestJS API"]
-    API <--> DB[("PostgreSQL")]
-    API --> Queue["RabbitMQ scan queue"]
-    Queue --> Worker["Java Trawler"]
-    Worker --> Trivy["Trivy"]
-    Trivy --> Worker
-    Worker --> API
-    API <--> Cluster["Kubernetes API"]
-    API --> Optional["Kubesec · kube-bench · kube-hunter · Falco"]
+  UI[Angular dashboard] --> API[NestJS API]
+  API <--> DB[(PostgreSQL)]
+  API --> MQ[RabbitMQ]
+  MQ --> Worker[Java Trawler]
+  Worker --> Trivy[Trivy]
+  Worker --> API
+  API <--> K8s[Kubernetes API]
+  Scanner[kube-bench / kube-hunter / Falco] --> Ingest[Authenticated report endpoints]
+  Ingest --> API
+  API --> Kubesec[Kubesec]
 ```
 
-The NestJS API maintains cluster inventory, policies and scan history. Trawler processes image-scan jobs from RabbitMQ and sends Trivy results back to the API for persistence and display.
+Cluster synchronization discovers running workloads and queues image scans. Trawler consumes jobs, runs Trivy and submits results to the API. Auxiliary scanners submit authenticated reports to the API for persistence and dashboard visualization.
 
 ## Installation
 
-**New to Kubernetes?** Follow the [beginner installation walkthrough](docs/getting-started.md) first. It explains each command, storage prerequisites, Secrets, Helm, how to verify success and the specific EKS PVC issue found during testing.
-
-### Requirements
-
-- A Kubernetes cluster and `kubectl` (Kubernetes 1.35 is the tested reference environment)
-- Helm 3 and [GitHub CLI](https://cli.github.com/)
-- Persistent storage provisioner (StorageClass) for PostgreSQL 17 and RabbitMQ 4.4, or existing external services
-
-### 1. Download
+**Prerequisites:** An accessible Kubernetes cluster, `kubectl`, Helm 3, `gh` (GitHub CLI), Python 3, and a working persistent StorageClass. All commands below run in **bash on Linux**. Verify your Kubernetes context before installation.
 
 ```bash
-mkdir -p m9sweeper && cd m9sweeper
-gh release download --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz' --pattern 'create-install-secrets.py'
-```
+set -euo pipefail
+kubectl config current-context
+kubectl get nodes
+kubectl get storageclass
 
-### 2. Configure
+mkdir -p "$HOME/m9sweeper-install"
+cd "$HOME/m9sweeper-install"
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern \
+  --pattern 'm9sweeper-0.1.0.tgz' \
+  --pattern 'create-install-secrets.py' \
+  --clobber
 
-For a new install, generate matching private credentials and use the [installation guide](docs/installation.md) for the remaining values. **For upgrades, reuse the existing Secrets; never regenerate them.**
-
-```bash
+umask 077
 export M9_PRIVATE_DIR="$HOME/.config/m9sweeper"
-export M9_ADMIN_EMAIL="your-real-admin-email@example.com"
+read -r -p 'Administrator email: ' M9_ADMIN_EMAIL
+export M9_ADMIN_EMAIL
 python3 ./create-install-secrets.py --output-dir "$M9_PRIVATE_DIR"
-```
 
-Replace the email address with your real admin email. Then create the namespace and Secrets:
-
-```bash
 kubectl create namespace m9sweeper-system
-kubectl -n m9sweeper-system create secret generic m9-dash-env --from-env-file="$M9_PRIVATE_DIR/dash-runtime.env"
-kubectl -n m9sweeper-system create secret generic m9-init-env --from-env-file="$M9_PRIVATE_DIR/dash-bootstrap.env"
-kubectl -n m9sweeper-system create secret generic m9-trawler-env --from-env-file="$M9_PRIVATE_DIR/trawler-runtime.env"
+kubectl -n m9sweeper-system create secret generic m9-dash-env \
+  --from-env-file="$M9_PRIVATE_DIR/dash-runtime.env"
+kubectl -n m9sweeper-system create secret generic m9-init-env \
+  --from-env-file="$M9_PRIVATE_DIR/dash-bootstrap.env"
+kubectl -n m9sweeper-system create secret generic m9-trawler-env \
+  --from-env-file="$M9_PRIVATE_DIR/trawler-runtime.env"
 ```
 
-### 3. Install with Helm
-
-Create a `values.yaml` file:
+Create `values.yaml` with the existing Secret references:
 
 ```yaml
 global:
@@ -115,43 +103,37 @@ trawler:
   existingSecret: m9-trawler-env
 ```
 
-Install m9sweeper:
-
 ```bash
-helm upgrade --install m9sweeper "$(find . -maxdepth 1 -type f -name 'm9sweeper-*.tgz' -print -quit)" \
-  --namespace m9sweeper-system \
-  --values values.yaml --timeout 15m
-
+helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
+  --namespace m9sweeper-system --values values.yaml --timeout 15m
+kubectl -n m9sweeper-system get pods,jobs,pvc
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-trawler --timeout=5m
-```
-
-### 4. Open the dashboard
-
-```bash
 kubectl -n m9sweeper-system port-forward service/m9sweeper-dash 13000:3000
 ```
 
-Visit **http://localhost:13000** and sign in with your configured administrator account.
+Open **http://localhost:13000** and sign in with the administrator email/password stored in the private bootstrap file. Keep that file protected and outside version control.
 
-See **[EKS installation and tested scanner walkthrough](docs/eks-installation.md)**, **[Installation & configuration](docs/installation.md)** and **[Cloud Kubernetes: EKS, AKS and GKE](docs/cloud-kubernetes.md)** for cloud storage, identity, cluster access, Linux commands and real-cluster acceptance.
+The [full installation guide](docs/installation.md) covers release checksums, first-run verification, existing installations, immutable image digests and recovery. The [EKS guide](docs/eks-installation.md) covers Pod Identity, private ECR, node CIS assessments, kube-hunter private HTTPS and Falco.
 
-**Cloud authentication status:** The current published release does not yet transparently authenticate an uploaded AWS EKS, Azure AKS or GKE CLI-exec kubeconfig inside the backend. Provider-native workload identity and token refresh must be implemented and validated before cloud onboarding is marked production-ready. Do not mount workstation cloud credentials or enable arbitrary exec plugins in the container.
+## Acceptance and compatibility
 
-## Development
+**Amazon EKS:** The project operator confirmed EKS setup acceptance on **17 November 2026**, including a rendered kube-hunter report and the Trivy, kube-bench, Kubesec and Falco integrations. This is operator-reported runtime acceptance, distinct from automated CI. See the [EKS validation checklist](docs/eks-installation.md#acceptance-checklist) for evidence expected in any new environment.
+
+**Other environments:** Cloud-hosted `exec` kubeconfigs are not automatically executable by the backend. Use cluster credentials and workload identities supported by the installation; do not upload local AWS, Azure or Google CLI secrets to the application. AKS and GKE require their own runtime testing before a comparable acceptance claim.
+
+## Repository
 
 ```text
-platform/dash/frontend/     Angular application
-platform/dash/backend/      NestJS API and migrations
-platform/trawler/           Java scanner
-platform/manifests/charts/  Helm charts
-platform/docker-compose/    Local development dependencies
-tools/                      Automated tests
-.github/workflows/          CI and release workflows
+platform/dash/frontend/      Angular UI
+platform/dash/backend/       NestJS API and database migrations
+platform/trawler/            Java scanner
+platform/manifests/charts/   Helm packages
+platform/docker-compose/     Development services
+tools/                       Verification and integration tests
+docs/                        Installation and operations documentation
 ```
 
-For contributions, see [CONTRIBUTING.md](CONTRIBUTING.md). Please report security vulnerabilities through [SECURITY.md](SECURITY.md), not public issues.
+Developers should read [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues privately using [SECURITY.md](SECURITY.md). Preserve upstream and third-party notices as described in [ATTRIBUTION.md](ATTRIBUTION.md).
 
-## License and acknowledgements
-
-Licensed under [Apache 2.0](platform/LICENSE). m9sweeper-modern builds on the original [m9sweeper](https://github.com/m9sweeper/m9sweeper) project. See [ATTRIBUTION.md](ATTRIBUTION.md) for author and license notices.
+Licensed under [Apache 2.0](platform/LICENSE). The original project and third-party scanners retain their respective license and trademark terms.

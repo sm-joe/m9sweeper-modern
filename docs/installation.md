@@ -1,120 +1,77 @@
-# Installation
+# Installation and upgrades
 
-**First Kubernetes installation?** Follow [Start here: install m9sweeper on Kubernetes](getting-started.md), a beginner-friendly Linux walkthrough covering the terminology, tools, storage, setup, login and troubleshooting. Use the detailed sections below as a configuration reference.
-
-**Installing on Amazon EKS?** Start with the [complete EKS installation and scanner guide](eks-installation.md). It covers EBS CSI, node availability zones, initial administrator setup, cluster kubeconfig registration, kube-bench reports, Kubesec pods and kube-hunter HTTPS.
-
-For other Kubernetes providers, check [provider storage and identity prerequisites](cloud-kubernetes.md); AKS and GKE runtime acceptance remains on hold.
-
-[Back to README](../README.md) · [Cloud Kubernetes (EKS / AKS / GKE)](cloud-kubernetes.md) · [Releases](https://github.com/sm-joe/m9sweeper-modern/releases)
+Deploy m9sweeper-modern on a Kubernetes cluster with Helm. All commands in this document use **bash on Linux**. For EKS-specific instructions, see [Amazon EKS](eks-installation.md); for a shorter introduction, see [Quick start](getting-started.md).
 
 ## Requirements
 
-Kubernetes 1.35–1.37 (chart declared range; validate each environment), Helm 3, kubectl, GitHub CLI and a working default CSI-backed persistent StorageClass with sufficient node pod capacity in each volume's availability zone. The chart includes PostgreSQL 17 and RabbitMQ 4.4; existing external services are optional.
+- Kubernetes 1.35–1.37, `kubectl` and Helm 3
+- GitHub CLI (`gh`), Python 3, `sha256sum` and a shell with `bash`
+- A working default persistent StorageClass for PostgreSQL and RabbitMQ, or operator-provided external dependencies
+- Authorization to create namespace-scoped Secrets, Helm resources and the scanner service accounts
 
-## Step 1 — Download
+Check your target cluster before continuing:
 
 ```bash
-mkdir -p m9sweeper && cd m9sweeper
-gh release download --repo sm-joe/m9sweeper-modern --pattern '*.tgz' --pattern 'create-install-secrets.py'
+set -euo pipefail
+kubectl config current-context
+kubectl get nodes
+kubectl get storageclass
+kubectl get csidriver
 ```
 
-## Step 2 — Configure
+## Fresh installation
 
-**New installation:** Download the signed release and its credential setup helper. Generate all three synchronized credential files once. The helper generates cryptographically random passwords and scanner API keys, sets file permissions to 0600, and refuses to overwrite any existing installation files.
+### 1. Download the published package
+
+```bash
+mkdir -p "$HOME/m9sweeper-install"
+cd "$HOME/m9sweeper-install"
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern \
+  --pattern 'm9sweeper-0.1.0.tgz' \
+  --pattern 'create-install-secrets.py' \
+  --pattern 'SHA256SUMS' \
+  --clobber
+helm show chart ./m9sweeper-0.1.0.tgz
+```
+
+The release also contains optional standalone `kube-bench-0.1.0.tgz` and `kube-hunter-0.1.0.tgz` packages. To verify every listed SHA256 checksum, download the other files referenced by `SHA256SUMS` and run `sha256sum -c SHA256SUMS`. Do not combine files from different refreshes of the release.
+
+### 2. Generate matching credentials once
 
 ```bash
 umask 077
 export M9_PRIVATE_DIR="$HOME/.config/m9sweeper"
-export M9_ADMIN_EMAIL="your-real-admin-email@example.com"
+read -r -p 'Administrator email: ' M9_ADMIN_EMAIL
+export M9_ADMIN_EMAIL
 python3 ./create-install-secrets.py --output-dir "$M9_PRIVATE_DIR"
+chmod 700 "$M9_PRIVATE_DIR"
 ```
 
-Replace the example administrator email with an address you control **before** running the helper. The random administrator password is stored only in the private `dash-bootstrap.env` file; retrieve it on your workstation when first signing in. Do not log or commit that file.
+The generator writes three matching, private files:
 
-The generated files contain the exact names consumed by Dash, Trawler, PostgreSQL and RabbitMQ:
-
-| Dashboard or bootstrap Secret | Trawler Secret | Requirement |
+| File | Kubernetes Secret | Purpose |
 | --- | --- | --- |
-| `m9-dash-env:RABBITMQ_USER_NAME` | `m9-trawler-env:RABBITMQ_USERNAME` | Identical broker username |
-| `m9-dash-env:RABBITMQ_USER_PASSWORD` | `m9-trawler-env:RABBITMQ_PASSWORD` | Identical broker password |
-| `m9-dash-env:RABBITMQ_HOST_NAME` | `m9-trawler-env:RABBITMQ_HOSTNAME` | Same broker Service address |
-| `m9-dash-env:MSG_QUEUE_NAME_IMAGE_SCANNER` | `m9-trawler-env:RABBITMQ_QUEUE_NAME` | Same queue |
-| `m9-init-env:TRAWLER_API_KEY` | `m9-trawler-env:M9SWEEPER_API_KEY` | Identical authorized Trawler identity |
+| `dash-runtime.env` | `m9-dash-env` | API, PostgreSQL and RabbitMQ settings |
+| `dash-bootstrap.env` | `m9-init-env` | First administrator and scanner accounts |
+| `trawler-runtime.env` | `m9-trawler-env` | Worker queue and API credentials |
 
-**Compatibility:** Existing `m9-trawler-env` Secrets using `RABBITMQ_HOST_NAME`, `RABBITMQ_USER_NAME`, `RABBITMQ_USER_PASSWORD`, and `MSG_QUEUE_NAME_IMAGE_SCANNER` are supported as aliases of `RABBITMQ_HOSTNAME`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`, and `RABBITMQ_QUEUE_NAME`. The Helm preflight accepts either complete format and the Java Trawler reads either format; conflicting values in both formats are rejected before upgrade. **Do not recreate an existing Secret merely to rename those keys.**
-
-### Upgrading an existing installation with Kubernetes Secrets
-
-**Critical for refreshed v0.1.0:** Every signed release chart pins the Dash and Trawler images to immutable SHA256 digests. Using `helm upgrade --reuse-values` without explicitly updating `dash.image.tag` and `trawler.image.tag` silently keeps the OLD image digests from the previous Helm revision, even when the replacement chart contains fixes. That leaves browsers running the old Angular bundle (for example, a kube-hunter report page still saying "Loading kube-hunter report..."). Always deploy the newly published image digests with the chart; do not reset database or credentials.
-
-For a Windows PowerShell operator, download `upgrade-release.ps1` from the same GitHub release and run it from the installation folder:
-
-```powershell
-gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern "upgrade-release.ps1" --clobber
-.\upgrade-release.ps1 -Namespace m9sweeper-system
-```
-
-The script downloads the replacement chart and `IMAGE-DIGESTS.txt`, saves your Helm values, reuses your Secret references and storage, explicitly overrides BOTH image digests, and verifies the exact deployed image references. **Do not use an earlier saved chart with a newer digest manifest.**
-
-On Linux, fetch the same release chart and digest manifest, then pin both digests explicitly during upgrade:
-
-```bash
-gh release download v0.1.0 --repo sm-joe/m9sweeper-modern \
-  --pattern 'm9sweeper-0.1.0.tgz' --pattern 'IMAGE-DIGESTS.txt' --clobber
-dash_digest="$(sed -n 's|^dash=ghcr.io/sm-joe/m9sweeper-dash@||p' IMAGE-DIGESTS.txt)"
-trawler_digest="$(sed -n 's|^trawler=ghcr.io/sm-joe/m9sweeper-trawler@||p' IMAGE-DIGESTS.txt)"
-[[ "$dash_digest" =~ ^sha256:[a-f0-9]{64}$ && "$trawler_digest" =~ ^sha256:[a-f0-9]{64}$ ]] || exit 1
-helm upgrade m9sweeper ./m9sweeper-0.1.0.tgz -n m9sweeper-system \
-  --reuse-values \
-  --set-string dash.image.registry=ghcr.io \
-  --set-string dash.image.repository=sm-joe/m9sweeper-dash \
-  --set-string "dash.image.tag=v0.1.0@$dash_digest" \
-  --set-string trawler.image.registry=ghcr.io \
-  --set-string trawler.image.repository=sm-joe/m9sweeper-trawler \
-  --set-string "trawler.image.tag=v0.1.0@$trawler_digest" \
-  --timeout 15m
-```
-
-`helm upgrade --reuse-values` reuses only Helm's saved values; it **does not automatically discover** an existing Kubernetes Secret. If the saved values omit `dash.existingSecret`, Helm can incorrectly prompt for `global.jwtSecret` even though `m9-dash-env` already exists. **Do not generate a new JWT, API key, or broker password.** Confirm the existing Secret names first, then provide the references (not their contents) explicitly:
-
-```bash
-kubectl -n m9sweeper-system get secret m9-dash-env m9-init-env m9-trawler-env
-helm upgrade m9sweeper "$(find . -maxdepth 1 -type f -name 'm9sweeper-*.tgz' -print -quit)" \
-  --namespace m9sweeper-system --reuse-values \
-  --set-string dash.existingSecret=m9-dash-env \
-  --set-string dash.init.existingSecret=m9-init-env \
-  --set-string trawler.existingSecret=m9-trawler-env \
-  --set-string postgresql.postgresql.existingSecret=m9-dash-env \
-  --set-string rabbitmq.existingSecret=m9-dash-env \
-  --set-string dash.image.registry=ghcr.io \
-  --set-string dash.image.repository=sm-joe/m9sweeper-dash \
-  --set-string "dash.image.tag=v0.1.0@$dash_digest" \
-  --set-string trawler.image.registry=ghcr.io \
-  --set-string trawler.image.repository=sm-joe/m9sweeper-trawler \
-  --set-string "trawler.image.tag=v0.1.0@$trawler_digest" \
-  --timeout 15m
-```
-
-Preserve any saved `global.installation.enabled`, bundled/external dependency configuration, image settings, and custom Helm values; **do not force a different installation mode** during upgrade. If your current deployment references differently named Secrets, substitute those *existing names*, not newly generated files. The preceding command applies to installations that already use `m9-dash-env`, `m9-init-env`, and `m9-trawler-env`; inspect `helm get values m9sweeper -n m9sweeper-system` first if the current deployment differs.
-
-**Existing installation or upgrade:** Do not rerun the generator, recreate Secrets, change broker credentials, reset registered scanner API keys, remove the RabbitMQ PVC, or re-run administrator bootstrap. Preserve your existing Helm values and Secrets. Before upgrading, verify Secret key names against the table above and fix any mismatch without changing the underlying authorized values. The Helm pre-install/pre-upgrade hook now rejects missing/mismatched names or known placeholder values *before* application workloads are changed.
-
-A persisted RabbitMQ account can retain its original password independently of Kubernetes Secret data. Matching Secrets alone do not prove authentication; verify the broker with `rabbitmqctl authenticate_user` after RabbitMQ is running. The Erlang cookie must remain owner-only (0600) across upgrades; the bundled RabbitMQ startup hook repairs that permission without replacing the cookie.
-
-Create the Kubernetes namespace and Secrets:
+Do not publish these files. In particular, `m9-init-env` contains API keys for Trivy, kube-bench, kube-hunter and Falco integrations.
 
 ```bash
 kubectl create namespace m9sweeper-system
-kubectl -n m9sweeper-system create secret generic m9-dash-env --from-env-file="$M9_PRIVATE_DIR/dash-runtime.env"
-kubectl -n m9sweeper-system create secret generic m9-init-env --from-env-file="$M9_PRIVATE_DIR/dash-bootstrap.env"
-kubectl -n m9sweeper-system create secret generic m9-trawler-env --from-env-file="$M9_PRIVATE_DIR/trawler-runtime.env"
+kubectl -n m9sweeper-system create secret generic m9-dash-env \
+  --from-env-file="$M9_PRIVATE_DIR/dash-runtime.env"
+kubectl -n m9sweeper-system create secret generic m9-init-env \
+  --from-env-file="$M9_PRIVATE_DIR/dash-bootstrap.env"
+kubectl -n m9sweeper-system create secret generic m9-trawler-env \
+  --from-env-file="$M9_PRIVATE_DIR/trawler-runtime.env"
+kubectl -n m9sweeper-system get secrets m9-dash-env m9-init-env m9-trawler-env
 ```
 
-Create **`$M9_PRIVATE_DIR/m9sweeper-values.yaml`** with the following command. Do not put passwords in Helm values:
+### 3. Supply Helm values
 
 ```bash
-cat > "$M9_PRIVATE_DIR/m9sweeper-values.yaml" <<'YAML'
+cat > "$M9_PRIVATE_DIR/values.yaml" <<'YAML'
 global:
   installation:
     enabled: true
@@ -129,99 +86,90 @@ dash:
 trawler:
   existingSecret: m9-trawler-env
 YAML
-chmod 600 "$M9_PRIVATE_DIR/m9sweeper-values.yaml"
+chmod 600 "$M9_PRIVATE_DIR/values.yaml"
 ```
 
-The chart includes its application image references. For bundled PostgreSQL and RabbitMQ, the chart injects the release-local Service hostnames automatically. Keep the passwords and usernames consistent across the Dash and Trawler Secrets.
+The application chart provisions the bundled PostgreSQL 17 and RabbitMQ 4.4 services in this mode. Existing installations must preserve their selected bundled/external dependency configuration.
 
-## Step 3 — Install
-
-From the directory where you downloaded the release:
+### 4. Install and check the platform
 
 ```bash
-helm upgrade --install m9sweeper "$(find . -maxdepth 1 -type f -name 'm9sweeper-*.tgz' -print -quit)" \
-  --namespace m9sweeper-system --values "$M9_PRIVATE_DIR/m9sweeper-values.yaml" --timeout 15m
+helm lint ./m9sweeper-0.1.0.tgz -f "$M9_PRIVATE_DIR/values.yaml"
+helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
+  --namespace m9sweeper-system \
+  --values "$M9_PRIVATE_DIR/values.yaml" \
+  --timeout 15m
 
+kubectl -n m9sweeper-system get pods,jobs,pvc -o wide
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m
 kubectl -n m9sweeper-system rollout status deployment/m9sweeper-trawler --timeout=5m
-```
-
-**Do not use `--wait` for the first install.** The database initialization job must run before deployment readiness is checked. Verify it *actually completed*, and verify the bootstrap administrator exists in the persistent database before calling the install healthy. A ready Dashboard Pod alone does not prove the install succeeded.
-
-## Step 4 — Open m9sweeper
-
-```bash
-kubectl -n m9sweeper-system port-forward svc/m9sweeper-dash 13000:3000
-```
-
-Open [http://localhost:13000](http://localhost:13000) on the same workstation and sign in using the account from `dash-bootstrap.env`. Register a cluster only with credentials the backend can actually refresh and validate; the uploaded cloud CLI `exec` kubeconfig workflow is **not yet implemented in the published release**. See [EKS / AKS / GKE requirements and acceptance](cloud-kubernetes.md). Configure a Trivy policy and scan a test image to view findings.
-
-## Troubleshooting
-
-If Helm reports that a cluster-wide `ClusterRole` already exists, inspect the existing role and its bindings with `kubectl get clusterrole m9sweeper -o yaml` and `kubectl get clusterrolebindings`. The current chart creates a unique role named `m9sweeper-m9sweeper-system` instead of taking ownership of another installation's role. Do not delete existing cluster-scoped resources without first checking which service accounts depend on them.
-
-
-```bash
-kubectl -n m9sweeper-system get pods,jobs,pvc -o wide
-kubectl get nodes -L topology.kubernetes.io/zone
-kubectl get csidriver
-kubectl get storageclass
-kubectl -n m9sweeper-system get events --sort-by=.metadata.creationTimestamp
 helm status m9sweeper -n m9sweeper-system
 ```
 
-If pods do not start, check their events and make sure the database, message queue, credentials and registry access are correct. Keep the dashboard local unless you have configured a trusted HTTPS ingress. Back up PostgreSQL before upgrades; a Helm rollback does not reverse database schema changes.
+Verify the first-install bootstrap Job completed; confirm PostgreSQL and RabbitMQ PVCs are `Bound` and both deployments Ready. Do **not** regenerate Secrets to fix a stateful volume scheduling problem. On EKS, check the EBS CSI driver and volume availability zones first.
 
-For problems, [open an issue](https://github.com/sm-joe/m9sweeper-modern/issues) with redacted logs. See [Security](../SECURITY.md) for private vulnerability reporting.
-
-## Scanner reports and standalone Helm charts
-
-The Dash Helm deployment automatically sets `SCANNER_REPORT_INGESTION_URL` to its own
-cluster-local Service origin, such as
-`http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000`.
-This endpoint is reachable from Kubernetes Jobs in the same cluster; a local
-browser URL or port-forward (`localhost`) is not a scanner callback.
-
-Download the current kube-bench chart before running the command below: `gh release download --repo sm-joe/m9sweeper-modern --pattern 'kube-bench-*.tgz'`. To install kube-bench, use the existing initialization Secret `m9-init-env` with key `KUBE_BENCH_API_KEY`. Do not create or rotate another scanner key unless you intentionally manage scanner identities separately.
-The key must have permission to submit reports for the selected cluster. Avoid exposing it in Helm values or logs.
-Then run, for example:
+### 5. Log in and enroll your cluster
 
 ```bash
-helm upgrade --install kube-bench \
-  "$(find . -maxdepth 1 -type f -name 'kube-bench-*.tgz' -print -quit)" \
-  -n m9sweeper-system \
-  --set-string provider=commonjob \
-  --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
-  --set-string reportAuth.existingSecret=m9-init-env \
-  --set-string reportAuth.keyName=KUBE_BENCH_API_KEY \
-  --set cronjob.enabled=false
+kubectl -n m9sweeper-system port-forward service/m9sweeper-dash 13000:3000
 ```
 
-Use `kubectl -n m9sweeper-system get jobs,pods` and
-`kubectl -n m9sweeper-system logs job/<job-name>` to inspect actual execution.
-Closing the wizard alone does not launch a scan.
+Visit **http://localhost:13000**. Sign in with the configured administrator email and the password from `$M9_PRIVATE_DIR/dash-bootstrap.env`. Register a cluster using a backend-compatible, authorized kubeconfig; check inventory and automatic image synchronization without manually running the cluster-sync CLI.
 
-**kube-hunter differs:** the header-authenticated report relay requires trusted HTTPS. Reuse `m9-init-env` key `KUBE_HUNTER_API_KEY` with `reportRelay.existingSecret=m9-init-env` and `reportRelay.secretKey=KUBE_HUNTER_API_KEY`; no extra relay Secret is needed.
-Configure a real ingress or TLS gateway that routes to Dash and is reachable from
-Kubernetes Pods. Set `dash.scannerReportIngestionUrl` to that HTTPS origin
-in your private values file, then upgrade the umbrella Helm release.
-Use a trusted certificate or `reportRelay.caSecret` for your private CA.
-The kube-hunter chart is independently available at:
+For EKS, follow the [cluster registration and scanner instructions](eks-installation.md). Automatic sync uses a five-minute CronJob; successful scans require RabbitMQ consumers, scanner access, and the reports arriving in the dashboard.
 
-```text
-gh release download --repo sm-joe/m9sweeper-modern --pattern 'kube-hunter-*.tgz'
+## Upgrading an existing installation
+
+**Keep your current Secrets, PostgreSQL and RabbitMQ PVCs, API keys and cluster registrations.** Never rerun `create-install-secrets.py` during an upgrade.
+
+The published Helm chart pins **Dash and Trawler to immutable image digests**. A plain `helm upgrade --reuse-values` can retain old digests and silently leave an older Angular UI running. Download the chart and matching `IMAGE-DIGESTS.txt` together and override both image tags.
+
+```bash
+set -euo pipefail
+cd "$HOME/m9sweeper-install"
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern \
+  --pattern 'm9sweeper-0.1.0.tgz' \
+  --pattern 'IMAGE-DIGESTS.txt' \
+  --clobber
+
+kubectl -n m9sweeper-system get secret m9-dash-env m9-init-env m9-trawler-env
+helm get values m9sweeper -n m9sweeper-system -o yaml > m9sweeper-values-backup.yaml
+helm history m9sweeper -n m9sweeper-system
+
+dash_digest="$(sed -n 's|^dash=ghcr.io/sm-joe/m9sweeper-dash@||p' IMAGE-DIGESTS.txt)"
+trawler_digest="$(sed -n 's|^trawler=ghcr.io/sm-joe/m9sweeper-trawler@||p' IMAGE-DIGESTS.txt)"
+[[ "$dash_digest" =~ ^sha256:[a-f0-9]{64}$ ]] || exit 1
+[[ "$trawler_digest" =~ ^sha256:[a-f0-9]{64}$ ]] || exit 1
+
+helm upgrade m9sweeper ./m9sweeper-0.1.0.tgz \
+  --namespace m9sweeper-system \
+  --reuse-values \
+  --set-string dash.image.registry=ghcr.io \
+  --set-string dash.image.repository=sm-joe/m9sweeper-dash \
+  --set-string "dash.image.tag=v0.1.0@$dash_digest" \
+  --set-string trawler.image.registry=ghcr.io \
+  --set-string trawler.image.repository=sm-joe/m9sweeper-trawler \
+  --set-string "trawler.image.tag=v0.1.0@$trawler_digest" \
+  --timeout 15m
+
+kubectl -n m9sweeper-system rollout status deployment/m9sweeper-dash --timeout=5m
+kubectl -n m9sweeper-system rollout status deployment/m9sweeper-trawler --timeout=5m
+kubectl -n m9sweeper-system get deploy m9sweeper-dash m9sweeper-trawler -o wide
 ```
 
-Do not use a bare `/api/kubehunter/hunter/<cluster-id>` path or a
-browser-only localhost URL as `reportRelay.targetUrl`; it must be a full
-trusted HTTPS URL. Generate the exact target via the UI after setting the HTTPS
-origin. Both scanner charts are included as versioned release assets, not
-inside the umbrella Helm chart or an operator's current working directory.
+Review the actual container images against `IMAGE-DIGESTS.txt` using `kubectl get deployment -o json`. If the current release used different Secret names, preserve those names via the saved Helm values; **do not** introduce new credentials to make an upgrade pass.
 
-## Amazon EKS: validated path and scanner fixes
+Back up PostgreSQL before upgrades. Helm rollback restores Kubernetes manifests, **not** database migrations.
 
-Follow the [step-by-step EKS installation guide](eks-installation.md) for **the tested kubeconfig connection**, EBS CSI storage, database initialization, kube-bench, Kubesec pod listing, and kube-hunter HTTPS. Before EKS installation verify the downloaded chart renders `--benchmark eks-1.2.0`, not the unsupported `eks-1.0`. The EKS guide uses the validated scanner chart and **reuses scanner keys from the existing `m9-init-env` Secret** rather than instructing users to create missing arbitrary Secrets.
+## Troubleshooting
 
-On the real test EKS cluster, kube-bench execution **and its dashboard report** were confirmed by the operator. Kubesec and kube-hunter fixes still require deployment and runtime acceptance. Trivy and Falco EKS acceptance also remain open. These conditions do not block installing the core application, but do block claiming complete production-ready cloud scanner certification.
+| Symptom | Check | Correct approach |
+| --- | --- | --- |
+| PostgreSQL/RabbitMQ Pods Pending | `kubectl get pvc`, `kubectl describe pod` | CSI driver, StorageClass, available node/volume zone |
+| Trawler cannot connect to broker | RabbitMQ diagnostics and queue consumers | Verify startup recovery, Service DNS and matching existing credentials |
+| Inventory is empty | `kubectl get cronjob,jobs -n m9sweeper-system` | Verify scheduled sync and stored cluster authorization |
+| Private ECR images fail to scan | Trawler logs and Pod Identity association | Configure ECR permissions for the Trawler service account |
+| kube-hunter report won't load | Dash image digest, browser Network/Console, report API | Deploy matching digest and investigate API response; do not delete reports |
+| Falco forwarding fails | Falcosidekick logs and webhook Secret | Use a real reachable endpoint and correct authenticated header |
 
-For other providers, use [the cloud requirements guide](cloud-kubernetes.md) and select your cluster's compatible CSI driver, node topology, identity and networking configuration. AKS and GKE runtime acceptance is currently on hold.
+Read [EKS installation](eks-installation.md) for concrete scanner installation, private HTTPS, ECR identity and runtime acceptance. Read [SECURITY.md](../SECURITY.md) before exposing the dashboard beyond a local port-forward.

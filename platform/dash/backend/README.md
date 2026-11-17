@@ -8,27 +8,18 @@ From a checked-out repository with Node.js and npm installed:
 
 ```bash
 cd platform/dash/backend
-npm ci
+npm ci --legacy-peer-deps
 npm run build:api
 npm test -- --runInBand
 ```
 
 The backend requires configuration for PostgreSQL, RabbitMQ, JWT security and scanner report ingestion. Never commit actual secrets or print raw bearer tokens or kubeconfigs in build logs. For deployment use the versioned Helm chart and [installation guide](../../../docs/installation.md).
 
-## Initialization
+## Initialization and inventory
 
-The Helm post-install Job is expected to run:
+The Helm bootstrap Job creates the first administrator, scanner-service identities, cluster metadata and initial configuration. A separate **Kubernetes CronJob** reconciles cluster inventory automatically every five minutes in the default published chart. Routine operation must not require an administrator to invoke manual cluster-sync commands.
 
-```bash
-npm run cli:database:migrate
-npm run cli:users:init
-npm run cli:cluster:seed
-npm run cli:registries:init
-npm run cli:exceptions:init
-npm run cli:cluster:sync-all
-```
-
-These are application commands to be executed **inside a correctly configured container**; running them against a production database without verifying the connection target and initialization state is unsafe. Cluster sync is not proof that scans completed. Confirm administrator and scoped scanner identities exist after installation.
+The packaged CLI is intended for controlled initialization and troubleshooting **inside a correctly configured container**. Before running any database or cluster mutation, verify the target cluster, API identity and database connection. A completed inventory Job does not prove that an image scan was persisted.
 
 ## Managed Kubernetes authentication
 
