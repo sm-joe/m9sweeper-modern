@@ -159,42 +159,28 @@ If a StorageClass was missing, configuring a correct default **may** allow exist
 
 This is a new installation step only. **Existing installations:** skip resource creation and check Secrets with `kubectl -n m9sweeper-system get secret m9-dash-env m9-init-env m9-trawler-env`; never overwrite existing values casually.
 
-All three files below are on your Linux computer, **not** in the Git repository. The complete required fields and example service addresses are in [Installation — Configure](installation.md).
+The credentials are local private files, not YAML or text to commit to Git. Download the release helper (this is intentionally separate from creating existing Kubernetes Secrets):
 
 ```bash
 umask 077
-sudo install -d -m 700 /secure
-sudo chown "$(id -un):$(id -gn)" /secure
+mkdir -p "$HOME/m9sweeper-install"
+cd "$HOME/m9sweeper-install"
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern 'create-install-secrets.py'
+export M9_PRIVATE_DIR="$HOME/.config/m9sweeper"
+export M9_ADMIN_EMAIL="your-real-admin-email@example.com"
+python3 ./create-install-secrets.py --output-dir "$M9_PRIVATE_DIR"
 ```
 
-Create `/secure/dash-runtime.env`, `/secure/dash-bootstrap.env`, and `/secure/trawler-runtime.env` as described in the [configuration guide](installation.md). Use a terminal editor such as:
+Replace the email address before running. The helper creates **all three** correctly named, synchronized, 0600-protected files; it refuses to overwrite an existing installation. The random administrator password is in your locally protected bootstrap file.
 
-```bash
-nano /secure/dash-runtime.env
-nano /secure/dash-bootstrap.env
-nano /secure/trawler-runtime.env
-```
-
-Replace every `replace-with-...` example. Generate random values with:
-
-```bash
-openssl rand -hex 32
-```
-
-Use separate keys for each scanner and JWT. The Trawler API key and RabbitMQ credentials must match in the corresponding files. Confirm **file names only**, not their sensitive content:
-
-```bash
-ls -l /secure/*.env
-```
-
-Now create the Kubernetes namespace and Secrets:
+Create the namespace and Secrets **only for a new installation**:
 
 ```bash
 export NAMESPACE=m9sweeper-system
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n "$NAMESPACE" create secret generic m9-dash-env --from-env-file=/secure/dash-runtime.env
-kubectl -n "$NAMESPACE" create secret generic m9-init-env --from-env-file=/secure/dash-bootstrap.env
-kubectl -n "$NAMESPACE" create secret generic m9-trawler-env --from-env-file=/secure/trawler-runtime.env
+kubectl -n "$NAMESPACE" create secret generic m9-dash-env --from-env-file="$M9_PRIVATE_DIR/dash-runtime.env"
+kubectl -n "$NAMESPACE" create secret generic m9-init-env --from-env-file="$M9_PRIVATE_DIR/dash-bootstrap.env"
+kubectl -n "$NAMESPACE" create secret generic m9-trawler-env --from-env-file="$M9_PRIVATE_DIR/trawler-runtime.env"
 kubectl -n "$NAMESPACE" get secret m9-dash-env m9-init-env m9-trawler-env
 ```
 
@@ -205,14 +191,14 @@ Expected: three Kubernetes Secrets are listed. Their contents are not printed.
 ```bash
 mkdir -p "$HOME/m9sweeper-install"
 cd "$HOME/m9sweeper-install"
-gh release download v0.1.2 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
 ls -lh m9sweeper-*.tgz
 ```
 
-Create `/secure/m9sweeper-values.yaml`:
+Create `$M9_PRIVATE_DIR/m9sweeper-values.yaml`:
 
 ```bash
-cat > /secure/m9sweeper-values.yaml <<'YAML'
+cat > "$M9_PRIVATE_DIR/m9sweeper-values.yaml" <<'YAML'
 global:
   installation:
     enabled: true
@@ -227,7 +213,7 @@ dash:
 trawler:
   existingSecret: m9-trawler-env
 YAML
-chmod 600 /secure/m9sweeper-values.yaml
+chmod 600 "$M9_PRIVATE_DIR/m9sweeper-values.yaml"
 ```
 
 If you already have a values file, **edit and preserve it** rather than replacing custom settings.
@@ -235,9 +221,9 @@ If you already have a values file, **edit and preserve it** rather than replacin
 Install (do not pass `--wait` on the first installation because the initialization Job needs to run):
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.2.tgz \
+helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
   --namespace m9sweeper-system \
-  --values /secure/m9sweeper-values.yaml --timeout 15m
+  --values $M9_PRIVATE_DIR/m9sweeper-values.yaml --timeout 15m
 ```
 
 Expected: Helm prints a release summary. **Helm success is not yet proof the database is initialized or the scanners work.**
@@ -295,7 +281,7 @@ The operator kubeconfig in Step 2 and the kubeconfig used for unattended Dashboa
 After a registered cluster appears in Dashboard, use this order:
 
 1. **Inventory:** check namespaces and actual pods populate.
-2. **kube-bench (EKS EC2 nodes):** follow [the tested kube-bench command](eks-installation.md#5-run-kube-bench-and-see-its-eks-report). The v0.1.2 one-time kube-bench archive has a known invalid benchmark; use corrected source. The scanner key lives in existing Secret `m9-init-env`.
+2. **kube-bench (EKS EC2 nodes):** follow [the tested kube-bench command](eks-installation.md#5-run-kube-bench-and-see-its-eks-report). The v0.1.0 one-time kube-bench archive has a known invalid benchmark; use corrected source. The scanner key lives in existing Secret `m9-init-env`.
 3. **Kubesec:** select a real pod or upload a Pod manifest. The namespace-selector fix requires updated application images, not only changed Helm values.
 4. **kube-hunter:** enable the header-authenticated relay only with a reachable **trusted HTTPS** endpoint. Follow [the HTTPS setup](eks-installation.md#7-kube-hunter-configure-a-trusted-https-report-endpoint). Do not bypass certificate verification.
 5. **Trivy/Falco:** follow the source integration acceptance documentation; do not assume a Job started means an end-to-end report was saved.
@@ -318,7 +304,7 @@ Share status output, relevant error messages, and **redacted** logs in a GitHub 
 
 ## Important limitations
 
-- The existing v0.1.2 release is immutable. Source fixes do not change a running application until new images and charts are built and installed.
+- The existing v0.1.0 release is immutable. Source fixes do not change a running application until new images and charts are built and installed.
 - Successful EKS kube-bench results have been observed in the Dashboard. The other scanner integrations still need actual EKS runtime verification.
 - AKS and GKE prerequisites are documented; their end-to-end acceptance is paused.
 - Cloud IAM, Kubernetes RBAC, service-account token rotation, TLS certificates and private API networking still require cluster-specific decisions. The guide does not grant unrestricted access automatically.
