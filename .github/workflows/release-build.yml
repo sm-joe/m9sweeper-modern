@@ -236,6 +236,7 @@ jobs:
           chart="dist/m9sweeper-${VERSION#v}.tgz"
           cp docs/installation.md dist/INSTALL.md
           cp scripts/create-install-secrets.py dist/create-install-secrets.py
+          cp scripts/upgrade-release.ps1 dist/upgrade-release.ps1
           python3 -m py_compile scripts/create-install-secrets.py
           # The repository installation page continues to target the latest
           # already-published release until this candidate passes acceptance.
@@ -253,7 +254,7 @@ jobs:
           for scanner in kube-bench kube-hunter; do
             cosign verify-blob --bundle "dist/$scanner.sigstore.json" --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "dist/$scanner-${VERSION#v}.tgz"
           done
-          (cd dist && sha256sum ./*.tgz m9sweeper-source.spdx.json INSTALL.md create-install-secrets.py > SHA256SUMS && sha256sum -c SHA256SUMS)
+          (cd dist && sha256sum ./*.tgz m9sweeper-source.spdx.json INSTALL.md create-install-secrets.py upgrade-release.ps1 > SHA256SUMS && sha256sum -c SHA256SUMS)
       - name: Upload immutable-digest candidate manifest, chart and evidence
         uses: actions/upload-artifact@v4
         with:
@@ -284,7 +285,7 @@ jobs:
           gh release create "$VERSION" \
             dist/*.tgz dist/SHA256SUMS dist/IMAGE-DIGESTS.txt \
             dist/*.sigstore.json dist/m9sweeper-source.spdx.json \
-            dist/RELEASE-METADATA.txt dist/INSTALL.md dist/create-install-secrets.py \
+            dist/RELEASE-METADATA.txt dist/INSTALL.md dist/create-install-secrets.py dist/upgrade-release.ps1 \
             --target "$GITHUB_SHA" \
             --title "m9sweeper-modern $VERSION" \
             --notes-file docs/release-notes.md
