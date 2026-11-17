@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: Exact version to publish (e.g. v0.1.1)
+        description: Exact version to publish (e.g. v0.1.2)
         type: string
         required: true
-        default: v0.1.1
+        default: v0.1.2
       source_sha:
         description: Exact successful source SHA
         type: string
@@ -24,7 +24,7 @@ on:
         type: string
         required: true
       cleanup_old_releases:
-        description: Retain previous release assets for rollback after v0.1.1 publication
+        description: Retain previous release assets for rollback after v0.1.2 publication
         type: boolean
         required: false
         default: false
@@ -42,7 +42,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       inputs.confirmation == 'SIGNED_AND_ACCEPTED' &&
       (inputs.scanner_acceptance == 'KUBE_HUNTER_TRIVY_FALCO_VERIFIED' ||
-       (inputs.release_version == 'v0.1.1' && inputs.scanner_acceptance == 'PENDING_DISCLOSED')) &&
+       (inputs.release_version == 'v0.1.2' && inputs.scanner_acceptance == 'PENDING_DISCLOSED')) &&
       inputs.source_sha == github.sha &&
       github.repository == 'sm-joe/m9sweeper-modern'
     runs-on: ubuntu-latest
@@ -195,12 +195,12 @@ jobs:
         run: |
           set -euo pipefail
           version='${{ inputs.release_version }}'
-          [[ "$version" == v0.1.1 ]] || {
-            echo 'Cleanup is permitted only after publishing v0.1.1' >&2
+          [[ "$version" == v0.1.2 ]] || {
+            echo 'Cleanup is permitted only after publishing v0.1.2' >&2
             exit 1
           }
           gh release view "$version" --json tagName,isDraft,isPrerelease,assets \
-            --jq 'select(.tagName == "v0.1.1" and .isDraft == false and .isPrerelease == false and (.assets | length) >= 6) | .tagName' | grep -Fxq "$version"
+            --jq 'select(.tagName == "v0.1.2" and .isDraft == false and .isPrerelease == false and (.assets | length) >= 6) | .tagName' | grep -Fxq "$version"
           # The new public archive must be downloadable with valid checksums
           # before deleting the previous version.
           mkdir -p /tmp/m9-public-release
