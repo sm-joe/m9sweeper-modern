@@ -1,5 +1,5 @@
 name: Build and sign m9sweeper release
-# Rebuild only from the full-CI-passing source after the Trawler parity fix.
+# Rebuild signed v0.1.0 assets from the merged auto-inventory scheduling source.
 on:
   push:
     branches: [main]
