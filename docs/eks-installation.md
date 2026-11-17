@@ -483,7 +483,7 @@ Your `602401143452.dkr.ecr.us-east-1.amazonaws.com` registry serves AWS EKS add-
 
 ## 9. Falco on EKS: Modern eBPF installation and verification
 
-On recent EKS Amazon Linux nodes, use an up-to-date Falco Helm chart and the **modern eBPF** driver. Do not pin the legacy chart 3.5.0 or set `driver.kind=ebpf`: the legacy probe is not the recommended driver for modern Falco. The kernel release alone does not prove that the eBPF capabilities, BTF data, privileges and chart configuration are correct.
+On recent EKS Amazon Linux nodes, use Falco Helm chart 9.2.2 (Falco 0.45.2) and the **modern eBPF** driver. Do not pin the legacy chart 3.5.0 or set `driver.kind=ebpf`: the legacy probe is not the recommended driver for modern Falco. The kernel release alone does not prove that the eBPF capabilities, BTF data, privileges and chart configuration are correct.
 
 In Windows PowerShell, using the active kubectl context for the EKS cluster:
 
@@ -492,6 +492,7 @@ helm repo add falcosecurity https://falcosecurity.github.io/charts --force-updat
 helm repo update
 helm search repo falcosecurity/falco --versions
 helm upgrade --install falco falcosecurity/falco `
+  --version 9.2.2 `
   --namespace falco --create-namespace `
   --set driver.enabled=true `
   --set-string driver.kind=modern_ebpf `
@@ -521,7 +522,7 @@ kubectl -n falco get secret m9sweeper-falco-webhook --ignore-not-found
 # Only create the file/Secret if it does not already exist.
 $privateFile = Join-Path $env:TEMP "m9sweeper-falco-webhook.env"
 @'
-WEBHOOK_ADDRESS=https://YOUR-TRUSTED-M9SWEEPER-HOST/api/falco/YOUR-CLUSTER-ID
+WEBHOOK_ADDRESS=https://YOUR-TRUSTED-M9SWEEPER-HOST/api/falco/YOUR-CLUSTER-ID/create
 WEBHOOK_CUSTOMHEADERS=X-API-Key:YOUR-EXISTING-FALCO-API-KEY
 WEBHOOK_MINIMUMPRIORITY=notice
 '@ | Set-Content -Path $privateFile -Encoding utf8
@@ -548,6 +549,7 @@ After confirming the configuration, enable Sidekick without overriding the Falco
 
 ```powershell
 helm upgrade falco falcosecurity/falco `
+  --version 9.2.2 `
   --namespace falco --reuse-values `
   --set falcosidekick.enabled=true `
   --set-string falcosidekick.config.existingSecret=m9sweeper-falco-webhook `
