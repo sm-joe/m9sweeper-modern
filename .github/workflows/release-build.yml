@@ -1,5 +1,5 @@
 name: Build and sign m9sweeper release
-# Rebuild signed v0.1.0 assets with corrected Windows PowerShell image verification.
+# Rebuild signed v0.1.0 with kube-hunter async change-detection rendering fix.
 on:
   push:
     branches: [main]
