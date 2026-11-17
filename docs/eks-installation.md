@@ -60,22 +60,26 @@ kubectl get events -A --sort-by=.lastTimestamp | tail -40
 
 ## 2. Download and configure m9sweeper
 
-Follow [the main installation guide](installation.md) to create three private environment files and the private Helm values file. **Use the same RabbitMQ password in Dash and Trawler, and the same scanner API keys in bootstrap and scanner configuration.** Use `umask 077` and unique passwords.
+For new installations, generate synchronized private credentials with the release-provided `create-install-secrets.py` as documented in [Installation](installation.md), and keep the generated private Helm values. For upgrades, **reuse all existing Secrets and the same persistent RabbitMQ volume**; never regenerate credentials.
 
 ```bash
 umask 077
 mkdir -p "$HOME/m9sweeper-install"
 cd "$HOME/m9sweeper-install"
-gh release download v0.1.3 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
-helm show chart ./m9sweeper-0.1.3.tgz
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz' --pattern 'create-install-secrets.py'
+helm show chart ./m9sweeper-0.1.0.tgz
 
+# New install only; do not rerun the generator or create Secrets on upgrades.
+export M9_PRIVATE_DIR="$HOME/.config/m9sweeper"
+export M9_ADMIN_EMAIL="your-real-admin-email@example.com"
+python3 ./create-install-secrets.py --output-dir "$M9_PRIVATE_DIR"
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n "$NAMESPACE" create secret generic m9-dash-env \
-  --from-env-file=/secure/dash-runtime.env
+  --from-env-file="$M9_PRIVATE_DIR/dash-runtime.env"
 kubectl -n "$NAMESPACE" create secret generic m9-init-env \
-  --from-env-file=/secure/dash-bootstrap.env
+  --from-env-file="$M9_PRIVATE_DIR/dash-bootstrap.env"
 kubectl -n "$NAMESPACE" create secret generic m9-trawler-env \
-  --from-env-file=/secure/trawler-runtime.env
+  --from-env-file="$M9_PRIVATE_DIR/trawler-runtime.env"
 ```
 
 On an existing installation, **do not rerun** `create secret` or overwrite credentials. Confirm the Secrets exist first:
@@ -84,7 +88,7 @@ On an existing installation, **do not rerun** `create secret` or overwrite crede
 kubectl -n "$NAMESPACE" get secret m9-dash-env m9-init-env m9-trawler-env
 ```
 
-Your private `/secure/m9sweeper-values.yaml` must contain:
+Your private `$M9_PRIVATE_DIR/m9sweeper-values.yaml` must contain:
 
 ```yaml
 global:
@@ -105,8 +109,8 @@ trawler:
 ## 3. Install and verify database initialization
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.3.tgz \
-  -n "$NAMESPACE" -f /secure/m9sweeper-values.yaml --timeout 15m
+helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
+  -n "$NAMESPACE" -f $M9_PRIVATE_DIR/m9sweeper-values.yaml --timeout 15m
 
 kubectl -n "$NAMESPACE" get pods,jobs,pvc -o wide
 kubectl -n "$NAMESPACE" rollout status deployment/m9sweeper-dash --timeout=5m
@@ -119,7 +123,7 @@ Do not add `--wait` to the initial Helm install: the bootstrap Job must finish b
 kubectl -n "$NAMESPACE" get jobs
 kubectl -n "$NAMESPACE" logs job/m9sweeper-dash-init --all-containers=true --tail=100
 kubectl -n "$NAMESPACE" exec m9sweeper-postgresql-0 -- \
-  psql -U m9sweeper -d postgres -tAc 'SELECT count(*) FROM users;'
+  psql -U postgres -d postgres -tAc 'SELECT count(*) FROM users;'
 ```
 
 If your PostgreSQL username/database differ from the example, use those values. **Do not rerun seeding against a different database or reset the database.** If initialization failed, inspect its logs and repair the bootstrap Secret/environment before running a controlled initialization recovery.
@@ -228,7 +232,7 @@ For a **new installation only**, first create the private `/secure/dash-bootstra
 ```bash
 kubectl create namespace m9sweeper-system --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n m9sweeper-system create secret generic m9-init-env \
-  --from-env-file=/secure/dash-bootstrap.env
+  --from-env-file="$M9_PRIVATE_DIR/dash-bootstrap.env"
 ```
 
 Do **not** execute `create secret` again on an existing installation, change the values without coordinating them with Dash, or reinitialize the database. Verify the Secret and its expected keys **without printing token values**:
@@ -247,7 +251,7 @@ Use `reportAuth.existingSecret=m9-init-env` with `reportAuth.keyName=KUBE_BENCH_
 
 **Verified on EKS:** the scan **and dashboard report** work after fixing two release issues:
 
-- The downloaded `kube-bench-0.1.3.tgz` EKS one-shot Job is checked during release acceptance for the corrected `eks-1.2.0` benchmark.
+- The downloaded `kube-bench-0.1.0.tgz` EKS one-shot Job is checked during release acceptance for the corrected `eks-1.2.0` benchmark.
 - The standalone chart does **not** automatically create `m9sweeper-kube-bench-api-key`. Reuse the *existing bootstrap* `m9-init-env` Secret directly. Its key is `KUBE_BENCH_API_KEY`, not `api-key` or `apiKey`.
 
 ```bash
@@ -264,7 +268,7 @@ helm template kube-bench platform/manifests/charts/kube-bench \
   | grep -- '--benchmark'
 
 # This installs a one-time Job, not a scheduled CronJob.
-helm upgrade --install kube-bench https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.3/kube-bench-0.1.3.tgz \
+helm upgrade --install kube-bench https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.0/kube-bench-0.1.0.tgz \
   -n "$NAMESPACE" \
   --set-string provider=eks \
   --set cronjob.enabled=false \
@@ -304,7 +308,7 @@ kubectl -n "$NAMESPACE" create secret tls m9sweeper-dash-tls \
   --cert=/secure/fullchain.pem --key=/secure/privkey.pem
 ```
 
-Add to the same private `/secure/m9sweeper-values.yaml` used to install m9sweeper:
+Add to the same private `$M9_PRIVATE_DIR/m9sweeper-values.yaml` used to install m9sweeper:
 
 ```yaml
 dash:
@@ -326,8 +330,8 @@ dash:
 
 ```bash
 cd "$HOME/m9sweeper-install"
-helm upgrade m9sweeper ./m9sweeper-0.1.3.tgz \
-  -n "$NAMESPACE" -f /secure/m9sweeper-values.yaml --timeout 15m
+helm upgrade m9sweeper ./m9sweeper-0.1.0.tgz \
+  -n "$NAMESPACE" -f $M9_PRIVATE_DIR/m9sweeper-values.yaml --timeout 15m
 
 # TLS must validate; do not use curl -k.
 curl --fail --silent --show-error "https://$DASH_HOST/api/info"

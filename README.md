@@ -73,18 +73,26 @@ The NestJS API maintains cluster inventory, policies and scan history. Trawler p
 
 ```bash
 mkdir -p m9sweeper && cd m9sweeper
-gh release download v0.1.3 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz' --pattern 'create-install-secrets.py'
 ```
 
 ### 2. Configure
 
-Prepare the three credential files described in the [installation guide](docs/installation.md). Then create the namespace and Secrets:
+For a new install, generate matching private credentials and use the [installation guide](docs/installation.md) for the remaining values. **For upgrades, reuse the existing Secrets; never regenerate them.**
+
+```bash
+export M9_PRIVATE_DIR="$HOME/.config/m9sweeper"
+export M9_ADMIN_EMAIL="your-real-admin-email@example.com"
+python3 ./create-install-secrets.py --output-dir "$M9_PRIVATE_DIR"
+```
+
+Replace the email address with your real admin email. Then create the namespace and Secrets:
 
 ```bash
 kubectl create namespace m9sweeper-system
-kubectl -n m9sweeper-system create secret generic m9-dash-env --from-env-file=/secure/dash-runtime.env
-kubectl -n m9sweeper-system create secret generic m9-init-env --from-env-file=/secure/dash-bootstrap.env
-kubectl -n m9sweeper-system create secret generic m9-trawler-env --from-env-file=/secure/trawler-runtime.env
+kubectl -n m9sweeper-system create secret generic m9-dash-env --from-env-file="$M9_PRIVATE_DIR/dash-runtime.env"
+kubectl -n m9sweeper-system create secret generic m9-init-env --from-env-file="$M9_PRIVATE_DIR/dash-bootstrap.env"
+kubectl -n m9sweeper-system create secret generic m9-trawler-env --from-env-file="$M9_PRIVATE_DIR/trawler-runtime.env"
 ```
 
 ### 3. Install with Helm
@@ -110,7 +118,7 @@ trawler:
 Install m9sweeper:
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.3.tgz \
+helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
   --namespace m9sweeper-system \
   --values values.yaml --timeout 15m
 
@@ -126,7 +134,9 @@ kubectl -n m9sweeper-system port-forward service/m9sweeper-dash 13000:3000
 
 Visit **http://localhost:13000** and sign in with your configured administrator account.
 
-See **[EKS installation and tested scanner walkthrough](docs/eks-installation.md)**, **[Installation & configuration](docs/installation.md)** and **[Cloud Kubernetes: EKS, AKS and GKE](docs/cloud-kubernetes.md)** for cloud storage, identity, cluster access, Linux commands and real-cluster acceptance.\n\n**Cloud authentication status:** The current published release does not yet transparently authenticate an uploaded AWS EKS, Azure AKS or GKE CLI-exec kubeconfig inside the backend. Provider-native workload identity and token refresh must be implemented and validated before cloud onboarding is marked production-ready. Do not mount workstation cloud credentials or enable arbitrary exec plugins in the container.
+See **[EKS installation and tested scanner walkthrough](docs/eks-installation.md)**, **[Installation & configuration](docs/installation.md)** and **[Cloud Kubernetes: EKS, AKS and GKE](docs/cloud-kubernetes.md)** for cloud storage, identity, cluster access, Linux commands and real-cluster acceptance.
+
+**Cloud authentication status:** The current published release does not yet transparently authenticate an uploaded AWS EKS, Azure AKS or GKE CLI-exec kubeconfig inside the backend. Provider-native workload identity and token refresh must be implemented and validated before cloud onboarding is marked production-ready. Do not mount workstation cloud credentials or enable arbitrary exec plugins in the container.
 
 ## Development
 

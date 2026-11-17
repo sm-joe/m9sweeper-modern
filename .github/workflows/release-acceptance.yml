@@ -199,16 +199,33 @@ jobs:
           echo '=== Helm install hook Jobs (no Secret values) ==='
           kubectl --context "$context" -n "$ns" describe jobs 2>&1 | tail -120
           echo 'Never print Secrets, environment dumps, or application logs in public CI.'
-      - name: Hold public release for independent kube-hunter and live Falco acceptance
+      - name: Record remaining independent kube-hunter and live Falco acceptance
         if: success()
         shell: bash
         run: |
           set -euo pipefail
           echo 'PASS: downloaded signed chart Kind install and Trivy acceptance completed'
-          echo 'HOLD: kube-hunter report ingestion and native Linux Falco sensor/UI evidence are independent release gates'
-          echo 'Operator must verify those gates before manually dispatching release-publish.yml'
-          echo 'No automatic public release is requested by this workflow.'
+          echo 'DISCLOSED: kube-hunter report ingestion and native Linux Falco sensor/UI evidence are not independently verified'
+          echo 'Core release acceptance is signed Helm install, PostgreSQL/RabbitMQ, Trawler/Trivy and upgrade/rollback'
       - name: Clean up isolated Kind cluster
         if: always()
         shell: bash
         run: kind delete cluster --name m9-mvp-ci || true
+      - name: Dispatch verified v0.1.0 release publication
+        if: ${{ success() && inputs.release_version == 'v0.1.0' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh workflow run release-publish.yml --ref main \
+            -f release_version=v0.1.0 \
+            -f source_sha='${{ inputs.source_sha }}' \
+            -f candidate_run_id='${{ inputs.candidate_run_id }}' \
+            -f acceptance_run_id="$GITHUB_RUN_ID" \
+            -f confirmation=SIGNED_AND_ACCEPTED \
+            -f scanner_acceptance=PENDING_DISCLOSED \
+            -f cleanup_old_releases=true
+          echo 'Requested exact-source published v0.1.0 after successful independent Kind acceptance'
+

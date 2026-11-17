@@ -58,13 +58,13 @@ public class TrawlerConfiguration {
         m9sweeperApiKey = dotenv.get("M9SWEEPER_API_KEY", "");
 
         // Load the username to RabbitMQ
-        rabbitmqUsername = dotenv.get("RABBITMQ_USERNAME", "guest");
+        rabbitmqUsername = dotenv.get("RABBITMQ_USERNAME", "");
 
         // Load the password to RabbitMQ
-        rabbitmqPassword = dotenv.get("RABBITMQ_PASSWORD", "guest");
+        rabbitmqPassword = dotenv.get("RABBITMQ_PASSWORD", "");
 
         // Load the hostname to RabbitMQ
-        rabbitmqHostname = dotenv.get("RABBITMQ_HOSTNAME", "rabbitmq");
+        rabbitmqHostname = dotenv.get("RABBITMQ_HOSTNAME", "");
 
         // Load the port to RabbitMQ
         try {
@@ -76,7 +76,7 @@ public class TrawlerConfiguration {
         }
 
         // Load the queue name for RabbitMQ
-        rabbitmqQueueName = dotenv.get("RABBITMQ_QUEUE_NAME", "trawler_queue");
+        rabbitmqQueueName = dotenv.get("RABBITMQ_QUEUE_NAME", "");
 
         // Load the name of the cluster
         clusterName = dotenv.get("CLUSTER_NAME", "");
@@ -270,27 +270,23 @@ public class TrawlerConfiguration {
                     "Valid options are standalone or rabbitmq (default).");
         } else if (trawlerRunMode() == TrawlerRunMode.RABBITMQ) {
             // Verify that the RabbitMQ username is not blank
-            if (rabbitmqUsername().isEmpty()) {
-                throw new AssertionError("RABBITMQ_USERNAME is blank. Please define the username to your RabbitMQ instance or " +
-                        "comment out/unset the configuration option to use the default option (guest).");
+            if (rabbitmqUsername().isBlank()) {
+                throw new AssertionError("RABBITMQ_USERNAME is blank. Set RABBITMQ_USERNAME in the Trawler environment Secret (Dash uses RABBITMQ_USER_NAME).");
             }
 
             // Verify that the RabbitMQ password is not blank
-            if (rabbitmqPassword().isEmpty()) {
-                throw new AssertionError("RABBITMQ_PASSWORD is blank. Please define the password to your RabbitMQ instance or " +
-                        "comment out/unset the configuration option to use the default option (guest).");
+            if (rabbitmqPassword().isBlank()) {
+                throw new AssertionError("RABBITMQ_PASSWORD is blank. Set RABBITMQ_PASSWORD in the Trawler environment Secret (Dash uses RABBITMQ_USER_PASSWORD).");
             }
 
             // Verify that the RabbitMQ hostname is not blank
-            if (rabbitmqHostname().isEmpty()) {
-                throw new AssertionError("RABBITMQ_HOSTNAME is blank. Please define the hostname to your RabbitMQ instance or " +
-                        "comment out/unset the configuration option to use the default option (rabbitmq).");
+            if (rabbitmqHostname().isBlank()) {
+                throw new AssertionError("RABBITMQ_HOSTNAME is blank. Set RABBITMQ_HOSTNAME in the Trawler environment Secret (Dash uses RABBITMQ_HOST_NAME).");
             }
 
             // Verify that the RabbitMQ queue name is not blank
-            if (rabbitmqQueueName.isEmpty()) {
-                throw new AssertionError("RABBITMQ_QUEUE_NAME is blank. Please define the queue name that Trawler should listen " +
-                        "on or comment out/unset the configuration option to use the default option (trawler_queue).");
+            if (rabbitmqQueueName.isBlank()) {
+                throw new AssertionError("RABBITMQ_QUEUE_NAME is blank. Set RABBITMQ_QUEUE_NAME in the Trawler environment Secret (Dash uses MSG_QUEUE_NAME_IMAGE_SCANNER).");
             }
         } else if (trawlerRunMode() == TrawlerRunMode.STANDALONE) {
             if (clusterName.isEmpty()) {
