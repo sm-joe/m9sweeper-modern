@@ -142,7 +142,8 @@ export class ClusterCommand {
                     unFixableNegligible : 1000
                 };
 
-                console.log('About to send to DB to be saved', cluster);
+                // Do not log the cluster object: kube_config contains authentication credentials.
+                console.log('Saving initial cluster metadata and credentials');
                 await this.clusterDao.seedInitialCluster(cluster, clusterGroupName, policy, scanner, userId);
             } catch (e) {
                 console.log("Error saving to DB", e);
