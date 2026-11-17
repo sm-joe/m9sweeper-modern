@@ -52,7 +52,7 @@ For a Windows PowerShell operator, download `upgrade-release.ps1` from the same 
 
 ```powershell
 gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern "upgrade-release.ps1" --clobber
-.\\upgrade-release.ps1 -Namespace m9sweeper-system
+.\upgrade-release.ps1 -Namespace m9sweeper-system
 ```
 
 The script downloads the replacement chart and `IMAGE-DIGESTS.txt`, saves your Helm values, reuses your Secret references and storage, explicitly overrides BOTH image digests, and verifies the exact deployed image references. **Do not use an earlier saved chart with a newer digest manifest.**
@@ -60,19 +60,19 @@ The script downloads the replacement chart and `IMAGE-DIGESTS.txt`, saves your H
 On Linux, fetch the same release chart and digest manifest, then pin both digests explicitly during upgrade:
 
 ```bash
-gh release download v0.1.0 --repo sm-joe/m9sweeper-modern \\
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern \
   --pattern 'm9sweeper-0.1.0.tgz' --pattern 'IMAGE-DIGESTS.txt' --clobber
 dash_digest="$(sed -n 's|^dash=ghcr.io/sm-joe/m9sweeper-dash@||p' IMAGE-DIGESTS.txt)"
 trawler_digest="$(sed -n 's|^trawler=ghcr.io/sm-joe/m9sweeper-trawler@||p' IMAGE-DIGESTS.txt)"
 [[ "$dash_digest" =~ ^sha256:[a-f0-9]{64}$ && "$trawler_digest" =~ ^sha256:[a-f0-9]{64}$ ]] || exit 1
-helm upgrade m9sweeper ./m9sweeper-0.1.0.tgz -n m9sweeper-system \\
-  --reuse-values \\
-  --set-string dash.image.registry=ghcr.io \\
-  --set-string dash.image.repository=sm-joe/m9sweeper-dash \\
-  --set-string "dash.image.tag=v0.1.0@$dash_digest" \\
-  --set-string trawler.image.registry=ghcr.io \\
-  --set-string trawler.image.repository=sm-joe/m9sweeper-trawler \\
-  --set-string "trawler.image.tag=v0.1.0@$trawler_digest" \\
+helm upgrade m9sweeper ./m9sweeper-0.1.0.tgz -n m9sweeper-system \
+  --reuse-values \
+  --set-string dash.image.registry=ghcr.io \
+  --set-string dash.image.repository=sm-joe/m9sweeper-dash \
+  --set-string "dash.image.tag=v0.1.0@$dash_digest" \
+  --set-string trawler.image.registry=ghcr.io \
+  --set-string trawler.image.repository=sm-joe/m9sweeper-trawler \
+  --set-string "trawler.image.tag=v0.1.0@$trawler_digest" \
   --timeout 15m
 ```
 
@@ -87,6 +87,12 @@ helm upgrade m9sweeper "$(find . -maxdepth 1 -type f -name 'm9sweeper-*.tgz' -pr
   --set-string trawler.existingSecret=m9-trawler-env \
   --set-string postgresql.postgresql.existingSecret=m9-dash-env \
   --set-string rabbitmq.existingSecret=m9-dash-env \
+  --set-string dash.image.registry=ghcr.io \
+  --set-string dash.image.repository=sm-joe/m9sweeper-dash \
+  --set-string "dash.image.tag=v0.1.0@$dash_digest" \
+  --set-string trawler.image.registry=ghcr.io \
+  --set-string trawler.image.repository=sm-joe/m9sweeper-trawler \
+  --set-string "trawler.image.tag=v0.1.0@$trawler_digest" \
   --timeout 15m
 ```
 
