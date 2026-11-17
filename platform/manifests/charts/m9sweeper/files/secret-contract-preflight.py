@@ -22,8 +22,16 @@ REQUIRED = {
     "init": ("CLUSTER_API_KEY", "SUPER_ADMIN_EMAIL", "SUPER_ADMIN_PASSWORD",
              "TRAWLER_API_KEY", "KUBE_HUNTER_API_KEY", "KUBE_BENCH_API_KEY",
              "FALCO_API_KEY"),
-    "trawler": ("RABBITMQ_HOSTNAME", "RABBITMQ_PORT", "RABBITMQ_USERNAME",
-               "RABBITMQ_PASSWORD", "RABBITMQ_QUEUE_NAME", "M9SWEEPER_API_KEY"),
+    "trawler": ("RABBITMQ_PORT", "M9SWEEPER_API_KEY"),
+}
+# Support existing installations created from the earlier documentation.
+# Never force operators to regenerate Secrets merely because the variable
+# spellings changed. The Java Trawler uses the same precedence order.
+TRAWLER_ALIASES = {
+    "RABBITMQ_HOSTNAME": "RABBITMQ_HOST_NAME",
+    "RABBITMQ_USERNAME": "RABBITMQ_USER_NAME",
+    "RABBITMQ_PASSWORD": "RABBITMQ_USER_PASSWORD",
+    "RABBITMQ_QUEUE_NAME": "MSG_QUEUE_NAME_IMAGE_SCANNER",
 }
 PAIRS = (
     ("dash", "RABBITMQ_HOST_NAME", "trawler", "RABBITMQ_HOSTNAME"),
@@ -59,6 +67,33 @@ def validate(objects):
                 errors.append(f"{role}: insecure guest account {key}")
             else:
                 decoded[role][key] = value
+    # Normalize either supported spelling into the canonical Trawler keys.
+    # If both spellings are present, reject inconsistent values rather than
+    # silently selecting one credential and causing an auth failure.
+    worker_data = (objects.get("trawler") or {}).get("data") or {}
+    for canonical, legacy in TRAWLER_ALIASES.items():
+        present = {}
+        for name in (canonical, legacy):
+            raw = worker_data.get(name)
+            if raw is None:
+                continue
+            try:
+                value = base64.b64decode(raw, validate=True).decode("utf-8")
+            except (ValueError, UnicodeError, TypeError):
+                errors.append(f"trawler: invalid encoded key {name}")
+                continue
+            if not value.strip() or value.strip().lower().startswith(
+                    ("replace-with-", "generated-", "changeme", "placeholder")):
+                errors.append(f"trawler: empty/placeholder key {name}")
+            else:
+                present[name] = value
+        if not present:
+            errors.append(f"trawler: missing required key {canonical} (or {legacy})")
+        elif (canonical in present and legacy in present
+              and present[canonical] != present[legacy]):
+            errors.append(f"trawler: {canonical} and {legacy} disagree")
+        else:
+            decoded["trawler"][canonical] = present.get(canonical, present.get(legacy))
     for left, leftkey, right, rightkey in PAIRS:
         a, b = decoded[left].get(leftkey), decoded[right].get(rightkey)
         if a is not None and b is not None and a != b:
