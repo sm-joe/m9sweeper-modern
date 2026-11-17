@@ -28,6 +28,7 @@
           >helm repo add falcosecurity https://falcosecurity.github.io/charts --force-update && \
 helm repo update && \
 helm upgrade --install falco falcosecurity/falco \
+  --version 9.2.2 \
   --namespace falco --create-namespace \
   --set driver.enabled=true \
   --set-string driver.kind=modern_ebpf \
