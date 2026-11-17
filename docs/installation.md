@@ -44,6 +44,24 @@ The generated files contain the exact names consumed by Dash, Trawler, PostgreSQ
 
 **Compatibility:** Existing `m9-trawler-env` Secrets using `RABBITMQ_HOST_NAME`, `RABBITMQ_USER_NAME`, `RABBITMQ_USER_PASSWORD`, and `MSG_QUEUE_NAME_IMAGE_SCANNER` are supported as aliases of `RABBITMQ_HOSTNAME`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`, and `RABBITMQ_QUEUE_NAME`. The Helm preflight accepts either complete format and the Java Trawler reads either format; conflicting values in both formats are rejected before upgrade. **Do not recreate an existing Secret merely to rename those keys.**
 
+### Upgrading an existing installation with Kubernetes Secrets
+
+`helm upgrade --reuse-values` reuses only Helm's saved values; it **does not automatically discover** an existing Kubernetes Secret. If the saved values omit `dash.existingSecret`, Helm can incorrectly prompt for `global.jwtSecret` even though `m9-dash-env` already exists. **Do not generate a new JWT, API key, or broker password.** Confirm the existing Secret names first, then provide the references (not their contents) explicitly:
+
+```bash
+kubectl -n m9sweeper-system get secret m9-dash-env m9-init-env m9-trawler-env
+helm upgrade m9sweeper ./m9sweeper-0.1.1.tgz \
+  --namespace m9sweeper-system --reuse-values \
+  --set-string dash.existingSecret=m9-dash-env \
+  --set-string dash.init.existingSecret=m9-init-env \
+  --set-string trawler.existingSecret=m9-trawler-env \
+  --set-string postgresql.postgresql.existingSecret=m9-dash-env \
+  --set-string rabbitmq.existingSecret=m9-dash-env \
+  --timeout 15m
+```
+
+Preserve any saved `global.installation.enabled`, bundled/external dependency configuration, image settings, and custom Helm values; **do not force a different installation mode** during upgrade. If your current deployment references differently named Secrets, substitute those *existing names*, not newly generated files. The preceding command applies to installations that already use `m9-dash-env`, `m9-init-env`, and `m9-trawler-env`; inspect `helm get values m9sweeper -n m9sweeper-system` first if the current deployment differs.
+
 **Existing installation or upgrade:** Do not rerun the generator, recreate Secrets, change broker credentials, reset registered scanner API keys, remove the RabbitMQ PVC, or re-run administrator bootstrap. Preserve your existing Helm values and Secrets. Before upgrading, verify Secret key names against the table above and fix any mismatch without changing the underlying authorized values. The Helm pre-install/pre-upgrade hook now rejects missing/mismatched names or known placeholder values *before* application workloads are changed.
 
 A persisted RabbitMQ account can retain its original password independently of Kubernetes Secret data. Matching Secrets alone do not prove authentication; verify the broker with `rabbitmqctl authenticate_user` after RabbitMQ is running. The Erlang cookie must remain owner-only (0600) across upgrades; the bundled RabbitMQ startup hook repairs that permission without replacing the cookie.
