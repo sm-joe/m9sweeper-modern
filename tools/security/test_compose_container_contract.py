@@ -76,7 +76,7 @@ class ComposeContractTests(unittest.TestCase):
         self.assertIn("m9sweeperRabbitData:/var/lib/rabbitmq", compose)
         self.assertIn("condition: service_completed_successfully", compose)
         self.assertIn("condition: service_healthy", compose)
-        self.assertIn("127.0.0.1:3000:3000", compose)
+        self.assertIn("${SCANNER_REPORT_BIND_ADDRESS:-127.0.0.1}:${SCANNER_REPORT_BIND_PORT:-3000}:3000", compose)
 
 if __name__ == "__main__":
     unittest.main()
