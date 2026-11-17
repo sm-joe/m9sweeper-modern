@@ -260,13 +260,17 @@ export class HelmSetupCommand {
                     const registryInfo: DockerRegistriesDto = plainToInstance(DockerRegistriesDto, registry);
                     promises.push(
                         this.registryDao.createDockerRegistry(registryInfo).then(() => 0)
-                            .catch(er => console.log("Error saving", registry, "ERROR", er))
+                            .catch(error => {
+                                // Registry entries may include credentials; log only the hostname.
+                                console.error('Failed to initialize registry', registry.hostname, error);
+                                throw error;
+                            })
                     );
                 } else {
-                    console.log(`Registry with hostname ${registry.hostname} already exists, skipping`, registry);
+                    console.log(`Registry with hostname ${registry.hostname} already exists, skipping`);
                 }
             } else {
-                console.log('Skipped due to missing required field:', registry)
+                console.log('Skipped registry with missing required name or hostname');
             }
         }
 
