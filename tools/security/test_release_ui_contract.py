@@ -27,28 +27,20 @@ assert "WEBHOOK_MINIMUMPRIORITY" in falco
 assert "--version 9.2.2" in falco
 assert "--set-string falcosidekick.config.webhook.minimumpriority" not in falco
 
-publish = (ROOT / ".github/workflows/release-publish.yml").read_text(encoding="utf-8")
-assert "inputs.scanner_acceptance == 'KUBE_HUNTER_TRIVY_FALCO_VERIFIED'" in publish
-assert "PENDING_DISCLOSED" not in publish
+publish = (ROOT / ".github/workflows/release-build.yml").read_text(encoding="utf-8")
+assert "gh release create" in publish
+assert "dist/IMAGE-DIGESTS.txt" in publish
+assert "dist/upgrade-release.ps1" in publish
+assert "--target \"$GITHUB_SHA\"" in publish
 eks = (ROOT / "docs/eks-installation.md").read_text(encoding="utf-8")
-assert "WEBHOOK_ADDRESS=https://YOUR-TRUSTED-M9SWEEPER-HOST/api/falco/YOUR-CLUSTER-ID/create" in eks
-acceptance = (ROOT / ".github/workflows/release-acceptance.yml").read_text(encoding="utf-8")
-assert "gh workflow run release-publish.yml" not in acceptance
-upgrade = (ROOT / "scripts/upgrade-release.ps1").read_text(encoding="utf-8")
-workflow = (ROOT / ".github/workflows/release-build.yml").read_text(encoding="utf-8")
-install = (ROOT / "docs/installation.md").read_text(encoding="utf-8")
-assert "ConvertFrom-Json" in upgrade
-assert "Get-ContainerImage" in upgrade
-assert "jsonpath=" not in upgrade, "PowerShell strips nested JSONPath quotes"
-assert "IMAGE-DIGESTS.txt" in upgrade
-assert "--reuse-values" in upgrade
-assert all(f'--set-string", "{component}.image.{field}=' in upgrade
-           for component in ("dash", "trawler")
-           for field in ("registry", "repository", "tag"))
-assert "deployment/m9sweeper-dash" in upgrade and "deployment/m9sweeper-trawler" in upgrade
-assert "upgrade-release.ps1" in workflow
-assert "dist/upgrade-release.ps1" in workflow
-assert "upgrade-release.ps1 > SHA256SUMS" in workflow
-assert "dash.image.tag=v0.1.0@$dash_digest" in install
-assert "trawler.image.tag=v0.1.0@$trawler_digest" in install
+assert "kube-hunter" in eks and "Falco" in eks and "Pod Identity" in eks
+assert "YOUR-TRUSTED-M9SWEEPER-HOST" not in eks
+assert "```powershell" not in eks.lower()
+for doc in ("README.md", "docs/getting-started.md", "docs/installation.md",
+            "docs/eks-installation.md", "docs/cloud-kubernetes.md", "docs/kind-scanner-acceptance.md"):
+    text = (ROOT / doc).read_text(encoding="utf-8")
+    assert "```powershell" not in text.lower(), doc
+    assert "v0.1.2" not in text, doc
+assert not (ROOT / ".github/workflows/release-publish.yml").exists()
+assert not (ROOT / ".github/workflows/release-acceptance.yml").exists()
 print("PASS: scanner UI, packaged CLI and strict release gates validated")
