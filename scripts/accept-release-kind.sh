@@ -155,12 +155,26 @@ kubectl -n "$namespace" exec m9sweeper-rabbitmq-0 -- sh -ec '
 '
 kubectl -n "$namespace" rollout restart statefulset/m9sweeper-rabbitmq
 kubectl -n "$namespace" rollout status statefulset/m9sweeper-rabbitmq --timeout=5m
-kubectl -n "$namespace" exec m9sweeper-rabbitmq-0 -- sh -ec '
-  test "$(stat -c %a /var/lib/rabbitmq/.erlang.cookie)" = 600
-  test "$(cat /var/lib/rabbitmq/.m9-upgrade-marker)" = preserved-ci-upgrade
-  rabbitmq-diagnostics -q ping
-'
-echo 'PASS: persisted RabbitMQ cookie repaired, same PVC retained, broker running'
+# StatefulSet rollout confirms a new container, not an application-ready
+# RabbitMQ node. Allow Erlang distribution to initialize after container
+# restart, but require successful authenticated diagnostics before upgrading.
+rabbitmq_ready=0
+for attempt in $(seq 1 30); do
+  if kubectl -n "$namespace" exec m9sweeper-rabbitmq-0 -- sh -ec '
+    test "$(stat -c %a /var/lib/rabbitmq/.erlang.cookie)" = 600
+    test "$(cat /var/lib/rabbitmq/.m9-upgrade-marker)" = preserved-ci-upgrade
+    rabbitmq-diagnostics -q ping
+  ' >/dev/null 2>&1; then
+    rabbitmq_ready=1
+    break
+  fi
+  sleep 3
+done
+if [ "$rabbitmq_ready" != 1 ]; then
+  echo 'FAIL: persisted RabbitMQ cookie/volume test: Erlang node never authenticated after restart' >&2
+  exit 1
+fi
+echo 'PASS: persisted RabbitMQ cookie repaired, same PVC retained, authenticated broker running'
 # Fail-closed credential hook must reject invalid/missing keys on upgrades,
 # while the valid existing credentials pass without changing any Secret.
 echo 'PASS: persistent broker restored before normal Helm upgrade'
