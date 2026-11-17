@@ -122,6 +122,22 @@ The [full installation guide](docs/installation.md) covers release checksums, fi
 
 **Other environments:** Cloud-hosted `exec` kubeconfigs are not automatically executable by the backend. Use cluster credentials and workload identities supported by the installation; do not upload local AWS, Azure or Google CLI secrets to the application. AKS and GKE require their own runtime testing before a comparable acceptance claim.
 
+## Docker Compose (Linux)
+
+For local development and end-to-end testing, the entire core application is Dockerized: the Angular/NestJS Dashboard image, Java/Trivy Trawler image, PostgreSQL 17, RabbitMQ 4.4, Kubesec and one-time bootstrap job.
+
+```bash
+cd platform/docker-compose
+read -r -p 'Administrator email: ' ADMIN_EMAIL
+python3 create-compose-env.py --admin-email "$ADMIN_EMAIL"
+docker compose -p m9sweeper up --build -d
+docker compose -p m9sweeper ps -a
+```
+
+Open **http://localhost:3000**. Read the [Docker Compose guide](platform/docker-compose/README.md) for environment setup, health checks, safe persistence and Kind networking. For existing Compose installations on older PostgreSQL/RabbitMQ major versions, back up and migrate your persistent data **before** switching images.
+
+The Kubernetes-only kube-bench, kube-hunter and Falco sensors still require supported Kubernetes/Linux host capabilities. Their reports integrate with the Dockerized Dashboard through authenticated endpoints, but a Compose-only deployment does not emulate node sensors.
+
 ## Repository
 
 ```text
