@@ -165,7 +165,7 @@ The credentials are local private files, not YAML or text to commit to Git. Down
 umask 077
 mkdir -p "$HOME/m9sweeper-install"
 cd "$HOME/m9sweeper-install"
-gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern 'create-install-secrets.py'
+gh release download v0.1.1 --repo sm-joe/m9sweeper-modern --pattern 'create-install-secrets.py'
 export M9_PRIVATE_DIR="$HOME/.config/m9sweeper"
 export M9_ADMIN_EMAIL="your-real-admin-email@example.com"
 python3 ./create-install-secrets.py --output-dir "$M9_PRIVATE_DIR"
@@ -191,7 +191,7 @@ Expected: three Kubernetes Secrets are listed. Their contents are not printed.
 ```bash
 mkdir -p "$HOME/m9sweeper-install"
 cd "$HOME/m9sweeper-install"
-gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
+gh release download v0.1.1 --repo sm-joe/m9sweeper-modern --pattern 'm9sweeper-*.tgz'
 ls -lh m9sweeper-*.tgz
 ```
 
@@ -225,7 +225,7 @@ If you already have a values file, **edit and preserve it** rather than replacin
 Install (do not pass `--wait` on the first installation because the initialization Job needs to run):
 
 ```bash
-helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
+helm upgrade --install m9sweeper ./m9sweeper-0.1.1.tgz \
   --namespace m9sweeper-system \
   --values "$M9_PRIVATE_DIR/m9sweeper-values.yaml" --timeout 15m
 ```
@@ -285,7 +285,7 @@ The operator kubeconfig in Step 2 and the kubeconfig used for unattended Dashboa
 After a registered cluster appears in Dashboard, use this order:
 
 1. **Inventory:** check namespaces and actual pods populate.
-2. **kube-bench (EKS EC2 nodes):** follow [the tested kube-bench command](eks-installation.md#5-run-kube-bench-and-see-its-eks-report). The v0.1.0 one-time kube-bench archive has a known invalid benchmark; use corrected source. The scanner key lives in existing Secret `m9-init-env`.
+2. **kube-bench (EKS EC2 nodes):** follow [the tested kube-bench command](eks-installation.md#5-run-kube-bench-and-see-its-eks-report). The v0.1.1 one-time kube-bench archive has a known invalid benchmark; use corrected source. The scanner key lives in existing Secret `m9-init-env`.
 3. **Kubesec:** select a real pod or upload a Pod manifest. The namespace-selector fix requires updated application images, not only changed Helm values.
 4. **kube-hunter:** enable the header-authenticated relay only with a reachable **trusted HTTPS** endpoint. Follow [the HTTPS setup](eks-installation.md#7-kube-hunter-configure-a-trusted-https-report-endpoint). Do not bypass certificate verification.
 5. **Trivy/Falco:** follow the source integration acceptance documentation; do not assume a Job started means an end-to-end report was saved.
@@ -308,7 +308,7 @@ Share status output, relevant error messages, and **redacted** logs in a GitHub 
 
 ## Important limitations
 
-- The existing v0.1.0 release is immutable. Source fixes do not change a running application until new images and charts are built and installed.
+- The existing v0.1.1 release is immutable. Source fixes do not change a running application until new images and charts are built and installed.
 - Successful EKS kube-bench results have been observed in the Dashboard. The other scanner integrations still need actual EKS runtime verification.
 - AKS and GKE prerequisites are documented; their end-to-end acceptance is paused.
 - Cloud IAM, Kubernetes RBAC, service-account token rotation, TLS certificates and private API networking still require cluster-specific decisions. The guide does not grant unrestricted access automatically.
