@@ -33,7 +33,8 @@
         </div>
 
         <div >
-          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.2/kube-hunter-0.1.2.tgz \
+          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">chart_dir=$(mktemp -d) && gh release download --repo sm-joe/m9sweeper-modern --pattern 'kube-hunter-*.tgz' --dir "$chart_dir" && \
+helm upgrade --install kube-hunter "$(find "$chart_dir" -maxdepth 1 -name 'kube-hunter-*.tgz' -print -quit)" \
   -n m9sweeper-system --create-namespace \
   --set reportRelay.enabled=true \
   --set-string reportRelay.existingSecret=m9-init-env \
@@ -73,7 +74,8 @@
         </div>
 
         <div >
-          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">helm upgrade --install kube-hunter https://github.com/sm-joe/m9sweeper-modern/releases/download/v0.1.2/kube-hunter-0.1.2.tgz \
+          <textarea #run class="code-snippet w-100" readonly matInput [cdkTextareaAutosize]="true">chart_dir=$(mktemp -d) && gh release download --repo sm-joe/m9sweeper-modern --pattern 'kube-hunter-*.tgz' --dir "$chart_dir" && \
+helm upgrade --install kube-hunter "$(find "$chart_dir" -maxdepth 1 -name 'kube-hunter-*.tgz' -print -quit)" \
   -n m9sweeper-system --create-namespace \
   --set reportRelay.enabled=true \
   --set-string reportRelay.existingSecret=m9-init-env \
