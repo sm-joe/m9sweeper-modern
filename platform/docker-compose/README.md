@@ -136,7 +136,7 @@ kubectl -n m9sweeper-system logs m9-callback-probe
 kubectl -n m9sweeper-system delete pod m9-callback-probe --ignore-not-found
 ```
 
-Expected: the Pod's `curl` command reaches the Dash health endpoint and returns its successful response. A failure indicates DNS, routing, firewall, TLS trust or reverse-proxy configuration must be corrected before scanning. If you are using a private CA, mount the CA into the probe Pod and scanner relay and use certificate verification; **do not use `curl -k` or `--insecure`**.
+Expected for a direct kube-bench callback: the Pod's `curl` command reaches the Dash health endpoint and returns its successful response. If an HTTPS proxy deliberately exposes only `/api/kubehunter/hunter/{clusterId}`, its `/api/health` URL may return 404 even when the relay path works. In that case test the actual report-ingestion path with an unauthenticated POST: HTTP **401/403** is expected and proves routing to the authentication layer without uploading a report. A DNS, timeout or TLS verification failure means routing or trust must be corrected before scanning. If you are using a private CA, mount the CA into the probe Pod and scanner relay and use certificate verification; **do not use `curl -k` or `--insecure`**.
 
 ### 3. Confirm in Dashboard
 
