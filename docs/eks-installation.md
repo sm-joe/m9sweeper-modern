@@ -247,6 +247,38 @@ Use `reportAuth.existingSecret=m9-init-env` with `reportAuth.keyName=KUBE_BENCH_
 
 **Optional dedicated Secret instead:** operators who require a dedicated per-scanner Secret can provision an existing authorized scanner key from a private local file using `kubectl -n m9sweeper-system create secret generic <secret-name> --from-file=apiKey=/secure/<scanner-key-file>`, and set the chart's corresponding Secret name/key value to `apiKey`. Only do this with a valid key already registered and authorized by Dash; merely creating a random Kubernetes Secret does not create a Dash scanner account. Do not put secret files in Git.
 
+## Private ECR image scans: configure Trawler Pod Identity before scanning
+
+The bundled chart creates the Trawler Kubernetes ServiceAccount `m9sweeper-system/trawler-sa`, but **Helm cannot create an AWS IAM role or EKS Pod Identity association** in your AWS account. Without one, private ECR scan jobs fail with an AWS SDK credentials-chain error, often `EC2ContainerCredentialsProviderWrapper Unauthorized 401`. RabbitMQ may still be healthy and the dashboard may already show discovered images.
+
+For standard EC2-based EKS with the Pod Identity agent, configure an IAM role with `pods.eks.amazonaws.com` trust and `sts:AssumeRole` plus `sts:TagSession`. Restrict trust using cluster, namespace and service-account session tags; attach at least the AWS-managed `AmazonEC2ContainerRegistryPullOnly` policy. Review ECR cross-account repository policies separately if the image belongs to another AWS account. Avoid static access keys in Kubernetes Secrets.
+
+Before diagnosing Trivy, verify the running service account, agent and association (replace the cluster name):
+
+```bash
+export AWS_REGION=us-east-1
+export EKS_CLUSTER=YOUR_EKS_CLUSTER_NAME
+export NAMESPACE=m9sweeper-system
+kubectl -n "$NAMESPACE" get deploy m9sweeper-trawler -o jsonpath='{.spec.template.spec.serviceAccountName}{"\\n"}'
+kubectl -n kube-system get daemonset eks-pod-identity-agent
+aws eks list-pod-identity-associations --region "$AWS_REGION" --cluster-name "$EKS_CLUSTER" \\
+  --namespace "$NAMESPACE" --service-account trawler-sa
+```
+
+Expected: `trawler-sa`, a ready agent DaemonSet, and an association with the intended ECR-reading IAM role. An empty association list is a **setup failure**, not an image-scanner bug. See the [official AWS Pod Identity role](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-role.html) and [association](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-association.html) instructions to create the IAM role and binding. The human setting up the association needs permission to pass that role.
+
+After the association is ACTIVE, restart only Trawler so the new Pods receive credentials:
+
+```bash
+kubectl -n "$NAMESPACE" rollout restart deploy/m9sweeper-trawler
+kubectl -n "$NAMESPACE" rollout status deploy/m9sweeper-trawler --timeout=5m
+kubectl -n "$NAMESPACE" exec deploy/m9sweeper-trawler -- sh -c \
+  'test -n "$AWS_CONTAINER_CREDENTIALS_FULL_URI" && test -n "$AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE" && echo POD_IDENTITY_INJECTED'
+kubectl -n "$NAMESPACE" logs deploy/m9sweeper-trawler --since=10m --tail=100
+```
+
+`POD_IDENTITY_INJECTED` only proves injection, not that the role is authorized. A completed Trivy scan with findings saved in the Dashboard is the acceptance check. Verify the IAM role trust, node role `eks-auth:AssumeRoleForPodIdentity`, and any ECR cross-account policy when a 401 or AccessDenied persists. A normal Kubernetes node image pull does **not** prove that Trawler can request ECR tokens.
+
 ## 5. Run kube-bench and see its EKS report
 
 **Verified on EKS:** the scan **and dashboard report** work after fixing two release issues:
