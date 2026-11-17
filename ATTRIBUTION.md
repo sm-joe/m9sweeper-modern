@@ -1,4 +1,4 @@
-# Attribution and licensing — m9sweeper-new
+# Attribution and licensing — m9sweeper-modern
 
 This project is developed from the upstream **m9sweeper** open-source Kubernetes
 security platform, originally published at
@@ -11,7 +11,7 @@ https://github.com/m9sweeper/m9sweeper .
   source attribution must be preserved in distributed source and binaries.
 - Modified files and the newly developed components are documented in Git history.
 
-The `m9sweeper-new` name is a development product identifier, not a claim that
+The `m9sweeper-modern` name identifies this independently maintained fork; it is not a claim that
 upstream maintainers endorse or are affiliated with this fork. Trademark and
 third-party scanner dependencies must be independently reviewed before any
 public commercial distribution.
