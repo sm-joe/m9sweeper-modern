@@ -12,6 +12,11 @@ describe('kube-hunter report section parser', () => {
     expect(kubeHunterFindings(payload)).toEqual(findings as any);
   });
 
+  it('recovers vulnerability findings persisted with legacy class-transformer metadata', () => {
+    const legacy = {value: payload, key: 'vulnerabilities', obj: {vulnerabilities: payload}, type: 1};
+    expect(kubeHunterFindings(JSON.stringify(legacy))).toEqual(findings as any);
+  });
+
   it('shows no findings for a valid empty scan', () => {
     expect(kubeHunterFindings({value: {value: []}})).toEqual([]);
   });

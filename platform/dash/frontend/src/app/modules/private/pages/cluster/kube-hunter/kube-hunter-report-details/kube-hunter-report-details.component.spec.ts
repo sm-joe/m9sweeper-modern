@@ -1,5 +1,6 @@
 import {convertToParamMap} from '@angular/router';
-import {of, throwError} from 'rxjs';
+import {NEVER, of, throwError} from 'rxjs';
+import {fakeAsync, tick} from '@angular/core/testing';
 import {KubeHunterReportDetailsComponent} from './kube-hunter-report-details.component';
 
 describe('KubeHunterReportDetailsComponent', () => {
@@ -12,10 +13,10 @@ describe('KubeHunterReportDetailsComponent', () => {
     vulnerabilities: JSON.stringify({value: {value: [vuln]}})
   };
 
-  function create(response: any = report, fail = false) {
+  function create(response: any = report, fail = false, never = false) {
     const route: any = {snapshot: {paramMap: convertToParamMap({id: '9'})}};
     const service: any = {getKubeHunterReportById: jasmine.createSpy('getKubeHunterReportById')
-      .and.returnValue(fail ? throwError({status: 403}) : of(response))};
+      .and.returnValue(never ? NEVER : (fail ? throwError({status: 403}) : of(response)))};
     const clusters: any = {getClusterById: jasmine.createSpy('getClusterById')
       .and.returnValue(of({data: {id: 3, name: 'kind-local'}}))};
     const component = new KubeHunterReportDetailsComponent(route, service, clusters, {} as any);
@@ -42,6 +43,14 @@ describe('KubeHunterReportDetailsComponent', () => {
     expect(component.vulnerabilities.length).toBe(0);
     expect(component.loadError).toBe('');
   });
+
+  it('leaves loading state after the API exceeds its deadline', fakeAsync(() => {
+    const {component} = create(undefined, false, true);
+    expect(component.loading).toBeTrue();
+    tick(15001);
+    expect(component.loading).toBeFalse();
+    expect(component.loadError).toContain('timed out');
+  }));
 
   it('surfaces an HTTP 403 instead of silently hiding the details page', () => {
     const {component} = create(undefined, true);
