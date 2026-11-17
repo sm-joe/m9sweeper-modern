@@ -188,17 +188,30 @@ public class Trawler extends AbstractCommand implements Runnable {
     }
 
     Connection getAmpqConnection(ConnectionFactory factory, int retry) throws InterruptedException {
-        try {
-            return factory.newConnection();
-        } catch (IOException | TimeoutException e) {
-            System.err.println("RabbitMQ startup connection failed (" + e.getClass().getSimpleName() + ")");
-            if (retry > 0) {
-                System.out.println("Error: Connection timed out to RabbitMQ server. Retrying....");
+        final int maxAttempts = retry + 1;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                Connection connection = factory.newConnection();
+                if (attempt > 1) {
+                    System.out.println("RabbitMQ connection established after " + attempt +
+                            " startup attempts; Trawler recovered from broker startup delay");
+                } else {
+                    System.out.println("RabbitMQ connection established");
+                }
+                return connection;
+            } catch (IOException | TimeoutException e) {
+                if (attempt == maxAttempts) {
+                    throw new IllegalStateException("Trawler cannot connect to RabbitMQ after " +
+                            attempt + " startup attempts (" + e.getClass().getSimpleName() + ")", e);
+                }
+                if (attempt == 1) {
+                    System.out.println("RabbitMQ not ready yet; retrying startup connection (up to " +
+                            maxAttempts + " attempts)");
+                }
                 Thread.sleep(factory.getNetworkRecoveryInterval());
-                return getAmpqConnection(factory, --retry);
             }
-            throw new IllegalStateException("Trawler cannot connect to RabbitMQ after startup retries", e);
         }
+        throw new IllegalStateException("Unexpected RabbitMQ connection retry exhaustion");
     }
 
     /**
