@@ -74,6 +74,8 @@ jobs:
           python3 -m py_compile tools/integration/real-trivy-e2e-staging.py tools/integration/scanner-cluster-binding-runtime.py tools/integration/two-cluster-tenant-http.py
           bash -n scripts/verify-helm-rollback-staging-linux.sh
           bash -n tools/integration/helm-kind-api-lifecycle.sh
+          python3 -m unittest tools.security.test_helm_secret_contract -v
+          python3 -m unittest tools.security.test_mvp_preinstall_secrets -v
           python3 tools/security/test_helm_staging_guard.py
           python3 tools/security/test_restore_compose_guard.py
           bash -n scripts/check-broker-health-linux.sh
