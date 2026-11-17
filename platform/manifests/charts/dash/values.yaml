@@ -180,7 +180,7 @@ clusterScraping:
   # Set schedule to scrape more often for more precise metrics
   scheduled:
     enabled: true
-    schedule: "30 * * * *" # every 30 min
+    schedule: "*/5 * * * *" # every five minutes
   # Scrapes history of images deployed for dashboards, set schedule to any time, but only once per day
   history:
     enabled: true
