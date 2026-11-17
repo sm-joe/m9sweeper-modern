@@ -63,7 +63,37 @@ RABBITMQ_QUEUE_NAME=trawler_queue
 M9SWEEPER_API_KEY=replace-with-unique-trawler-key
 ```
 
-The RabbitMQ username/password must match in both files. `M9SWEEPER_API_KEY` must be **exactly the same value** as `TRAWLER_API_KEY`. Generate unique random keys (for example, with `openssl rand -hex 32`); never use these example passwords.
+**These environment-file blocks are templates, not credentials.** Before using them for a **new** installation, replace *every* `replace-with-...` value with an actual private value. For example, generate the RabbitMQ password and Trawler API key once with `openssl rand -hex 32`, then copy each generated value to both of its required locations (do not generate a different value for each file):
+
+| File / Kubernetes Secret | Key | Must equal |
+| --- | --- | --- |
+| `dash-runtime.env` / `m9-dash-env` | `RABBITMQ_USER_NAME` | `trawler-runtime.env` / `m9-trawler-env` → `RABBITMQ_USERNAME` |
+| `dash-runtime.env` / `m9-dash-env` | `RABBITMQ_USER_PASSWORD` | `trawler-runtime.env` / `m9-trawler-env` → `RABBITMQ_PASSWORD` |
+| `dash-bootstrap.env` / `m9-init-env` | `TRAWLER_API_KEY` | `trawler-runtime.env` / `m9-trawler-env` → `M9SWEEPER_API_KEY` |
+
+**Already installed or upgrading? Do not create these Secrets again, reuse the template placeholders, generate replacement keys, or reset the RabbitMQ PVC.** Use the existing authorized API key and broker credentials. The broker persists its account database; even when the Dash and Trawler Secrets match, the actual RabbitMQ user may still have a different stored password. Fix the broker cookie startup error first, then use `rabbitmqctl authenticate_user` to test the configured broker account. A cookie file permission error (`/var/lib/rabbitmq/.erlang.cookie`) is *not* caused by the password examples above.
+
+To check matching Secret data **without printing credentials** from a terminal with access to the existing cluster:
+
+```bash
+ns=m9sweeper-system
+get_data() { kubectl -n "$ns" get secret "$1" -o "jsonpath={.data.$2}"; }
+check_pair() {
+  a="$(get_data "$1" "$2")"
+  b="$(get_data "$3" "$4")"
+  if [ -n "$a" ] && [ "$a" = "$b" ]; then
+    printf 'PASS: %s matches %s\n' "$2" "$4"
+  else
+    printf 'FAIL: missing or different %s / %s\n' "$2" "$4"
+    return 1
+  fi
+}
+check_pair m9-dash-env RABBITMQ_USER_NAME m9-trawler-env RABBITMQ_USERNAME
+check_pair m9-dash-env RABBITMQ_USER_PASSWORD m9-trawler-env RABBITMQ_PASSWORD
+check_pair m9-init-env TRAWLER_API_KEY m9-trawler-env M9SWEEPER_API_KEY
+```
+
+The checks compare Kubernetes's base64-encoded Secret data without decoding or displaying the values. **Equal Secret values alone do not prove RabbitMQ is running or that its persisted account accepts the password.**
 
 Create the Kubernetes namespace and Secrets:
 
