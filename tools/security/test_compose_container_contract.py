@@ -74,6 +74,8 @@ class ComposeContractTests(unittest.TestCase):
         self.assertIn("image: postgres:17", compose)
         self.assertIn("image: rabbitmq:4.4-management", compose)
         self.assertIn("m9sweeperRabbitData:/var/lib/rabbitmq", compose)
+        self.assertIn('MSG_QUEUE_NAME_IMAGE_SCANNER: "trawler_queue"', compose)
+        self.assertIn('RABBITMQ_QUEUE_NAME: "trawler_queue"', compose)
         self.assertIn("condition: service_completed_successfully", compose)
         self.assertIn("condition: service_healthy", compose)
         self.assertIn("${SCANNER_REPORT_BIND_ADDRESS:-127.0.0.1}:${SCANNER_REPORT_BIND_PORT:-3000}:3000", compose)
