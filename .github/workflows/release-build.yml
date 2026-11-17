@@ -1,5 +1,5 @@
 name: Build and sign m9sweeper release
-# Rebuild signed v0.1.0 assets from the merged auto-inventory scheduling source.
+# Rebuild signed v0.1.0 assets with kube-hunter report retrieval, JSON mapping, and UI fixes.
 on:
   push:
     branches: [main]
