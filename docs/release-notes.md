@@ -1,15 +1,22 @@
-# m9sweeper-modern v0.1.2
+# m9sweeper-modern v0.1.0
 
-## Installation no longer fails because an existing cluster token expired
+## Installation and reliability
 
-Before this release, the Helm post-install Job ran `cli:init:all`, which included `cli:cluster:sync-all`. An existing cluster with an expired or unauthorized stored service-account token (Kubernetes HTTP 401) would cause `m9sweeper-dash-init` to fail and Helm to report `failed post-install`, even when database migrations, administrator setup, and scanner initialization were successful.
+- The Dashboard, kube-bench and kube-hunter installation instructions discover the current published Helm chart without embedding release-specific archive URLs in the web application.
+- The packaged Dash CLI npm commands use the actual deployed `./cli.js` executable, including cluster inventory synchronization.
+- PostgreSQL initialization fails clearly on authentication, authorization or missing-database errors; transient connection retries are bounded.
+- Bundled PostgreSQL and RabbitMQ retain their own persistent data; upgrades must reuse the original Kubernetes Secrets rather than regenerating passwords.
+- EKS installation instructions identify the Trawler Pod Identity association and IAM ECR pull permissions required before attempting private ECR scans. These permissions must be provided by the cluster administrator.
+- The Falco installation dialog uses the modern eBPF driver and an existing Falcosidekick webhook Secret. Webhook URL, API key and minimum priority are set in the Secret, not in publicly visible Helm flags.
 
-This release decouples cluster inventory synchronization from the blocking bootstrap. The post-install Job still fails if required migrations, seeded accounts, registries, or namespace exceptions fail. **Cluster inventory synchronization still runs independently on the configured schedule and still reports and records failures. It never marks an unauthorized cluster's inventory as successfully scanned.** After installing, operators must replace an expired or unauthorized stored kubeconfig/token to resume inventory synchronization.
+## Security scanner integrations
 
-No existing database or broker PVC, Kubeconfig, service account, Kubernetes Secret or API key is replaced by this fix. The previous v0.1.1 release remains available.
+The core scanner integrations remain Trivy, kube-bench, Kubesec, kube-hunter and Falco. Scanner Helm commands must refer to charts actually published alongside this release. kube-hunter requires a trusted HTTPS report endpoint and authenticated relay. Falco events are only considered ingested after validating the Falcosidekick webhook and Dash event persistence. Private ECR requires workload IAM identity and any applicable cross-account repository authorization.
 
-## Upgrade
+## Install and upgrade
 
-Follow `INSTALL.md`, preserving existing `m9-dash-env`, `m9-init-env`, `m9-trawler-env`, Helm values and database / RabbitMQ storage. **Do not rerun `create-install-secrets.py` on an existing deployment.** Existing Helm installations missing the saved `dash.existingSecret` value must specify the existing Secret name on upgrade. The chart includes the v0.1.1 original Trawler Secret name compatibility fix and persisted RabbitMQ cookie recovery.
+Follow `INSTALL.md` and the [EKS guide](https://github.com/sm-joe/m9sweeper-modern/blob/main/docs/eks-installation.md). Generate first-install credentials only for new persistent volumes. Existing installations must reuse the original `m9-dash-env`, `m9-init-env`, `m9-trawler-env`, and their PostgreSQL/RabbitMQ data.
 
-The published chart and scanner charts are signed; release acceptance tests an actual downloaded Kind chart and upgrade/rollback. A live EKS cluster with an expired stored authentication token still requires operator credential repair. Native Falco-to-Dashboard and kube-hunter-to-Dashboard event delivery remain separately disclosed checks.
+## Release evidence
+
+Publication requires successful exact-source Platform CI, signed immutable container and Helm artifacts, downloaded-chart Kubernetes acceptance, and independently reviewed kube-bench, kube-hunter, Trivy/private ECR and Falco end-to-end results. An installable chart or a started scanner Job alone is not evidence that scan reports reached the Dashboard.
