@@ -42,6 +42,8 @@ The generated files contain the exact names consumed by Dash, Trawler, PostgreSQ
 | `m9-dash-env:MSG_QUEUE_NAME_IMAGE_SCANNER` | `m9-trawler-env:RABBITMQ_QUEUE_NAME` | Same queue |
 | `m9-init-env:TRAWLER_API_KEY` | `m9-trawler-env:M9SWEEPER_API_KEY` | Identical authorized Trawler identity |
 
+**Compatibility:** Existing `m9-trawler-env` Secrets using `RABBITMQ_HOST_NAME`, `RABBITMQ_USER_NAME`, `RABBITMQ_USER_PASSWORD`, and `MSG_QUEUE_NAME_IMAGE_SCANNER` are supported as aliases of `RABBITMQ_HOSTNAME`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`, and `RABBITMQ_QUEUE_NAME`. The Helm preflight accepts either complete format and the Java Trawler reads either format; conflicting values in both formats are rejected before upgrade. **Do not recreate an existing Secret merely to rename those keys.**
+
 **Existing installation or upgrade:** Do not rerun the generator, recreate Secrets, change broker credentials, reset registered scanner API keys, remove the RabbitMQ PVC, or re-run administrator bootstrap. Preserve your existing Helm values and Secrets. Before upgrading, verify Secret key names against the table above and fix any mismatch without changing the underlying authorized values. The Helm pre-install/pre-upgrade hook now rejects missing/mismatched names or known placeholder values *before* application workloads are changed.
 
 A persisted RabbitMQ account can retain its original password independently of Kubernetes Secret data. Matching Secrets alone do not prove authentication; verify the broker with `rabbitmqctl authenticate_user` after RabbitMQ is running. The Erlang cookie must remain owner-only (0600) across upgrades; the bundled RabbitMQ startup hook repairs that permission without replacing the cookie.
