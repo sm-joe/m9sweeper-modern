@@ -53,7 +53,7 @@ flowchart LR
 
 Cluster synchronization discovers running workloads and queues image scans. Trawler consumes jobs, runs Trivy and submits results to the API. Auxiliary scanners submit authenticated reports to the API for persistence and dashboard visualization.
 
-## Install on Kubernetes
+## Installation
 
 **Prerequisites:** An accessible Kubernetes cluster, `kubectl`, Helm 3, `gh` (GitHub CLI), Python 3, and a working persistent StorageClass. All commands below run in **bash on Linux**. Verify your Kubernetes context before installation.
 
