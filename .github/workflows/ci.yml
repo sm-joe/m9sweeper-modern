@@ -305,6 +305,45 @@ jobs:
           print("PASS: unique release-scoped ClusterRole and ClusterRoleBinding:", expected)
           PY
           done
+      - name: Validate EKS kube-bench benchmark and kube-hunter HTTPS report relay
+        shell: bash
+        run: |
+          set -euo pipefail
+          for scheduled in true false; do
+            helm template kube-bench platform/manifests/charts/kube-bench \
+              -n m9sweeper-system --kube-version 1.35.0 \
+              --set-string provider=eks \
+              --set cronjob.enabled="$scheduled" \
+              --set-string reportAuth.existingSecret=m9-init-env \
+              --set-string reportAuth.keyName=KUBE_BENCH_API_KEY \
+              --set-string reportsurl=http://m9sweeper-dash.m9sweeper-system.svc.cluster.local:3000/api/kube-bench/1 \
+              > "/tmp/eks-bench-$scheduled.yaml"
+            grep -Fq -- '--benchmark eks-1.2.0' "/tmp/eks-bench-$scheduled.yaml"
+            grep -Fq 'KUBE_BENCH_API_KEY' "/tmp/eks-bench-$scheduled.yaml"
+            ! grep -Fq 'batch/v1beta1' "/tmp/eks-bench-$scheduled.yaml"
+            helm template kube-hunter platform/manifests/charts/kube-hunter \
+              -n m9sweeper-system --kube-version 1.35.0 \
+              --set cronjob.enabled="$scheduled" \
+              --set reportRelay.enabled=true \
+              --set-string reportRelay.existingSecret=m9-init-env \
+              --set-string reportRelay.secretKey=KUBE_HUNTER_API_KEY \
+              --set-string reportRelay.caSecret=m9sweeper-kubehunter-ca \
+              --set-string reportRelay.targetUrl=https://m9sweeper-ingest.m9sweeper-system.svc.cluster.local/api/kubehunter/hunter/1 \
+              > "/tmp/eks-hunter-$scheduled.yaml"
+            grep -Fq 'KUBE_HUNTER_API_KEY' "/tmp/eks-hunter-$scheduled.yaml"
+            grep -Fq 'm9sweeper-kubehunter-ca' "/tmp/eks-hunter-$scheduled.yaml"
+          done
+          if helm template kube-hunter platform/manifests/charts/kube-hunter \
+              -n m9sweeper-system --set cronjob.enabled=false \
+              --set reportRelay.enabled=true \
+              --set-string reportRelay.existingSecret=m9-init-env \
+              --set-string reportRelay.targetUrl=http://dash.internal/api/kubehunter/hunter/1 \
+              >/tmp/eks-hunter-insecure.yaml 2>/tmp/eks-hunter-insecure.err; then
+            echo 'FAIL: insecure kube-hunter report relay URL was accepted' >&2
+            exit 1
+          fi
+          echo 'PASS: EKS kube-bench and HTTPS-only kube-hunter Job/CronJob contracts'
+
       - name: Render bundled PostgreSQL and RabbitMQ installation
         shell: bash
         run: |
