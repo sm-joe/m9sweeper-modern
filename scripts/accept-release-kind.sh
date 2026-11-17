@@ -165,6 +165,27 @@ echo 'PASS: persisted RabbitMQ cookie repaired, same PVC retained, broker runnin
 # while the valid existing credentials pass without changing any Secret.
 echo 'PASS: persistent broker restored before normal Helm upgrade'
 
+# Reproduce an existing installation that used the original documented
+# Dash-style Trawler Secret keys. Preserve every credential byte: rename only
+# the keys in Kubernetes, then prove the Java worker and Helm pre-upgrade hook
+# accept this exact legacy configuration without recreating the Secret/PVC.
+kubectl -n "$namespace" get secret m9-trawler-env -o json |
+  python3 -c '
+import json,sys
+secret=json.load(sys.stdin)
+for current, legacy in (
+    ("RABBITMQ_HOSTNAME","RABBITMQ_HOST_NAME"),
+    ("RABBITMQ_USERNAME","RABBITMQ_USER_NAME"),
+    ("RABBITMQ_PASSWORD","RABBITMQ_USER_PASSWORD"),
+    ("RABBITMQ_QUEUE_NAME","MSG_QUEUE_NAME_IMAGE_SCANNER"),
+):
+    secret["data"][legacy]=secret["data"].pop(current)
+print(json.dumps(secret))
+' | kubectl -n "$namespace" replace -f - >/dev/null
+kubectl -n "$namespace" rollout restart deployment/m9sweeper-trawler
+kubectl -n "$namespace" rollout status deployment/m9sweeper-trawler --timeout=5m
+echo 'PASS: Java Trawler starts with original documented RabbitMQ Secret keys'
+
 # Confirm resource reconciliation across upgrade and rollback without
 # interpreting Helm success as a database schema downgrade guarantee.
 helm upgrade "$release" "$M9_MVP_CHART" -n "$namespace" "${values[@]}" --wait --timeout 15m

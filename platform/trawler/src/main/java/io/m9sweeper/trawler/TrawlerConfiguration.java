@@ -58,13 +58,13 @@ public class TrawlerConfiguration {
         m9sweeperApiKey = dotenv.get("M9SWEEPER_API_KEY", "");
 
         // Load the username to RabbitMQ
-        rabbitmqUsername = dotenv.get("RABBITMQ_USERNAME", "");
+        rabbitmqUsername = resolvedBrokerSetting("RABBITMQ_USERNAME", "RABBITMQ_USER_NAME");
 
         // Load the password to RabbitMQ
-        rabbitmqPassword = dotenv.get("RABBITMQ_PASSWORD", "");
+        rabbitmqPassword = resolvedBrokerSetting("RABBITMQ_PASSWORD", "RABBITMQ_USER_PASSWORD");
 
         // Load the hostname to RabbitMQ
-        rabbitmqHostname = dotenv.get("RABBITMQ_HOSTNAME", "");
+        rabbitmqHostname = resolvedBrokerSetting("RABBITMQ_HOSTNAME", "RABBITMQ_HOST_NAME");
 
         // Load the port to RabbitMQ
         try {
@@ -76,7 +76,7 @@ public class TrawlerConfiguration {
         }
 
         // Load the queue name for RabbitMQ
-        rabbitmqQueueName = dotenv.get("RABBITMQ_QUEUE_NAME", "");
+        rabbitmqQueueName = resolvedBrokerSetting("RABBITMQ_QUEUE_NAME", "MSG_QUEUE_NAME_IMAGE_SCANNER");
 
         // Load the name of the cluster
         clusterName = dotenv.get("CLUSTER_NAME", "");
@@ -94,6 +94,24 @@ public class TrawlerConfiguration {
 
             dockerImageUrl = hostname + "/" + imagename + ":" + tagname;
         }
+    }
+
+    /**
+     * Accept both the original documented Dash-style Secret keys and the
+     * Trawler-specific keys. Explicit Trawler names win when both exist;
+     * missing values never silently fall back to the RabbitMQ guest account.
+     * This keeps existing Kubernetes Secrets compatible across Helm upgrades.
+     */
+    private static String resolvedBrokerSetting(String preferred, String legacy) {
+        return selectBrokerSetting(dotenv.get(preferred), dotenv.get(legacy));
+    }
+
+    // Pure resolver keeps both documented environment spellings testable.
+    static String selectBrokerSetting(String preferred, String legacy) {
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred;
+        }
+        return legacy == null ? "" : legacy;
     }
 
     /**

@@ -1,20 +1,24 @@
-# Release notes
+# m9sweeper-modern v0.1.1
 
-## m9sweeper-modern v0.1.0
+## Trawler Secret backward-compatibility fix
 
-### Installation and upgrade reliability
+The v0.1.0 pre-install/pre-upgrade Helm check incorrectly rejected existing Trawler Secrets containing the RabbitMQ variable names from earlier installation instructions. Java Trawler also failed to read those values. This maintenance release restores compatibility **without changing credentials or requiring Secret recreation**.
 
-- Rebuilt the public installation from the maintained Angular, NestJS, Java Trawler, PostgreSQL 17 and RabbitMQ 4.4 stack, with Trivy and the separately packaged kube-bench and kube-hunter scanner charts.
-- Java Trawler now fails clearly if any RabbitMQ hostname, username, password or queue setting is absent or invalid; it never silently falls back to the default `guest` account.
-- The Helm chart validates pre-existing Dash, bootstrap and Trawler Secret names and required values with a read-only, namespace-scoped **pre-install and pre-upgrade Job**. Mismatches or example placeholders stop installation before application Deployments or StatefulSets change. No credential values are included in logs.
-- The release includes `create-install-secrets.py`, a non-overwriting, local first-install credential generator that creates aligned Kubernetes env files with 0600 permissions. Upgrades preserve all existing Secrets and identities.
-- RabbitMQ's persisted Erlang cookie permissions are repaired to owner-only (0600) at startup without deleting or replacing the cookie or RabbitMQ's data volume.
-- Release acceptance covers a signed/downloaded Helm chart, PostgreSQL/RabbitMQ readiness, seeded admin login, Trivy image scan ingestion, and Helm lifecycle; it now also exercises a deliberately broadened Erlang cookie on an *existing* RabbitMQ PVC and verifies non-destructive recovery across restart and upgrade.
+Both Helm validation and the Java Trawler now support either set of names:
 
-### Download and upgrade
+| Existing documented Secret key | Trawler-specific key |
+| --- | --- |
+| `RABBITMQ_HOST_NAME` | `RABBITMQ_HOSTNAME` |
+| `RABBITMQ_USER_NAME` | `RABBITMQ_USERNAME` |
+| `RABBITMQ_USER_PASSWORD` | `RABBITMQ_PASSWORD` |
+| `MSG_QUEUE_NAME_IMAGE_SCANNER` | `RABBITMQ_QUEUE_NAME` |
 
-Use the files in this release, including `INSTALL.md` and `create-install-secrets.py`. The helper is **only for a fresh installation**; do not run it for an existing deployment. Back up PostgreSQL, preserve your existing RabbitMQ PVC, installation values and scanner Secrets, and test rollback before upgrading.
+The Helm preflight checks that matching aliases do not disagree and still rejects missing or placeholder values. Java does not silently substitute RabbitMQ's default `guest` credentials.
 
-### Integration status
+## Upgrade
 
-Falcosidekick event-to-Dashboard delivery and a live kube-hunter report-to-Dashboard scan remain operator acceptance items. Provider-native unattended EKS, AKS and GKE CLI-exec kubeconfig token renewal is not claimed as implemented. Core Kind install and Trivy checks do not independently prove those integrations.
+Back up PostgreSQL. **Keep the original `m9-dash-env`, `m9-init-env`, and `m9-trawler-env` Secrets, RabbitMQ persistent volume, Helm values, and scanner API key.** Do not run `create-install-secrets.py` on an existing deployment.
+
+Use the signed `m9sweeper-0.1.1.tgz` chart from this release and follow `INSTALL.md`. Independent downloaded-chart Kind acceptance checks a genuine Trawler Secret using the original documented names during upgrade and verifies that the worker restarts successfully.
+
+Native Falco-to-dashboard and kube-hunter-to-dashboard delivery remain separately disclosed operator checks; passing Kind tests does not certify those EKS integrations.

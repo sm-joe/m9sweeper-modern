@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: Exact chart release version (e.g. v0.1.0)
+        description: Exact chart release version (e.g. v0.1.1)
         required: true
         type: string
       source_sha:
@@ -211,8 +211,8 @@ jobs:
         if: always()
         shell: bash
         run: kind delete cluster --name m9-mvp-ci || true
-      - name: Dispatch verified v0.1.0 release publication
-        if: ${{ success() && inputs.release_version == 'v0.1.0' }}
+      - name: Dispatch verified v0.1.1 release publication
+        if: ${{ success() && inputs.release_version == 'v0.1.1' }}
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -220,12 +220,12 @@ jobs:
         run: |
           set -euo pipefail
           gh workflow run release-publish.yml --ref main \
-            -f release_version=v0.1.0 \
+            -f release_version=v0.1.1 \
             -f source_sha='${{ inputs.source_sha }}' \
             -f candidate_run_id='${{ inputs.candidate_run_id }}' \
             -f acceptance_run_id="$GITHUB_RUN_ID" \
             -f confirmation=SIGNED_AND_ACCEPTED \
             -f scanner_acceptance=PENDING_DISCLOSED \
-            -f cleanup_old_releases=true
-          echo 'Requested exact-source published v0.1.0 after successful independent Kind acceptance'
+            -f cleanup_old_releases=false
+          echo 'Requested exact-source published v0.1.1 after successful independent Kind acceptance'
 

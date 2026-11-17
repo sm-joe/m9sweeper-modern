@@ -54,18 +54,36 @@ class SecretContractTests(unittest.TestCase):
     def test_complete_documented_environment_passes(self):
         self.assertEqual([], module.validate(fixtures()))
 
-    def test_existing_trawler_secret_using_dash_names_fails_before_deployment(self):
+    def test_existing_documented_trawler_secret_is_supported_without_changes(self):
         objects = fixtures()
-        for old, new in [
+        for current, existing in (
             ("RABBITMQ_HOSTNAME", "RABBITMQ_HOST_NAME"),
             ("RABBITMQ_USERNAME", "RABBITMQ_USER_NAME"),
             ("RABBITMQ_PASSWORD", "RABBITMQ_USER_PASSWORD"),
             ("RABBITMQ_QUEUE_NAME", "MSG_QUEUE_NAME_IMAGE_SCANNER"),
-        ]:
-            objects["trawler"]["data"][new] = objects["trawler"]["data"].pop(old)
+        ):
+            objects["trawler"]["data"][existing] = objects["trawler"]["data"].pop(current)
+        self.assertEqual([], module.validate(objects))
+
+    def test_old_and_new_names_with_same_values_pass(self):
+        objects = fixtures()
+        for current, existing in module.TRAWLER_ALIASES.items():
+            objects["trawler"]["data"][existing] = objects["trawler"]["data"][current]
+        self.assertEqual([], module.validate(objects))
+
+    def test_conflicting_aliases_fail_without_leaking_values(self):
+        objects = fixtures()
+        objects["trawler"]["data"]["RABBITMQ_USER_PASSWORD"] = base64.b64encode(
+            b"not-the-actual-password").decode()
         errors = module.validate(objects)
-        self.assertTrue(any("RABBITMQ_USERNAME" in error for error in errors))
-        self.assertTrue(any("RABBITMQ_PASSWORD" in error for error in errors))
+        self.assertTrue(any("RABBITMQ_PASSWORD" in e and "disagree" in e for e in errors))
+        self.assertNotIn("not-the-actual-password", repr(errors))
+
+    def test_neither_name_fails_closed(self):
+        objects = fixtures()
+        del objects["trawler"]["data"]["RABBITMQ_USERNAME"]
+        errors = module.validate(objects)
+        self.assertTrue(any("RABBITMQ_USERNAME" in e for e in errors))
 
     def test_missing_scanner_api_key_fails(self):
         objects = fixtures()
