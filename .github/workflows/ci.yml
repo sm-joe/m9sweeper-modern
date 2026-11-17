@@ -42,6 +42,7 @@ jobs:
         run: |
           ruby -r yaml -e 'Dir[".github/workflows/*.{yml,yaml}"].each { |p| YAML.parse_file(p) }'
           python3 -m unittest tools.security.test_mvp_preinstall_secrets
+          python3 -m unittest tools.security.test_bootstrap_cluster_sync_contract -v
       - name: Validate upstream product modules and UI routes
         run: |
           python3 tools/import-platform/verify.py
