@@ -55,9 +55,10 @@ kubectl -n m9sweeper-system create secret generic m9-init-env --from-env-file="$
 kubectl -n m9sweeper-system create secret generic m9-trawler-env --from-env-file="$M9_PRIVATE_DIR/trawler-runtime.env"
 ```
 
-Create **`$M9_PRIVATE_DIR/m9sweeper-values.yaml`** using the values below. Do not put passwords in Helm values:
+Create **`$M9_PRIVATE_DIR/m9sweeper-values.yaml`** with the following command. Do not put passwords in Helm values:
 
-```yaml
+```bash
+cat > "$M9_PRIVATE_DIR/m9sweeper-values.yaml" <<'YAML'
 global:
   installation:
     enabled: true
@@ -71,6 +72,8 @@ dash:
     existingSecret: m9-init-env
 trawler:
   existingSecret: m9-trawler-env
+YAML
+chmod 600 "$M9_PRIVATE_DIR/m9sweeper-values.yaml"
 ```
 
 The chart includes its application image references. For bundled PostgreSQL and RabbitMQ, the chart injects the release-local Service hostnames automatically. Keep the passwords and usernames consistent across the Dash and Trawler Secrets.
