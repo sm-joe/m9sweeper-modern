@@ -29,51 +29,20 @@ cleanup() {
   rm -rf "$scratch"
 }
 trap cleanup EXIT
-secret() { openssl rand -hex 32; }
-db_password="$(secret)"
-broker_password="$(secret)"
-jwt="$(secret)"
-cluster_api_key="$(secret)"
-trawler_api_key="$(secret)"
-hunter_api_key="$(secret)"
-bench_api_key="$(secret)"
-falco_api_key="$(secret)"
-admin_email='mvp-ci@example.com'
-admin_password="$(secret)"
-cat >"$scratch/dash.env" <<EOF
-SECURITY_JWT_SECRET=$jwt
-DATABASE_CONNECTION_HOST=m9sweeper-postgresql
-DATABASE_CONNECTION_PORT=5432
-DATABASE_CONNECTION_DATABASE=postgres
-DATABASE_CONNECTION_USERNAME=postgres
-DATABASE_CONNECTION_PASSWORD=$db_password
-RABBITMQ_HOST_NAME=m9sweeper-rabbitmq
-RABBITMQ_HOST_PORT=5672
-RABBITMQ_PORT=5672
-RABBITMQ_USER_NAME=m9
-RABBITMQ_USER_PASSWORD=$broker_password
-MSG_QUEUE_NAME_IMAGE_SCANNER=trawler_queue
-EOF
-cat >"$scratch/init.env" <<EOF
-CLUSTER_API_KEY=$cluster_api_key
-SUPER_ADMIN_EMAIL=$admin_email
-SUPER_ADMIN_PASSWORD=$admin_password
-TRAWLER_API_KEY=$trawler_api_key
-KUBE_HUNTER_API_KEY=$hunter_api_key
-KUBE_BENCH_API_KEY=$bench_api_key
-FALCO_API_KEY=$falco_api_key
-EOF
-cat >"$scratch/trawler.env" <<EOF
-RABBITMQ_HOSTNAME=m9sweeper-rabbitmq
-RABBITMQ_PORT=5672
-RABBITMQ_USERNAME=m9
-RABBITMQ_PASSWORD=$broker_password
-RABBITMQ_QUEUE_NAME=trawler_queue
-M9SWEEPER_API_KEY=$trawler_api_key
-EOF
-kubectl -n "$namespace" create secret generic m9-dash-env --from-env-file="$scratch/dash.env" >/dev/null
-kubectl -n "$namespace" create secret generic m9-init-env --from-env-file="$scratch/init.env" >/dev/null
-kubectl -n "$namespace" create secret generic m9-trawler-env --from-env-file="$scratch/trawler.env" >/dev/null
+# Use the exact installer shipped inside the signed downloaded release,
+# not hand-written CI environment files that can drift from documentation.
+test -s dist/create-install-secrets.py
+admin_email='mvp-ci@integration.test'
+M9_ADMIN_EMAIL="$admin_email" python3 dist/create-install-secrets.py --output-dir "$scratch/env"
+for file in dash-runtime.env dash-bootstrap.env trawler-runtime.env; do
+  test -s "$scratch/env/$file"
+  test "$(stat -c '%a' "$scratch/env/$file")" = 600
+done
+admin_password="$(sed -n 's/^SUPER_ADMIN_PASSWORD=//p' "$scratch/env/dash-bootstrap.env")"
+test "${#admin_password}" -ge 16 || { echo 'Generated admin credential missing' >&2; exit 1; }
+kubectl -n "$namespace" create secret generic m9-dash-env --from-env-file="$scratch/env/dash-runtime.env" >/dev/null
+kubectl -n "$namespace" create secret generic m9-init-env --from-env-file="$scratch/env/dash-bootstrap.env" >/dev/null
+kubectl -n "$namespace" create secret generic m9-trawler-env --from-env-file="$scratch/env/trawler-runtime.env" >/dev/null
 export M9_MVP_PREFLIGHT=YES M9_EXPECTED_KUBE_CONTEXT=kind-m9-mvp-ci
 python3 tools/security/mvp_preinstall_secrets.py --namespace "$namespace"
 
