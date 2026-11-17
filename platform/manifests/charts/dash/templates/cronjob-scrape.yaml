@@ -11,9 +11,14 @@ metadata:
   labels:
     {{- include "dash.labels" . | nindent 4 }}
 spec:
-  concurrencyPolicy: Replace
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 180
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 3600
       template:
         metadata:
           annotations:
@@ -38,9 +43,7 @@ spec:
               command: ["npm"]
               args:
                 - "run"
-                - "cli"
-                - "cluster:sync"
-                - "all"
+                - "cli:cluster:sync-all"
               env:
                 - name: CLI_PATH
                   value: "./cli.js"
