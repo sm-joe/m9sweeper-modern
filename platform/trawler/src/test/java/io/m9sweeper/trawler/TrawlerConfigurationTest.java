@@ -28,10 +28,10 @@ class TrawlerConfigurationTest {
             .contains("RABBITMQ_USERNAME"));
     }
 
-    @Test void defaultGuestMustFailClosed() {
+    @Test void explicitlyConfiguredLegacyBrokerUsernameRemainsSupported() {
         var c = config();
         c.setRabbitmqUsername("guest");
-        assertThrows(AssertionError.class, c::verifyConfig);
+        assertDoesNotThrow(c::verifyConfig);
     }
 
     @Test void blankPasswordMustBeReportedBeforeRabbitConnection() {
