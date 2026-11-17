@@ -100,7 +100,7 @@
                   <mat-header-cell *matHeaderCellDef> Number of Vulnerabilities </mat-header-cell>
                   <mat-cell *matCellDef="let report">
                     <a [routerLink]="['/private', 'clusters', this.clusterId, 'kubehunter', report.id]">
-                      {{report.vulnerabilities.value.value?.length}}
+                      {{countVulnerabilities(report)}}
                     </a>
                   </mat-cell>
                 </ng-container>
