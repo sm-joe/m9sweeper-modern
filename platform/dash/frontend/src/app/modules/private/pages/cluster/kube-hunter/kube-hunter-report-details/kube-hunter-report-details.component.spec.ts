@@ -19,13 +19,15 @@ describe('KubeHunterReportDetailsComponent', () => {
       .and.returnValue(never ? NEVER : (fail ? throwError({status: 403}) : of(response)))};
     const clusters: any = {getClusterById: jasmine.createSpy('getClusterById')
       .and.returnValue(of({data: {id: 3, name: 'kind-local'}}))};
-    const component = new KubeHunterReportDetailsComponent(route, service, clusters, {} as any);
+    const changeDetector: any = {markForCheck: jasmine.createSpy('markForCheck')};
+    const component = new KubeHunterReportDetailsComponent(route, service, clusters, {} as any, changeDetector);
     component.ngOnInit();
-    return {component, service, clusters};
+    return {component, service, clusters, changeDetector};
   }
 
   it('renders findings from the stored kube-hunter dispatcher JSON', () => {
-    const {component, service} = create();
+    const {component, service, changeDetector} = create();
+    expect(changeDetector.markForCheck).toHaveBeenCalled();
     expect(service.getKubeHunterReportById).toHaveBeenCalledWith(9);
     expect(component.loading).toBeFalse();
     expect(component.loadError).toBe('');
@@ -45,16 +47,18 @@ describe('KubeHunterReportDetailsComponent', () => {
   });
 
   it('leaves loading state after the API exceeds its deadline', fakeAsync(() => {
-    const {component} = create(undefined, false, true);
+    const {component, changeDetector} = create(undefined, false, true);
     expect(component.loading).toBeTrue();
     tick(15001);
     expect(component.loading).toBeFalse();
     expect(component.loadError).toContain('timed out');
+    expect(changeDetector.markForCheck).toHaveBeenCalled();
   }));
 
   it('surfaces an HTTP 403 instead of silently hiding the details page', () => {
-    const {component} = create(undefined, true);
+    const {component, changeDetector} = create(undefined, true);
     expect(component.loading).toBeFalse();
+    expect(changeDetector.markForCheck).toHaveBeenCalled();
     expect(component.loadError).toContain('HTTP 403');
   });
 });

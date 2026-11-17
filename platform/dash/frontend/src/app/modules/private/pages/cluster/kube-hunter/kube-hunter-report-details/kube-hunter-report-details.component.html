@@ -4,10 +4,10 @@
   <p *ngIf="!loading && !loadError && report && vulnerabilities?.length === 0" role="status">This audit reported no vulnerabilities.</p>
   <div class="m-xs-6">
 
-    <div *ngIf="report && cluster">
+    <div *ngIf="report">
       <div class="page-title"> kube-hunter Report: Cluster Vulnerabilities </div>
 
-      <p> Cluster: {{cluster.name}}</p>
+      <p> Cluster: {{cluster?.name || ("Cluster " + report.clusterId)}}</p>
       <p> Date run: {{dateRan}} </p>
     </div>
 
