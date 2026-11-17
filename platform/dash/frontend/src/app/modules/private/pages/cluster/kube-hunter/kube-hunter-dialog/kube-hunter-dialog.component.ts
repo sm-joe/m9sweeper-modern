@@ -65,7 +65,7 @@ export class KubeHunterDialogComponent implements OnInit {
           this.reportEndpointError = '';
         } catch {
           this.reportEndpointReady = false;
-          this.reportEndpointError = 'kube-hunter requires a trusted HTTPS ingress reachable from Pods. Set dash.scannerReportIngestionUrl to that HTTPS origin in your m9sweeper Helm values and upgrade Dash. The default in-cluster HTTP callback supports kube-bench only.';
+          this.reportEndpointError = 'kube-hunter requires a trusted HTTPS origin reachable from Pods. For Docker Compose set SCANNER_REPORT_INGESTION_URL in .env and configure a private HTTPS proxy; for Kubernetes set dash.scannerReportIngestionUrl in Helm. Verify TLS and reachability from a Pod. In-cluster HTTP supports kube-bench only.';
         }
         this.loaderService.stop();
       },
