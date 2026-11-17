@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version, e.g. v0.1.3'
+        description: 'Release version, e.g. v0.1.0'
         required: true
-        default: 'v0.1.3'
+        default: 'v0.1.0'
         type: string
       confirmation:
         description: 'Type BUILD_RELEASE to build the release package'
@@ -29,7 +29,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       ((github.event_name == 'workflow_dispatch' && inputs.confirmation == 'BUILD_RELEASE') ||
-       (github.event_name == 'push' && contains(github.event.head_commit.message, '[release:v0.1.3]')))
+       (github.event_name == 'push' && contains(github.event.head_commit.message, '[release:v0.1.0]')))
     runs-on: ubuntu-latest
     timeout-minutes: 85
     steps:
@@ -39,7 +39,7 @@ jobs:
       - name: Validate candidate version and release scope
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.3' }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
         run: |
           set -euo pipefail
           [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
@@ -55,7 +55,7 @@ jobs:
             platform/dash/frontend/src/app/modules/private/pages/cluster/kube-bench/kube-bench-dialog/kube-bench-dialog.component.html \
             platform/dash/frontend/src/app/modules/private/pages/cluster/kube-hunter/kube-hunter-dialog/kube-hunter-dialog.component.html; do
             grep -Fq "releases/download/$VERSION/" "$dialog"
-            if grep -Fq 'releases/download/v0.1.2/' "$dialog"; then
+            if grep -Fq 'releases/download/v0.1.0/' "$dialog"; then
               echo "Obsolete scanner chart link in $dialog" >&2
               exit 1
             fi
@@ -76,7 +76,7 @@ jobs:
           file: ./platform/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/sm-joe/m9sweeper-dash:${{ inputs.version || 'v0.1.3' }}
+          tags: ghcr.io/sm-joe/m9sweeper-dash:${{ inputs.version || 'v0.1.0' }}
           provenance: mode=max
           sbom: true
       - name: Build and publish Java trawler candidate with OCI provenance and SBOM
@@ -87,7 +87,7 @@ jobs:
           file: ./platform/trawler/Dockerfile.jvm
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/sm-joe/m9sweeper-trawler:${{ inputs.version || 'v0.1.3' }}
+          tags: ghcr.io/sm-joe/m9sweeper-trawler:${{ inputs.version || 'v0.1.0' }}
           provenance: mode=max
           sbom: true
       - uses: sigstore/cosign-installer@v3
@@ -113,7 +113,7 @@ jobs:
       - name: Package Helm values pinned to verified OCI image digests
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.3' }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
           DASH_DIGEST: ${{ steps.dash.outputs.digest }}
           TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
         run: |
@@ -150,7 +150,7 @@ jobs:
       - name: Package independently installable scanner charts
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.3' }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
         run: |
           set -euo pipefail
           version="${VERSION#v}"
@@ -193,7 +193,7 @@ jobs:
       - name: Verify signed immutable images in rendered candidate Kubernetes workloads
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.3' }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
           DASH_DIGEST: ${{ steps.dash.outputs.digest }}
           TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
         run: |
@@ -228,29 +228,18 @@ jobs:
       - name: Sign chart and package installation instructions
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.3' }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
         run: |
           set -euo pipefail
           chart="dist/m9sweeper-${VERSION#v}.tgz"
           cp docs/installation.md dist/INSTALL.md
+          cp scripts/create-install-secrets.py dist/create-install-secrets.py
+          python3 -m py_compile scripts/create-install-secrets.py
           # The repository installation page continues to target the latest
           # already-published release until this candidate passes acceptance.
           # Only the candidate's signed INSTALL.md points to its new artifacts.
-          python3 - <<'PY'
-          from pathlib import Path
-          import os
-          p = Path("dist/INSTALL.md")
-          content = p.read_text()
-          version = os.environ["VERSION"]
-          prior = "v0.1.2"
-          content = content.replace(
-              "Avoid using the published `kube-bench-0.1.2.tgz` archive for one-time EKS Jobs: it contains the invalid `eks-1.0` benchmark. The EKS guide uses the corrected source chart and **reuses scanner keys from the existing `m9-init-env` Secret** rather than instructing users to create missing arbitrary Secrets.",
-              "The downloaded kube-bench chart is checked for EKS one-time Job benchmark `eks-1.2.0`; reuse the existing authorized `m9-init-env` Secret keys."
-          )
-          content = content.replace(prior, version)
-          content = content.replace("-0.1.2.tgz", f"-{version[1:]}.tgz")
-          p.write_text(content)
-          PY
+          grep -Fq 'v0.1.0' dist/INSTALL.md
+          grep -Fq 'create-install-secrets.py' dist/INSTALL.md
           python3 -m json.tool dist/m9sweeper-source.spdx.json >/dev/null
           cosign sign-blob --yes --bundle dist/chart.sigstore.json "$chart"
           for scanner in kube-bench kube-hunter; do
@@ -262,7 +251,7 @@ jobs:
           for scanner in kube-bench kube-hunter; do
             cosign verify-blob --bundle "dist/$scanner.sigstore.json" --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "dist/$scanner-${VERSION#v}.tgz"
           done
-          (cd dist && sha256sum ./*.tgz m9sweeper-source.spdx.json INSTALL.md > SHA256SUMS && sha256sum -c SHA256SUMS)
+          (cd dist && sha256sum ./*.tgz m9sweeper-source.spdx.json INSTALL.md create-install-secrets.py > SHA256SUMS && sha256sum -c SHA256SUMS)
       - name: Upload immutable-digest candidate manifest, chart and evidence
         uses: actions/upload-artifact@v4
         with:
@@ -280,7 +269,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           gh workflow run release-acceptance.yml --ref main \
-            -f release_version='${{ inputs.version || 'v0.1.3' }}' \
+            -f release_version='${{ inputs.version || 'v0.1.0' }}' \
             -f source_sha="$GITHUB_SHA" \
             -f candidate_run_id="$GITHUB_RUN_ID" \
             -f confirmation=ACCEPT_CANDIDATE
