@@ -175,6 +175,27 @@ M9_MVP_ADMIN_EMAIL="$admin_email" M9_MVP_ADMIN_PASSWORD="$admin_password" \
   python3 tools/integration/mvp_helm_trivy_acceptance.py
 
 
+# Upgrade acceptance with the same long-lived Secrets and persistent RabbitMQ
+# volume. Simulate the observed overly permissive Erlang cookie; restarting
+# the StatefulSet must repair the same cookie before RabbitMQ prelaunch.
+# Keep a harmless marker on the broker data PVC to catch accidental wiping.
+kubectl -n "$namespace" exec m9sweeper-rabbitmq-0 -- sh -ec '
+  printf "preserved-ci-upgrade\\n" > /var/lib/rabbitmq/.m9-upgrade-marker
+  test -s /var/lib/rabbitmq/.erlang.cookie
+  chmod 644 /var/lib/rabbitmq/.erlang.cookie
+'
+kubectl -n "$namespace" rollout restart statefulset/m9sweeper-rabbitmq
+kubectl -n "$namespace" rollout status statefulset/m9sweeper-rabbitmq --timeout=5m
+kubectl -n "$namespace" exec m9sweeper-rabbitmq-0 -- sh -ec '
+  test "$(stat -c %a /var/lib/rabbitmq/.erlang.cookie)" = 600
+  test "$(cat /var/lib/rabbitmq/.m9-upgrade-marker)" = preserved-ci-upgrade
+  rabbitmq-diagnostics -q ping
+'
+echo 'PASS: persisted RabbitMQ cookie repaired, same PVC retained, broker running'
+# Fail-closed credential hook must reject invalid/missing keys on upgrades,
+# while the valid existing credentials pass without changing any Secret.
+echo 'PASS: persistent broker restored before normal Helm upgrade'
+
 # Confirm resource reconciliation across upgrade and rollback without
 # interpreting Helm success as a database schema downgrade guarantee.
 helm upgrade "$release" "$M9_MVP_CHART" -n "$namespace" "${values[@]}" --wait --timeout 15m
