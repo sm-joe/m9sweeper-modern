@@ -1,6 +1,6 @@
 import {Component, OnDestroy, OnInit} from '@angular/core';
 import {Subject} from 'rxjs';
-import {take, tap} from 'rxjs/operators';
+import {finalize, take, timeout} from 'rxjs/operators';
 import {KubeHunterService} from '../../../../../core/services/kube-hunter.service';
 import {IKubeHunterReport} from '../../../../../core/entities/IKubeHunterReport';
 import {ActivatedRoute, Router} from '@angular/router';
@@ -59,11 +59,13 @@ export class KubeHunterComponent implements OnInit, OnDestroy {
 
   getReports() {
     this.loadError = '';
+    this.loaderService.start();
     this.kubeHunterService
       .allReportsForCluster(this.clusterId, this.limit, this.page)
       .pipe(
-        tap(() => this.loaderService.start()),
         take(1),
+        timeout(15000),
+        finalize(() => this.loaderService.stop()),
       )
       .subscribe(res => {
         this.receivedResponse = true;
@@ -82,14 +84,15 @@ export class KubeHunterComponent implements OnInit, OnDestroy {
         this.scansExist = false;
         this.allReportsForCluster = [];
         this.reportCount = 0;
-        this.loadError = `Unable to retrieve kube-hunter reports (HTTP ${e.status || 'network error'}).`;
+        this.loadError = e?.name === 'TimeoutError'
+          ? 'Kube-hunter report request timed out. Check the Dashboard API.'
+          : `Unable to retrieve kube-hunter reports (HTTP ${e?.status || 'network error'}).`;
         this.populateTable();
         if (e.status === 404) {
           this.ourAdvice = 'Run kube-hunter to find vulnerabilities within your cluster.';
           this.penetrationTestText = 'Unknown';
         }
-      },
-      () => this.loaderService.stop());
+      });
   }
 
   populateTable() {
