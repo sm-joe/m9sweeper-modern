@@ -1,5 +1,11 @@
 # m9sweeper-modern v0.1.0
 
+## Existing v0.1.0 upgrades (immutable image digests)
+
+- Fix the upgrade trap: `helm upgrade --reuse-values` preserves previously stored SHA256-pinned Dash and Trawler image tags, so updating the chart alone does not deploy subsequent fixes. Use the packaged `upgrade-release.ps1` or explicitly override both image tags from the current release `IMAGE-DIGESTS.txt` as documented in `INSTALL.md`.
+- The upgrade script verifies that the running Dash and Trawler deployments match the newly published immutable image digests. It does not regenerate secrets, remove persistent volumes, reset scanner keys, or rerun initialization.
+- Kube-hunter report loading fixes require replacing the Dash image as well as refreshing the chart. A chart upgrade that leaves the old Dash image in place cannot fix the Angular report view.
+
 ## Installation and reliability
 
 - The Dashboard, kube-bench and kube-hunter installation instructions discover the current published Helm chart without embedding release-specific archive URLs in the web application.
