@@ -49,7 +49,7 @@ export class KubeBenchDialogComponent implements OnInit{
           this.reportEndpointError = '';
         } else {
           this.reportEndpointReady = false;
-          this.reportEndpointError = 'Configure SCANNER_REPORT_INGESTION_URL with an address reachable from Kubernetes Pods. Browser localhost URLs cannot receive scanner reports.';
+          this.reportEndpointError = 'Configure SCANNER_REPORT_INGESTION_URL with an address reachable from Kubernetes Pods (Docker Compose .env), or dash.scannerReportIngestionUrl in Helm. Browser localhost URLs cannot receive scanner reports. Verify connectivity from a Pod.';
         }
       },
       error: () => {

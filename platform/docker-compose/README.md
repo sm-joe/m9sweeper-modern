@@ -81,6 +81,67 @@ docker run --rm --entrypoint trivy m9sweeper-trawler:local --version
 
 The images run as non-root users. Base-image and scanner versions are controlled in the Dockerfiles; published Kubernetes release images are separately pinned to immutable digests.
 
+## Scanner report ingestion from Kubernetes Jobs
+
+If the Dashboard displays **"Not configured — scanner report uploads may fail"**, the Compose environment has no configured Pod-reachable `SCANNER_REPORT_INGESTION_URL`. This is expected on a fresh host-only installation. The browser can access `http://localhost:3000`, but **a Kubernetes Job cannot use that address to reach your Docker host**.
+
+Choose an address based on actual cluster networking:
+
+| Setup | Callback origin for `SCANNER_REPORT_INGESTION_URL` |
+| --- | --- |
+| Docker Compose on a reachable private Linux host | `http://<your-private-host-IP>:3000` for kube-bench only |
+| kube-hunter or an HTTPS-only scanner | A real trusted HTTPS origin routed to Compose through an authorized internal TLS reverse proxy |
+| Dash itself deployed inside Kubernetes | The actual Dash Kubernetes Service URL for kube-bench; private HTTPS gateway for kube-hunter |
+
+**Do not copy the examples literally:** `<your-private-host-IP>` must be replaced with your real routable address. The backend checks URL syntax but cannot prove Pod-to-host reachability. Kubernetes Job callback traffic must be tested independently.
+
+### 1. Allow scanner traffic to reach Dash (only when required)
+
+Compose defaults to `127.0.0.1:3000:3000` so the Dashboard is **not** exposed on external network interfaces. For kube-bench on a trusted private network, set these existing keys in your **current** `.env` file without regenerating it:
+
+```dotenv
+SCANNER_REPORT_BIND_ADDRESS=<your-private-host-IP>
+SCANNER_REPORT_BIND_PORT=3000
+SCANNER_REPORT_INGESTION_URL=http://<your-private-host-IP>:3000
+```
+
+Use only a real interface address assigned to your Linux host and reachable from Kubernetes Pods. Restrict TCP 3000 at the host firewall/security group to authorized scanner Pods or cluster egress ranges; do not use `0.0.0.0` as a shortcut. The Dash UI and admin API share this port, so prefer a private reverse proxy with TLS and access controls for environments outside a trusted local test network.
+
+For kube-hunter, set `SCANNER_REPORT_INGESTION_URL` to the trusted **HTTPS proxy origin** instead, not to plain HTTP. The HTTPS gateway must forward `/api/kubehunter/hunter/{clusterId}` to Compose Dash, preserve `X-API-Key`, and present a certificate trusted by the scanner relay. See the [private HTTPS gateway pattern](../../docs/eks-installation.md#6-kube-hunter-private-https-without-a-public-domain). A Kubernetes Service DNS name alone cannot route to an external Compose container.
+
+### 2. Apply existing Compose settings safely
+
+```bash
+cd platform/docker-compose
+docker compose -p m9sweeper config --quiet
+docker compose -p m9sweeper up -d --no-deps --force-recreate dash
+docker compose -p m9sweeper ps dash
+docker compose -p m9sweeper exec -T dash printenv SCANNER_REPORT_INGESTION_URL
+```
+
+The last command must show your **configured callback origin**, not localhost or an empty line. It prints only the URL, not an API key. Credentials, volumes and the completed initialization Job are preserved.
+
+From a Kubernetes Pod (not your browser), test the real origin before triggering a scan:
+
+```bash
+# Set to the SAME actual origin configured in Compose .env.
+read -r -p 'Pod-reachable scanner callback origin: ' REPORT_URL
+kubectl -n m9sweeper-system run m9-callback-probe \
+  --image=curlimages/curl:8.16.0 --restart=Never \
+  --env="REPORT_URL=$REPORT_URL" \
+  --command -- sh -c 'curl --fail --show-error --silent --max-time 15 "$REPORT_URL/api/health"'
+kubectl -n m9sweeper-system wait --for=jsonpath='{.status.phase}'=Succeeded \
+  pod/m9-callback-probe --timeout=90s
+kubectl -n m9sweeper-system logs m9-callback-probe
+kubectl -n m9sweeper-system delete pod m9-callback-probe --ignore-not-found
+```
+
+Expected for a direct kube-bench callback: the Pod's `curl` command reaches the Dash health endpoint and returns its successful response. If an HTTPS proxy deliberately exposes only `/api/kubehunter/hunter/{clusterId}`, its `/api/health` URL may return 404 even when the relay path works. In that case test the actual report-ingestion path with an unauthenticated POST: HTTP **401/403** is expected and proves routing to the authentication layer without uploading a report. A DNS, timeout or TLS verification failure means routing or trust must be corrected before scanning. If you are using a private CA, mount the CA into the probe Pod and scanner relay and use certificate verification; **do not use `curl -k` or `--insecure`**.
+
+### 3. Confirm in Dashboard
+
+Refresh the scanner installation dialog. It reads `GET /common/get-config` (authenticated), which should now report a nonempty `data.reportIngestionUrl`. kube-bench accepts Pod-reachable HTTP on a private network; kube-hunter requires a validated HTTPS origin. Then run an authorized scan and confirm its **new report is ingested and rendered**, not just that the Job completed.
+
 ## Scanning a Kubernetes cluster from Compose
 
 The Dash container must reach the target Kubernetes API hostname, trust its CA and have a restricted, valid Kubernetes credential. A local workstation `kubectl` connection does not automatically give the container the same access.

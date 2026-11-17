@@ -84,7 +84,8 @@ services:
       rabbitmq:
         condition: service_healthy
     ports:
-      - '127.0.0.1:3000:3000'
+      # Opt-in external bind only when scanner Pods can reach and trust this host.
+      - '${SCANNER_REPORT_BIND_ADDRESS:-127.0.0.1}:${SCANNER_REPORT_BIND_PORT:-3000}:3000'
     healthcheck:
       test: wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
       interval: 30s
