@@ -21,6 +21,18 @@ Contributions are welcome! m9sweeper-modern is an open-source Kubernetes securit
 | `docs/` | Installation and release notes |
 | `.github/workflows/` | CI, security and release automation |
 
+## Checks (Linux/bash)
+
+Run the relevant component checks for your change:
+
+```bash
+cd platform/dash/frontend && npm ci --legacy-peer-deps && npm run lint && npm run build:prod
+cd ../backend && npm ci --legacy-peer-deps && npm test -- --runInBand
+cd ../../trawler && mvn -B -ntp test
+```
+
+CI uses focused frontend, backend and Java tests plus an opt-in full Platform CI matrix for substantial changes. Release artifacts are signed and packaged by the release build workflow. Live EKS runtime acceptance is recorded separately from CI. Do not rename or remove workflows without preserving relevant coverage.
+
 ## Pull request checklist
 
 - [ ] Change has a clear description and focused scope.
