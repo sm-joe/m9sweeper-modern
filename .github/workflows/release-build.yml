@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version, e.g. v0.1.2'
+        description: 'Release version, e.g. v0.1.0'
         required: true
-        default: 'v0.1.2'
+        default: 'v0.1.0'
         type: string
       confirmation:
         description: 'Type BUILD_RELEASE to build the release package'
@@ -31,7 +31,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       ((github.event_name == 'workflow_dispatch' && inputs.confirmation == 'BUILD_RELEASE') ||
-       (github.event_name == 'push' && contains(github.event.head_commit.message, '[release:v0.1.2]')))
+       (github.event_name == 'push' && contains(github.event.head_commit.message, '[release:v0.1.0]')))
     runs-on: ubuntu-latest
     timeout-minutes: 85
     steps:
@@ -41,7 +41,7 @@ jobs:
       - name: Validate candidate version and release scope
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.2' }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
         run: |
           set -euo pipefail
           [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
@@ -56,9 +56,9 @@ jobs:
           for dialog in \
             platform/dash/frontend/src/app/modules/private/pages/cluster/kube-bench/kube-bench-dialog/kube-bench-dialog.component.html \
             platform/dash/frontend/src/app/modules/private/pages/cluster/kube-hunter/kube-hunter-dialog/kube-hunter-dialog.component.html; do
-            grep -Fq "releases/download/$VERSION/" "$dialog"
-            if grep -Fq 'releases/download/v0.1.1/' "$dialog"; then
-              echo "Obsolete scanner chart link in $dialog" >&2
+            grep -Fq 'gh release download --repo sm-joe/m9sweeper-modern' "$dialog"
+            if grep -Eq 'releases/download/v[0-9]+[.][0-9]+[.][0-9]+/' "$dialog"; then
+              echo "Version-pinned scanner chart link in $dialog" >&2
               exit 1
             fi
           done
@@ -78,7 +78,7 @@ jobs:
           file: ./platform/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/sm-joe/m9sweeper-dash:${{ inputs.version || 'v0.1.2' }}
+          tags: ghcr.io/sm-joe/m9sweeper-dash:${{ inputs.version || 'v0.1.0' }}
           provenance: mode=max
           sbom: true
       - name: Build and publish Java trawler candidate with OCI provenance and SBOM
@@ -89,7 +89,7 @@ jobs:
           file: ./platform/trawler/Dockerfile.jvm
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/sm-joe/m9sweeper-trawler:${{ inputs.version || 'v0.1.2' }}
+          tags: ghcr.io/sm-joe/m9sweeper-trawler:${{ inputs.version || 'v0.1.0' }}
           provenance: mode=max
           sbom: true
       - uses: sigstore/cosign-installer@v3
@@ -115,7 +115,7 @@ jobs:
       - name: Package Helm values pinned to verified OCI image digests
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.2' }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
           DASH_DIGEST: ${{ steps.dash.outputs.digest }}
           TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
         run: |
@@ -152,7 +152,7 @@ jobs:
       - name: Package independently installable scanner charts
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.2' }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
         run: |
           set -euo pipefail
           version="${VERSION#v}"
@@ -195,7 +195,7 @@ jobs:
       - name: Verify signed immutable images in rendered candidate Kubernetes workloads
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.2' }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
           DASH_DIGEST: ${{ steps.dash.outputs.digest }}
           TRAWLER_DIGEST: ${{ steps.trawler.outputs.digest }}
         run: |
@@ -230,7 +230,7 @@ jobs:
       - name: Sign chart and package installation instructions
         shell: bash
         env:
-          VERSION: ${{ inputs.version || 'v0.1.2' }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
         run: |
           set -euo pipefail
           chart="dist/m9sweeper-${VERSION#v}.tgz"
@@ -240,7 +240,7 @@ jobs:
           # The repository installation page continues to target the latest
           # already-published release until this candidate passes acceptance.
           # Only the candidate's signed INSTALL.md points to its new artifacts.
-          grep -Fq 'v0.1.2' dist/INSTALL.md
+          grep -Fq 'v0.1.0' dist/INSTALL.md
           grep -Fq 'create-install-secrets.py' dist/INSTALL.md
           python3 -m json.tool dist/m9sweeper-source.spdx.json >/dev/null
           cosign sign-blob --yes --bundle dist/chart.sigstore.json "$chart"
@@ -271,7 +271,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           gh workflow run release-acceptance.yml --ref main \
-            -f release_version='${{ inputs.version || 'v0.1.2' }}' \
+            -f release_version='${{ inputs.version || 'v0.1.0' }}' \
             -f source_sha="$GITHUB_SHA" \
             -f candidate_run_id="$GITHUB_RUN_ID" \
             -f confirmation=ACCEPT_CANDIDATE
