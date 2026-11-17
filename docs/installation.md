@@ -46,6 +46,36 @@ The generated files contain the exact names consumed by Dash, Trawler, PostgreSQ
 
 ### Upgrading an existing installation with Kubernetes Secrets
 
+**Critical for refreshed v0.1.0:** Every signed release chart pins the Dash and Trawler images to immutable SHA256 digests. Using `helm upgrade --reuse-values` without explicitly updating `dash.image.tag` and `trawler.image.tag` silently keeps the OLD image digests from the previous Helm revision, even when the replacement chart contains fixes. That leaves browsers running the old Angular bundle (for example, a kube-hunter report page still saying "Loading kube-hunter report..."). Always deploy the newly published image digests with the chart; do not reset database or credentials.
+
+For a Windows PowerShell operator, download `upgrade-release.ps1` from the same GitHub release and run it from the installation folder:
+
+```powershell
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern --pattern "upgrade-release.ps1" --clobber
+.\\upgrade-release.ps1 -Namespace m9sweeper-system
+```
+
+The script downloads the replacement chart and `IMAGE-DIGESTS.txt`, saves your Helm values, reuses your Secret references and storage, explicitly overrides BOTH image digests, and verifies the exact deployed image references. **Do not use an earlier saved chart with a newer digest manifest.**
+
+On Linux, fetch the same release chart and digest manifest, then pin both digests explicitly during upgrade:
+
+```bash
+gh release download v0.1.0 --repo sm-joe/m9sweeper-modern \\
+  --pattern 'm9sweeper-0.1.0.tgz' --pattern 'IMAGE-DIGESTS.txt' --clobber
+dash_digest="$(sed -n 's|^dash=ghcr.io/sm-joe/m9sweeper-dash@||p' IMAGE-DIGESTS.txt)"
+trawler_digest="$(sed -n 's|^trawler=ghcr.io/sm-joe/m9sweeper-trawler@||p' IMAGE-DIGESTS.txt)"
+[[ "$dash_digest" =~ ^sha256:[a-f0-9]{64}$ && "$trawler_digest" =~ ^sha256:[a-f0-9]{64}$ ]] || exit 1
+helm upgrade m9sweeper ./m9sweeper-0.1.0.tgz -n m9sweeper-system \\
+  --reuse-values \\
+  --set-string dash.image.registry=ghcr.io \\
+  --set-string dash.image.repository=sm-joe/m9sweeper-dash \\
+  --set-string "dash.image.tag=v0.1.0@$dash_digest" \\
+  --set-string trawler.image.registry=ghcr.io \\
+  --set-string trawler.image.repository=sm-joe/m9sweeper-trawler \\
+  --set-string "trawler.image.tag=v0.1.0@$trawler_digest" \\
+  --timeout 15m
+```
+
 `helm upgrade --reuse-values` reuses only Helm's saved values; it **does not automatically discover** an existing Kubernetes Secret. If the saved values omit `dash.existingSecret`, Helm can incorrectly prompt for `global.jwtSecret` even though `m9-dash-env` already exists. **Do not generate a new JWT, API key, or broker password.** Confirm the existing Secret names first, then provide the references (not their contents) explicitly:
 
 ```bash
