@@ -56,7 +56,7 @@ def validate_secret_data(objects: dict) -> list[str]:
                 errors.append(f"{role}: key {key} must be valid UTF-8 base64 Secret data")
                 continue
             decoded[role][key] = value
-            if (not value.strip() or value.lower().startswith("generated-") or (key in SENSITIVE_KEYS and value.strip().lower() in BAD_VALUES) or (key in {"RABBITMQ_USER_NAME", "RABBITMQ_USERNAME"} and value.strip().lower() == "guest")):
+            if (not value.strip() or value.strip().lower().startswith(("generated-", "replace-with-", "placeholder", "changeme")) or (key in SENSITIVE_KEYS and value.strip().lower() in BAD_VALUES) or (key in {"RABBITMQ_USER_NAME", "RABBITMQ_USERNAME"} and value.strip().lower() == "guest")):
                 errors.append(f"{role}: key {key} is empty or uses a known placeholder")
     for role, key, minimum in [
         ("dash", "SECURITY_JWT_SECRET", 32),
