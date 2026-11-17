@@ -147,6 +147,8 @@ services:
       RABBITMQ_USERNAME: "${RABBITMQ_USERNAME:?set RABBITMQ_USERNAME in .env}"
       RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in .env}"
       RABBITMQ_PORT: 5672
+      # Must match Dash MSG_QUEUE_NAME_IMAGE_SCANNER for queue delivery.
+      RABBITMQ_QUEUE_NAME: "trawler_queue"
       # Dash Connection
       M9SWEEPER_URL: "http://dash:3000"
       M9SWEEPER_API_KEY: "${TRAWLER_API_KEY:?set TRAWLER_API_KEY in .env}"
