@@ -198,6 +198,9 @@ ls -lh m9sweeper-*.tgz
 Create `$M9_PRIVATE_DIR/m9sweeper-values.yaml`:
 
 ```bash
+if [ -e "$M9_PRIVATE_DIR/m9sweeper-values.yaml" ]; then
+  echo "Keeping existing private Helm values"
+else
 cat > "$M9_PRIVATE_DIR/m9sweeper-values.yaml" <<'YAML'
 global:
   installation:
@@ -214,6 +217,7 @@ trawler:
   existingSecret: m9-trawler-env
 YAML
 chmod 600 "$M9_PRIVATE_DIR/m9sweeper-values.yaml"
+fi
 ```
 
 If you already have a values file, **edit and preserve it** rather than replacing custom settings.
@@ -223,7 +227,7 @@ Install (do not pass `--wait` on the first installation because the initializati
 ```bash
 helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
   --namespace m9sweeper-system \
-  --values $M9_PRIVATE_DIR/m9sweeper-values.yaml --timeout 15m
+  --values "$M9_PRIVATE_DIR/m9sweeper-values.yaml" --timeout 15m
 ```
 
 Expected: Helm prints a release summary. **Helm success is not yet proof the database is initialized or the scanners work.**
