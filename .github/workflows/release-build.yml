@@ -19,7 +19,7 @@ on:
         required: true
         type: string
 permissions:
-  contents: read
+  contents: write
   packages: write
   id-token: write
   actions: write
@@ -261,20 +261,39 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 30
-      - name: Dispatch independent Kubernetes installation tests
+      - name: Publish signed v0.1.0 with operator-deferred EKS E2E
         if: success()
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version || 'v0.1.0' }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
-          gh workflow run release-acceptance.yml --ref main \
-            -f release_version='${{ inputs.version || 'v0.1.0' }}' \
-            -f source_sha="$GITHUB_SHA" \
-            -f candidate_run_id="$GITHUB_RUN_ID" \
-            -f confirmation=ACCEPT_CANDIDATE
-          echo 'Signed candidate complete: requested exact-commit real Kind install acceptance'
-          echo 'No public release is published unless independent installation and scan pass'
-
+          test "$VERSION" = v0.1.0
+          test -s dist/m9sweeper-0.1.0.tgz
+          test -s dist/kube-bench-0.1.0.tgz
+          test -s dist/kube-hunter-0.1.0.tgz
+          (cd dist && sha256sum -c SHA256SUMS)
+          # Operator explicitly accepts post-publication EKS end-to-end testing.
+          # Do not imply runtime scanner acceptance in the release notes.
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release delete "$VERSION" --cleanup-tag --yes
+          fi
+          gh release create "$VERSION" \
+            dist/*.tgz dist/SHA256SUMS dist/IMAGE-DIGESTS.txt \
+            dist/*.sigstore.json dist/m9sweeper-source.spdx.json \
+            dist/RELEASE-METADATA.txt dist/INSTALL.md dist/create-install-secrets.py \
+            --target "$GITHUB_SHA" \
+            --title "m9sweeper-modern $VERSION" \
+            --notes-file docs/release-notes.md
+          mkdir -p /tmp/m9-verify-release
+          gh release download "$VERSION" --dir /tmp/m9-verify-release
+          (cd /tmp/m9-verify-release && sha256sum -c SHA256SUMS)
+          for old in v0.1.1 v0.1.2; do
+            if gh release view "$old" >/dev/null 2>&1; then
+              gh release delete "$old" --cleanup-tag --yes
+            fi
+          done
+          echo 'PASS: signed v0.1.0 assets published and downloaded; EKS E2E is operator-deferred'
