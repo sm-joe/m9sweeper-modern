@@ -5,6 +5,20 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TrawlerConfigurationTest {
+    @Test void originalDocumentedBrokerKeysStillResolve() {
+        assertEquals("m9sweeper", TrawlerConfiguration.selectBrokerSetting(null, "m9sweeper"));
+        assertEquals("broker-pass", TrawlerConfiguration.selectBrokerSetting("", "broker-pass"));
+        assertEquals("trawler_queue", TrawlerConfiguration.selectBrokerSetting(" ", "trawler_queue"));
+        assertEquals("broker.svc.cluster.local",
+            TrawlerConfiguration.selectBrokerSetting(null, "broker.svc.cluster.local"));
+    }
+
+    @Test void explicitCanonicalBrokerValuesTakePrecedence() {
+        assertEquals("new-broker",
+            TrawlerConfiguration.selectBrokerSetting("new-broker", "legacy-broker"));
+        assertEquals("", TrawlerConfiguration.selectBrokerSetting(null, null));
+    }
+
     private TrawlerConfiguration config() {
         var config = new TrawlerConfiguration();
         config.setM9sweeperUrl("http://m9sweeper-dash:3000");
