@@ -271,7 +271,7 @@ public class TrawlerConfiguration {
         } else if (trawlerRunMode() == TrawlerRunMode.RABBITMQ) {
             // Verify that the RabbitMQ username is not blank
             if (rabbitmqUsername().isBlank() || rabbitmqUsername().equalsIgnoreCase("guest")) {
-                throw new AssertionError("RABBITMQ_USERNAME is blank. Set RABBITMQ_USERNAME in the Trawler environment Secret (Dash uses RABBITMQ_USER_NAME).");
+                throw new AssertionError("RABBITMQ_USERNAME is absent or unsupported. Set RABBITMQ_USERNAME in the Trawler environment Secret (Dash uses RABBITMQ_USER_NAME).");
             }
 
             // Verify that the RabbitMQ password is not blank
@@ -286,8 +286,7 @@ public class TrawlerConfiguration {
 
             // Verify that the RabbitMQ queue name is not blank
             if (rabbitmqQueueName.isBlank()) {
-                throw new AssertionError("RABBITMQ_QUEUE_NAME is blank. Please define the queue name that Trawler should listen " +
-                        "on or comment out/unset the configuration option to use the default option (trawler_queue).");
+                throw new AssertionError("RABBITMQ_QUEUE_NAME is blank. Set RABBITMQ_QUEUE_NAME in the Trawler environment Secret (Dash uses MSG_QUEUE_NAME_IMAGE_SCANNER).");
             }
         } else if (trawlerRunMode() == TrawlerRunMode.STANDALONE) {
             if (clusterName.isEmpty()) {
