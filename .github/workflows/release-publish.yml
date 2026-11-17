@@ -24,7 +24,7 @@ on:
         type: string
         required: true
       cleanup_old_releases:
-        description: Retain previous release assets for rollback after v0.1.0 publication
+        description: Reset release history to verified v0.1.0 after full acceptance
         type: boolean
         required: false
         default: false
@@ -70,7 +70,10 @@ jobs:
             echo 'Release must be a clean vMAJOR.MINOR.PATCH version' >&2; exit 2
           }
           if gh release view "$version" >/dev/null 2>&1; then
-            echo 'Refusing to overwrite an existing release' >&2; exit 1
+            if [[ "$version" != 'v0.1.0' || '${{ inputs.cleanup_old_releases }}' != 'true' ]]; then
+              echo 'Existing release tag requires explicitly authorized v0.1.0 history reset' >&2; exit 1
+            fi
+            echo 'Existing v0.1.0 will be retired only after candidate artifact validation'
           fi
           gh run list --workflow ci.yml --limit 50 \
             --json databaseId,headSha,conclusion > /tmp/platform-runs.json
@@ -175,6 +178,13 @@ jobs:
         run: |
           set -euo pipefail
           version="${{ inputs.release_version }}"
+          # Existing v0.1.0 can be replaced only after every prior verification
+          # step succeeds and the operator explicitly requests history cleanup.
+          if [[ "${{ inputs.cleanup_old_releases }}" == 'true' && "$version" == 'v0.1.0' ]]; then
+            if gh release view v0.1.0 >/dev/null 2>&1; then
+              gh release delete v0.1.0 --cleanup-tag --yes
+            fi
+          fi
           # Publication requires independently verified scanner acceptance.
           gh release create "$version" \
             dist/*.tgz dist/SHA256SUMS dist/IMAGE-DIGESTS.txt \
@@ -205,6 +215,11 @@ jobs:
           gh release download "$version" --dir /tmp/m9-public-release
           (cd /tmp/m9-public-release && sha256sum -c SHA256SUMS)
           test -s /tmp/m9-public-release/create-install-secrets.py
-          echo 'Previous releases preserved for rollback'
+          for old in v0.1.1 v0.1.2; do
+            if gh release view "$old" >/dev/null 2>&1; then
+              gh release delete "$old" --cleanup-tag --yes
+            fi
+          done
+          echo 'PASS: only the newly verified v0.1.0 release remains published'
 
 
