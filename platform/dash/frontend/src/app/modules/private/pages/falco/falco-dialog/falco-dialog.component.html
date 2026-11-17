@@ -13,7 +13,7 @@
       </a>
     </mat-form-field>
     <p *ngIf="!reportEndpointReady" role="alert" class="mat-error">{{reportEndpointError}}</p>
-    <p *ngIf="reportEndpointReady" role="note">Falco uses the modern eBPF driver. Before enabling Falcosidekick, create the Kubernetes Secret <code>m9sweeper-falco-webhook</code> in namespace <code>falco</code> (or verify your existing Secret). Set <code>WEBHOOK_ADDRESS</code> to <code>{{backendUrl}}/api/falco/{{clusterId}}/create</code> and configure an authenticated <code>X-API-Key</code> via <code>WEBHOOK_CUSTOMHEADERS</code>. Set the webhook minimum priority to <code>{{level.toLowerCase() || 'notice'}}</code> in the Secret or your private Falcosidekick configuration. A Notice-level event will be filtered out if the threshold is Error. Never place credentials in the Helm command, browser, or committed files. For Secret creation and verification, see <a href="https://github.com/sm-joe/m9sweeper-modern/blob/main/docs/eks-installation.md#9-falco-on-eks-modern-ebpf-installation-and-verification" target="_blank" rel="noopener noreferrer">EKS Falco installation guide</a>.</p>
+    <p *ngIf="reportEndpointReady" role="note">Falco uses the modern eBPF driver. Before enabling Falcosidekick, create the Kubernetes Secret <code>m9sweeper-falco-webhook</code> in namespace <code>falco</code> (or verify your existing Secret). Set <code>WEBHOOK_ADDRESS</code> to <code>{{backendUrl}}/api/falco/{{clusterId}}/create</code> and configure an authenticated <code>X-API-Key</code> via <code>WEBHOOK_CUSTOMHEADERS</code>. Set <code>WEBHOOK_MINIMUMPRIORITY={{level.toLowerCase() || 'notice'}}</code> in that Secret; Secret values take precedence over Helm chart defaults. A Notice-level event will be filtered out if the threshold is Error. Never place credentials in the Helm command, browser, or committed files. For Secret creation and verification, see <a href="https://github.com/sm-joe/m9sweeper-modern/blob/main/docs/eks-installation.md#9-falco-on-eks-modern-ebpf-installation-and-verification" target="_blank" rel="noopener noreferrer">EKS Falco installation guide</a>.</p>
     <div class="page-title-button-group-spacing" *ngIf="reportEndpointReady">
       <div class="padding-top-15">Run Falco using the following CLI command:</div>
     </div>
@@ -28,13 +28,13 @@
           >helm repo add falcosecurity https://falcosecurity.github.io/charts --force-update && \
 helm repo update && \
 helm upgrade --install falco falcosecurity/falco \
+  --version 9.2.2 \
   --namespace falco --create-namespace \
   --set driver.enabled=true \
   --set-string driver.kind=modern_ebpf \
   --set tty=true \
   --set falcosidekick.enabled=true \
   --set-string falcosidekick.config.existingSecret=m9sweeper-falco-webhook \
-  --set-string falcosidekick.config.webhook.minimumpriority={{level.toLowerCase() || 'notice'}} \
   --wait --timeout 10m</textarea>
       <app-copy-to-clipboard-button
         successMessage="Command copied to clipboard!"

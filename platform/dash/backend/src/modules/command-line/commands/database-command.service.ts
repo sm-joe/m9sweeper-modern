@@ -44,36 +44,36 @@ export class DatabaseCommand {
      * @returns true once the database is online and responding to queries.
      */
     async waitForDatabase(): Promise<boolean> {
-        // Create a variable to track if we have been able to connect to the database or not
-        let isOnline = false;
+        const maxAttempts = 30;
+        const retryDelayMs = 2000;
 
-        // Wait for the database to be online
-        while (!isOnline) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                // Create a connection to the database
                 const connection = await this.databaseService.getConnection();
-
-                // Exectue a simple statement against the database to verify it is responding to queries
                 await connection.raw("SELECT 1");
-
-                // Display that the database is online
                 console.log("Database is online and responding to queries");
-
-                // Set the loop control to reflect that the database is now online
-                isOnline = true;
+                return true;
             } catch (error) {
-                // Log out any error we get
-                console.error(`Unable to connect to the database, will try again in 2 seconds. Failure reason: ${error.message}`);
-            }
-
-            // Wait for 2 seconds before running the loop again.
-            if (!isOnline) {
-                await new Promise((resolve) => setTimeout(resolve, 2000));
+                // Authentication, authorization and missing-database errors cannot
+                // be fixed by waiting for the server to become ready.
+                const code = String(error?.code || "");
+                if (["28P01", "28000", "3D000", "42501"].includes(code)) {
+                    console.error(
+                        `Database startup blocked by configuration or access error (SQLSTATE ${code}). ` +
+                        "Check the configured database, role and Secret against the existing PostgreSQL volume."
+                    );
+                    return false;
+                }
+                if (attempt === maxAttempts) {
+                    console.error(`Database did not become ready after ${maxAttempts} attempts. ` +
+                        "Check PostgreSQL availability and service connectivity.");
+                    return false;
+                }
+                console.error(`Database connection unavailable; retry ${attempt}/${maxAttempts} in 2 seconds.`);
+                await new Promise(resolve => setTimeout(resolve, retryDelayMs));
             }
         }
-
-        // Return that the database is now online and responding to queries
-        return true;
+        return false;
     }
 
     async runMigrations(): Promise<boolean> {
