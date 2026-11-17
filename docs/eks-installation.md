@@ -88,7 +88,7 @@ On an existing installation, **do not rerun** `create secret` or overwrite crede
 kubectl -n "$NAMESPACE" get secret m9-dash-env m9-init-env m9-trawler-env
 ```
 
-Your private `/secure/m9sweeper-values.yaml` must contain:
+Your private `$M9_PRIVATE_DIR/m9sweeper-values.yaml` must contain:
 
 ```yaml
 global:
@@ -110,7 +110,7 @@ trawler:
 
 ```bash
 helm upgrade --install m9sweeper ./m9sweeper-0.1.0.tgz \
-  -n "$NAMESPACE" -f /secure/m9sweeper-values.yaml --timeout 15m
+  -n "$NAMESPACE" -f $M9_PRIVATE_DIR/m9sweeper-values.yaml --timeout 15m
 
 kubectl -n "$NAMESPACE" get pods,jobs,pvc -o wide
 kubectl -n "$NAMESPACE" rollout status deployment/m9sweeper-dash --timeout=5m
@@ -123,7 +123,7 @@ Do not add `--wait` to the initial Helm install: the bootstrap Job must finish b
 kubectl -n "$NAMESPACE" get jobs
 kubectl -n "$NAMESPACE" logs job/m9sweeper-dash-init --all-containers=true --tail=100
 kubectl -n "$NAMESPACE" exec m9sweeper-postgresql-0 -- \
-  psql -U m9sweeper -d postgres -tAc 'SELECT count(*) FROM users;'
+  psql -U postgres -d postgres -tAc 'SELECT count(*) FROM users;'
 ```
 
 If your PostgreSQL username/database differ from the example, use those values. **Do not rerun seeding against a different database or reset the database.** If initialization failed, inspect its logs and repair the bootstrap Secret/environment before running a controlled initialization recovery.
@@ -308,7 +308,7 @@ kubectl -n "$NAMESPACE" create secret tls m9sweeper-dash-tls \
   --cert=/secure/fullchain.pem --key=/secure/privkey.pem
 ```
 
-Add to the same private `/secure/m9sweeper-values.yaml` used to install m9sweeper:
+Add to the same private `$M9_PRIVATE_DIR/m9sweeper-values.yaml` used to install m9sweeper:
 
 ```yaml
 dash:
@@ -331,7 +331,7 @@ dash:
 ```bash
 cd "$HOME/m9sweeper-install"
 helm upgrade m9sweeper ./m9sweeper-0.1.0.tgz \
-  -n "$NAMESPACE" -f /secure/m9sweeper-values.yaml --timeout 15m
+  -n "$NAMESPACE" -f $M9_PRIVATE_DIR/m9sweeper-values.yaml --timeout 15m
 
 # TLS must validate; do not use curl -k.
 curl --fail --silent --show-error "https://$DASH_HOST/api/info"
