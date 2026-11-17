@@ -24,11 +24,14 @@ for name, command in cli_scripts.items():
 falco = (ROOT / "platform/dash/frontend/src/app/modules/private/pages/falco/falco-dialog/falco-dialog.component.html").read_text(encoding="utf-8")
 assert "falcosidekick.config.existingSecret=m9sweeper-falco-webhook" in falco
 assert "WEBHOOK_MINIMUMPRIORITY" in falco
+assert "--version 9.2.2" in falco
 assert "--set-string falcosidekick.config.webhook.minimumpriority" not in falco
 
 publish = (ROOT / ".github/workflows/release-publish.yml").read_text(encoding="utf-8")
 assert "inputs.scanner_acceptance == 'KUBE_HUNTER_TRIVY_FALCO_VERIFIED'" in publish
 assert "PENDING_DISCLOSED" not in publish
+eks = (ROOT / "docs/eks-installation.md").read_text(encoding="utf-8")
+assert "WEBHOOK_ADDRESS=https://YOUR-TRUSTED-M9SWEEPER-HOST/api/falco/YOUR-CLUSTER-ID/create" in eks
 acceptance = (ROOT / ".github/workflows/release-acceptance.yml").read_text(encoding="utf-8")
 assert "gh workflow run release-publish.yml" not in acceptance
 print("PASS: scanner UI, packaged CLI and strict release gates validated")
