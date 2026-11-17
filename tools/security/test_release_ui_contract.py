@@ -12,7 +12,7 @@ DIALOGS = [
 for dialog in DIALOGS:
     source = dialog.read_text(encoding="utf-8")
     assert source.count("gh release download --repo sm-joe/m9sweeper-modern") == 2, dialog
-    assert not re.search(r"releases/download/v\\d+\\.\\d+\\.\\d+/", source), dialog
+    assert not re.search(r"releases/download/v\d+\.\d+\.\d+/", source), dialog
 
 scripts = json.loads((ROOT / "platform/dash/backend/package.json").read_text(encoding="utf-8"))["scripts"]
 cli_scripts = {name: cmd for name, cmd in scripts.items() if "CLI_PATH:=" in cmd}
